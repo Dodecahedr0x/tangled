@@ -1,0 +1,69 @@
+{
+  "comment": "Authorization policy for tangled.sync.getBlob. No new crypto: knots decide serve-without-cap vs require-cap from referencing records in the DID repo. blob_cid is a fixture CID (hash of a label), not required to exist as stored bytes.",
+  "did": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+  "blob_cid": "bafkr4idj3rzksgjfnfy3zv7gi42gcefhdghzrrgfxavxpub2efr5hxotpu",
+  "cases": [
+    {
+      "id": "public-ref-serve",
+      "expect": "serve-without-cap",
+      "records": [
+        {
+          "collection": "pub.tangled.media",
+          "rkey": "3jzfcijpjiz0m",
+          "vis": "public",
+          "deleted": false,
+          "references_blob": true
+        }
+      ]
+    },
+    {
+      "id": "sealed-only-require-cap",
+      "expect": "require-cap",
+      "records": [
+        {
+          "collection": "pub.tangled.media",
+          "rkey": "3jzfcijpjiz0s",
+          "vis": "sealed",
+          "deleted": false,
+          "references_blob": true,
+          "circle": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs#3jzfcijpjiz0c"
+        }
+      ]
+    },
+    {
+      "id": "deleted-public-require-cap",
+      "expect": "require-cap",
+      "records": [
+        {
+          "collection": "pub.tangled.media",
+          "rkey": "3jzfcijpjiz0d",
+          "vis": "public",
+          "deleted": true,
+          "references_blob": true,
+          "note": "Tombstone (body null) is not a live public reference"
+        }
+      ]
+    },
+    {
+      "id": "public-and-sealed-serve",
+      "expect": "serve-without-cap",
+      "records": [
+        {
+          "collection": "pub.tangled.media",
+          "rkey": "3jzfcijpjiz0p",
+          "vis": "public",
+          "deleted": false,
+          "references_blob": true
+        },
+        {
+          "collection": "pub.tangled.media",
+          "rkey": "3jzfcijpjiz0q",
+          "vis": "sealed",
+          "deleted": false,
+          "references_blob": true
+        }
+      ],
+      "note": "Same CID referenced from a live public record is public, even if a sealed record also references it"
+    }
+  ]
+}

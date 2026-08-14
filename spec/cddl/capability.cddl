@@ -1,0 +1,47 @@
+did = tstr .regexp "did:sol:([a-z0-9]+:)?[1-9A-HJ-NP-Za-km-z]{32,44}"
+cid-bytes = #6.42(bstr)
+
+command = "repo/read" / "repo/write" / "blob/get" / "blob/put"
+        / "circle/invite" / "circle/remove" / "circle/read"
+        / "knot/replicate" / "cap/issue" / "*"
+
+caveat = [ tstr, any ]
+
+unsigned-capability = {
+  v: 1,
+  iss: did,
+  aud: did,
+  cmd: command,
+  res: tstr,
+  nbf: uint,
+  exp: uint,
+  pol: [* caveat],
+  prf: [* cid-bytes],
+  ? meta: { * tstr => any }
+}
+
+capability = unsigned-capability .and {
+  sig: bstr .size 64
+}
+
+unsigned-invocation = {
+  v: 1,
+  cap: cid-bytes,
+  prf: [+ capability],
+  cmd: command,
+  res: tstr,
+  args: { * tstr => any },
+  ts: uint,
+  aud: did,
+  nonce: bstr .size 16
+}
+
+invocation = unsigned-invocation .and {
+  sig: bstr .size 64
+}
+
+revocation-body = {
+  cid: cid-bytes,
+  ts: uint,
+  reason: tstr
+}

@@ -1,0 +1,86 @@
+{
+  "comment": "Authorization vectors for circle/read. Signatures use the Solana off-chain envelope over BLAKE3(unsigned DAG-CBOR), same keys as solana-signature.json / capability-chain.json.",
+  "owner": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+  "member": "did:sol:3hucrSyZCEokkGfhKtMCZgFx69qd9ZHZiBed7aEeByTw",
+  "outsider": "did:sol:GQBdGZRBbVvSaBZV5ojskGVKdt5vNG7nMAA81fgxy2Hh",
+  "circle_rkey": "3jzfcijpjiz0c",
+  "cases": [
+    {
+      "id": "valid-membership-grant",
+      "accept": true,
+      "unsigned": {
+        "v": 1,
+        "iss": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "aud": "did:sol:3hucrSyZCEokkGfhKtMCZgFx69qd9ZHZiBed7aEeByTw",
+        "cmd": "circle/read",
+        "res": "tangled://circle/did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs/3jzfcijpjiz0c",
+        "nbf": 1700000000,
+        "exp": 1700003600,
+        "pol": [],
+        "prf": []
+      },
+      "unsigned_cbor_hex": "a96176016361756478346469643a736f6c3a336875637253795a43456f6b6b4766684b744d435a67467836397164395a485a69426564376145654279547763636d646b636972636c652f72656164636578701a6553ff106369737378346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b73636e62661a6553f10063706f6c80637072668063726573785374616e676c65643a2f2f636972636c652f6469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b732f336a7a6663696a706a697a3063",
+      "signature_hex": "eb90cd2c5bcc853157c0ab1f34096f5425d71178bdab919967dcb351610cddf9a4ec076dd4ad1e2d64694646dfb2e28999c9dd0482ea63ea8c6b40408b34470b",
+      "reason": "Root iss is the circle owner; cmd circle/read; res is tangled://circle/<owner>/<rkey>"
+    },
+    {
+      "id": "wrong-issuer",
+      "accept": false,
+      "unsigned": {
+        "v": 1,
+        "iss": "did:sol:GQBdGZRBbVvSaBZV5ojskGVKdt5vNG7nMAA81fgxy2Hh",
+        "aud": "did:sol:3hucrSyZCEokkGfhKtMCZgFx69qd9ZHZiBed7aEeByTw",
+        "cmd": "circle/read",
+        "res": "tangled://circle/did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs/3jzfcijpjiz0c",
+        "nbf": 1700000000,
+        "exp": 1700003600,
+        "pol": [],
+        "prf": []
+      },
+      "unsigned_cbor_hex": "a96176016361756478346469643a736f6c3a336875637253795a43456f6b6b4766684b744d435a67467836397164395a485a69426564376145654279547763636d646b636972636c652f72656164636578701a6553ff106369737378346469643a736f6c3a47514264475a52426256765361425a56356f6a736b47564b647435764e47376e4d4141383166677879324868636e62661a6553f10063706f6c80637072668063726573785374616e676c65643a2f2f636972636c652f6469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b732f336a7a6663696a706a697a3063",
+      "signature_hex": "c37bc1139b99d3387ca07ae5126f25e70f22da1e4c52d3bdc73b2ba749d104e7c53b58b44888e69889529bb764aa7c448e0cee93a74761f40fa8c8ba81bc1b01",
+      "reason": "Root iss is not the circle owner and is not a cap/issue delegate in that owner sys/id"
+    },
+    {
+      "id": "resource-not-circle-uri",
+      "accept": false,
+      "unsigned": {
+        "v": 1,
+        "iss": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "aud": "did:sol:3hucrSyZCEokkGfhKtMCZgFx69qd9ZHZiBed7aEeByTw",
+        "cmd": "circle/read",
+        "res": "tangled://did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs/sys.circle/3jzfcijpjiz0c",
+        "nbf": 1700000000,
+        "exp": 1700003600,
+        "pol": [],
+        "prf": []
+      },
+      "unsigned_cbor_hex": "a96176016361756478346469643a736f6c3a336875637253795a43456f6b6b4766684b744d435a67467836397164395a485a69426564376145654279547763636d646b636972636c652f72656164636578701a6553ff106369737378346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b73636e62661a6553f10063706f6c80637072668063726573785774616e676c65643a2f2f6469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b732f7379732e636972636c652f336a7a6663696a706a697a3063",
+      "signature_hex": "e43398fc56741103bf8762f911d56f55f4ce173afc7cd470a02c89de8f0e53a28b662b381e4adbd9c341a16cd5a085ce0893635dd5b4547270236b1370cc9f01",
+      "reason": "circle/read res MUST be tangled://circle/<owner>/<rkey>, not a did collection path"
+    },
+    {
+      "id": "sibling-collection-leak",
+      "accept": false,
+      "unsigned": {
+        "v": 1,
+        "iss": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "aud": "did:sol:3hucrSyZCEokkGfhKtMCZgFx69qd9ZHZiBed7aEeByTw",
+        "cmd": "repo/read",
+        "res": "tangled://did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs/pub.tangled.chat",
+        "nbf": 1700000000,
+        "exp": 1700003600,
+        "pol": [],
+        "prf": []
+      },
+      "unsigned_cbor_hex": "a96176016361756478346469643a736f6c3a336875637253795a43456f6b6b4766684b744d435a67467836397164395a485a69426564376145654279547763636d64697265706f2f72656164636578701a6553ff106369737378346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b73636e62661a6553f10063706f6c80637072668063726573784f74616e676c65643a2f2f6469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b732f7075622e74616e676c65642e63686174",
+      "signature_hex": "c314215149e5a4abe82e5b564e62f976e11b50c9690605252c334869ef70cc09193ffe62dd32d50da52b99497dbb972c64a4a23662aa99da5d84a01d19a2fb01",
+      "reason": "repo/read on pub.tangled.chat MUST NOT authorize circle/read or getRepoAuth of sibling collections",
+      "must_not_authorize": [
+        "circle/read",
+        "pub.tangled.post",
+        "sys.circle"
+      ]
+    }
+  ]
+}

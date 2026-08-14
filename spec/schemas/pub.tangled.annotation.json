@@ -1,0 +1,12 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.annotation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.annotation",
+  "type": "object",
+  "required": ["text"],
+  "properties": {
+    "text": { "type": "string", "maxLength": 32768 },
+    "quote": { "type": "string", "description": "Optional quoted span of the target" },
+    "media": { "type": "array", "items": { "type": "string" } }
+  }
+}

@@ -1,0 +1,197 @@
+export interface HttpMethod {
+  id: string;
+  method: "GET" | "POST";
+  path: string;
+  summary: string;
+  auth: string;
+  params: { name: string; in: string; required: boolean; note: string }[];
+  request?: string;
+  response: string;
+}
+
+export const httpMethods: HttpMethod[] = [
+  {
+    id: "tangled.node.describe",
+    method: "GET",
+    path: "/xrpc/tangled.node.describe",
+    summary: "Advertise profiles, foreign protocols, blob limit, custodialSign.",
+    auth: "none",
+    params: [],
+    response: `{
+  "v": 1,
+  "did": "did:sol:…",
+  "profiles": ["knot.public", "knot.cap"],
+  "protocols": [],
+  "maxBlob": 134217728,
+  "custodialSign": false
+}`,
+  },
+  {
+    id: "tangled.sync.getHead",
+    method: "GET",
+    path: "/xrpc/tangled.sync.getHead",
+    summary: "Current commit CID for a DID.",
+    auth: "none for public",
+    params: [{ name: "did", in: "query", required: true, note: "did:sol:…" }],
+    response: `{ "did": "did:sol:…", "commit": "b…", "rev": "3jzfcijpjiz2u", "knot": "https://knot.example" }`,
+  },
+  {
+    id: "tangled.sync.getRecord",
+    method: "GET",
+    path: "/xrpc/tangled.sync.getRecord",
+    summary: "Record, MST inclusion proof, commit.",
+    auth: "Cap for vis cap/sealed",
+    params: [
+      { name: "did", in: "query", required: true, note: "" },
+      { name: "collection", in: "query", required: true, note: "" },
+      { name: "rkey", in: "query", required: true, note: "Plaintext or encrypted rkey" },
+      { name: "Authorization", in: "header", required: false, note: "Cap <base64url>" },
+    ],
+    response: `{ "record": { … }, "proof": [ /* MST nodes */ ], "commit": { … } }`,
+  },
+  {
+    id: "tangled.sync.getBlob",
+    method: "GET",
+    path: "/xrpc/tangled.sync.getBlob",
+    summary: "Raw blob bytes. Public if a live public record references cid; otherwise Cap.",
+    auth: "none if publicly referenced; Cap otherwise",
+    params: [
+      { name: "did", in: "query", required: true, note: "" },
+      { name: "cid", in: "query", required: true, note: "raw CID (codec 0x55)" },
+      { name: "Authorization", in: "header", required: false, note: "Cap <base64url>" },
+    ],
+    response: `application/octet-stream`,
+  },
+  {
+    id: "tangled.sync.getBlocks",
+    method: "POST",
+    path: "/xrpc/tangled.sync.getBlocks",
+    summary: "Fetch up to 256 blocks by CID. Returns a CAR.",
+    auth: "Cap if any CID is a non-public record",
+    params: [],
+    request: `{ "cids": ["b…"] }`,
+    response: `CAR v1 or { "missing": ["b…"] }`,
+  },
+  {
+    id: "tangled.sync.getRepo",
+    method: "GET",
+    path: "/xrpc/tangled.sync.getRepo",
+    summary: "CAR of the public repository, optionally since a commit.",
+    auth: "none",
+    params: [
+      { name: "did", in: "query", required: true, note: "" },
+      { name: "since", in: "query", required: false, note: "Commit CID" },
+      { name: "blobs", in: "query", required: false, note: "boolean" },
+    ],
+    response: `application/vnd.ipld.car`,
+  },
+  {
+    id: "tangled.sync.getRepoAuth",
+    method: "POST",
+    path: "/xrpc/tangled.sync.getRepoAuth",
+    summary: "CAR of collections the capability authorizes.",
+    auth: "Cap required",
+    params: [],
+    request: `{ "did": "did:sol:…", "since": "b…", "blobs": false }`,
+    response: `application/vnd.ipld.car`,
+  },
+  {
+    id: "tangled.sync.queryBacklinks",
+    method: "GET",
+    path: "/xrpc/tangled.sync.queryBacklinks",
+    summary: "Local public backlink index. MUST NOT crawl. count is an untrusted overlay.",
+    auth: "none (public hits only)",
+    params: [
+      { name: "cid", in: "query", required: true, note: "Target record CID" },
+      { name: "collection", in: "query", required: false, note: "Restrict hits" },
+      { name: "limit", in: "query", required: false, note: "default 50, max 500" },
+    ],
+    response: `{ "hits": [{ "did": "…", "collection": "pub.tangled.annotation", "rkey": "…", "cid": "b…", "commit": "b…" }], "count": 1, "overlay": true, "complete": false }`,
+  },
+  {
+    id: "tangled.sync.notify",
+    method: "POST",
+    path: "/xrpc/tangled.sync.notify",
+    summary: "Optional head-moved hint. Knots MAY ignore.",
+    auth: "none",
+    params: [],
+    request: `{ "did": "did:sol:…", "commit": "b…" }`,
+    response: `204`,
+  },
+  {
+    id: "tangled.sync.subscribe",
+    method: "GET",
+    path: "/xrpc/tangled.sync.subscribe",
+    summary: "WebSocket of commits. Capability-gated for non-public collections.",
+    auth: "Cap if not public",
+    params: [
+      { name: "did", in: "query", required: true, note: "" },
+      { name: "collection", in: "query", required: false, note: "" },
+    ],
+    response: `{ "t": "commit", "commit": "b…", "ops": [] }`,
+  },
+  {
+    id: "tangled.repo.putRecord",
+    method: "POST",
+    path: "/xrpc/tangled.repo.putRecord",
+    summary: "Insert a signed record. Knot verifies the Solana signature.",
+    auth: "SIWS session or repo/write Cap",
+    params: [],
+    request: `{ "record": { "v": 1, "collection": "pub.tangled.post", "vis": "public", "body": { "text": "hello" }, "sig": "…" } }`,
+    response: `{ "cid": "b…", "commit": "b…" }`,
+  },
+  {
+    id: "tangled.repo.putBlob",
+    method: "POST",
+    path: "/xrpc/tangled.repo.putBlob",
+    summary: "Store opaque bytes. Returns raw CID (codec 0x55, BLAKE3).",
+    auth: "session or blob/put",
+    params: [],
+    request: `application/octet-stream`,
+    response: `{ "cid": "b…" }`,
+  },
+  {
+    id: "tangled.repo.import",
+    method: "POST",
+    path: "/xrpc/tangled.repo.import",
+    summary: "Import a CAR. Verifies commit signatures. force for recovery.",
+    auth: "identity session or repo/write",
+    params: [{ name: "force", in: "query", required: false, note: "boolean" }],
+    request: `application/vnd.ipld.car`,
+    response: `{ "did": "did:sol:…", "commit": "b…" }`,
+  },
+  {
+    id: "tangled.identity.resolve",
+    method: "GET",
+    path: "/xrpc/tangled.identity.resolve",
+    summary: "Handle or DID to endpoints and sys/id CID.",
+    auth: "none",
+    params: [
+      { name: "handle", in: "query", required: false, note: "DNS or SNS" },
+      { name: "did", in: "query", required: false, note: "" },
+    ],
+    response: `{ "did": "did:sol:…", "idCid": "b…", "endpoints": ["https://…"] }`,
+  },
+  {
+    id: "tangled.cap.verify",
+    method: "POST",
+    path: "/xrpc/tangled.cap.verify",
+    summary: "Verify an Invocation. Used by gateways.",
+    auth: "none (the invocation is the proof)",
+    params: [],
+    request: `DAG-CBOR Invocation`,
+    response: `{ "ok": true, "cmd": "repo/read", "res": "tangled://…" }`,
+  },
+  {
+    id: "tangled.loom.query",
+    method: "GET",
+    path: "/xrpc/tangled.loom.query",
+    summary: "Optional public search. Looms only. type=ref finds annotations by parent CID. count is an overlay.",
+    auth: "none",
+    params: [
+      { name: "q", in: "query", required: true, note: "Search text, or record CID when type=ref" },
+      { name: "type", in: "query", required: false, note: "collection name, or ref" },
+    ],
+    response: `{ "hits": [{ "did": "…", "collection": "…", "rkey": "…", "cid": "b…", "commit": "b…" }], "count": 3, "overlay": true, "complete": false }`,
+  },
+];

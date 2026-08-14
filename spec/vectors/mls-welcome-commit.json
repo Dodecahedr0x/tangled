@@ -1,0 +1,20 @@
+{
+  "comment": "MLS ciphersuite 0x0001. Credentials are 32-byte Solana pubkeys. payload_hex is a stand-in for RFC 9420 Welcome/Commit bytes produced by a conforming MLS stack; Tangled wrapping is the record fields.",
+  "ciphersuite": "0x0001",
+  "application_id": "tangled.circle.v1",
+  "exporter_label": "tangled.epoch",
+  "exporter_context_epoch_1_hex": "0000000000000001",
+  "exporter_length": 32,
+  "epoch_secret_1_hex": "d976abe58a77bcc411b1a1edd371dd5c298542089c912bed9ac7db5ecff19376",
+  "welcome_record": {
+    "type": "welcome",
+    "epoch": 1,
+    "member": "did:sol:FsNQp9piR9NAL7Y2daWkAhPks3ak4HUBcHgmavci1Jnx",
+    "payload_hex": "56ff7a849c62dcede5bb11112f73228a83368eefa7ac552f027b972fbc65fd0d"
+  },
+  "commit_record": {
+    "type": "commit",
+    "epoch": 1,
+    "payload_hex": "1409d45c1b87b67e3e357788939a16b59c3a0a0401eca2c83d512dd2bb9ae22f"
+  }
+}

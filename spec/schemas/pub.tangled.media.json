@@ -1,0 +1,12 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.media.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.media",
+  "type": "object",
+  "required": ["blob", "mime"],
+  "properties": {
+    "blob": { "type": "string" },
+    "alt": { "type": "string" },
+    "mime": { "type": "string" }
+  }
+}

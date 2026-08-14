@@ -1,0 +1,13 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.page.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.page",
+  "description": "Wiki page body. Envelope rkey is the slug: segments [A-Za-z0-9_~:!-]+ joined by '.' as the path separator. Clients MUST display a.b as a/b. No percent-encoding; '/' is forbidden in rkey.",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 512 },
+    "text": { "type": "string" },
+    "blob": { "type": "string", "description": "Canonical page body CID when the text does not fit in the record" }
+  }
+}

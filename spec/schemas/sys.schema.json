@@ -1,0 +1,13 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.schema",
+  "type": "object",
+  "required": ["v", "name", "fields"],
+  "properties": {
+    "v": { "const": 1 },
+    "name": { "type": "string" },
+    "fields": { "type": "object" },
+    "cddl": { "type": "string" }
+  }
+}

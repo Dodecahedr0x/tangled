@@ -1,0 +1,24 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.article.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.article",
+  "type": "object",
+  "required": ["title"],
+  "properties": {
+    "title": { "type": "string", "maxLength": 512 },
+    "text": {
+      "type": "string",
+      "description": "Inline body, or a preview when blob is set"
+    },
+    "blob": {
+      "type": "string",
+      "description": "Canonical article body CID; when set, clients MUST treat this as the body"
+    },
+    "media": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Blob CIDs or pub.tangled.media record CIDs"
+    },
+    "langs": { "type": "array", "items": { "type": "string" } }
+  }
+}

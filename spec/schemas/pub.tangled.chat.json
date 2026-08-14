@@ -1,0 +1,15 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.chat.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.chat",
+  "type": "object",
+  "required": ["circle"],
+  "properties": {
+    "circle": {
+      "type": "string",
+      "description": "did:sol:<owner>#<circle-rkey>; MUST equal the record envelope circle after decrypt"
+    },
+    "text": { "type": "string" },
+    "blob": { "type": "string" }
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.foreign.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.foreign",
+  "type": "object",
+  "required": ["v", "protocol", "foreign_id", "bytes_cid", "translator", "attested"],
+  "properties": {
+    "v": { "const": 1 },
+    "protocol": { "type": "string", "description": "MUST be nostr, atproto, activitypub, or farcaster for those networks" },
+    "foreign_id": { "type": "string", "description": "Canonical id: Nostr 64-hex event id; AT strong URI at://did/collection/rkey#cid; ActivityPub object id IRI; Farcaster message hash hex" },
+    "bytes_cid": { "type": "string" },
+    "translator": { "type": "string" },
+    "attested": { "type": "boolean" },
+    "mapped": { "type": "string" },
+    "mapped_lossy": { "type": "boolean" }
+  }
+}

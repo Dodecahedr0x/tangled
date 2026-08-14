@@ -1,0 +1,38 @@
+---
+import DocLayout from "../../../layouts/DocLayout.astro";
+import { types } from "../../../data/types";
+
+export function getStaticPaths() {
+  return types.map((t) => ({
+    params: { name: t.name.toLowerCase() },
+    props: { t },
+  }));
+}
+
+const { t } = Astro.props;
+---
+
+<DocLayout title={t.name} description={t.summary}>
+  <p style="font-family: var(--font-mono); font-size: 12px; color: var(--text-faint); margin: 0 0 8px;">{t.module}::{t.name}</p>
+  <h1>{t.name}</h1>
+  <div class="sig-line"><span class="kw">pub</span> {t.signature}</div>
+  <p>{t.summary}</p>
+  <h2 id="fields">Fields</h2>
+  <table>
+    <thead><tr><th>Name</th><th>Type</th><th>Notes</th></tr></thead>
+    <tbody>
+      {t.fields.map((f) => (
+        <tr>
+          <td><code>{f.name}</code></td>
+          <td><code>{f.type}</code></td>
+          <td>{f.note}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <h2 id="impl">Impl notes</h2>
+  <ul>
+    {t.impl.map((n) => <li>{n}</li>)}
+  </ul>
+  <p>See <a href={t.see}>the chapter</a>.</p>
+</DocLayout>

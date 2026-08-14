@@ -1,0 +1,175 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+
+<DocLayout title="Playground" description="Synthetic in-browser demos of Solana identity, signatures, capabilities, and circle grow">
+  <span class="synthetic">Synthetic · not a network</span>
+  <h1>Playground</h1>
+  <p>
+    Runs in your browser. Keys are generated here and never sent anywhere. Messaging Layer Security (MLS) versus Hybrid Public Key Encryption (HPKE) is not a control you pick — adding the 17th member is still “add member.”
+  </p>
+  <div class="play-grid">
+    <section class="play-card" id="did">
+      <h2>Solana address from key</h2>
+      <p>Ed25519 secret → public key → base58 → <code>did:sol:</code></p>
+      <button type="button" id="gen-key">Generate key</button>
+      <div class="out" id="did-out">Press generate.</div>
+    </section>
+    <section class="play-card" id="sig">
+      <h2>Canonical record + Solana signature</h2>
+      <p>DAG-CBOR unsigned map, BLAKE3, off-chain envelope, Ed25519 verify.</p>
+      <label for="body-text">body.text</label>
+      <input id="body-text" value="hello tangled" />
+      <button type="button" id="sign-rec">Sign and verify</button>
+      <div class="out" id="sig-out">Uses the generated key, or generates one.</div>
+    </section>
+    <section class="play-card" id="cap">
+      <h2>Capability chain</h2>
+      <p>Identity issues <code>repo/read</code> to a device, attenuated to one collection. Amplifying the resource fails.</p>
+      <button type="button" id="walk-cap">Walk chain</button>
+      <div class="out" id="cap-out"></div>
+    </section>
+    <section class="play-card" id="circle">
+      <h2>Add member across threshold</h2>
+      <p>User-visible state: circle id and member count. Threshold is 16. No upgrade prompt.</p>
+      <div class="out" id="circle-state"></div>
+      <button type="button" id="add-member">Add member</button>
+      <div class="out" id="circle-out"></div>
+    </section>
+  </div>
+</DocLayout>
+
+<script>
+  import { ed25519 } from "@noble/curves/ed25519.js";
+  import { blake3 } from "@noble/hashes/blake3.js";
+  import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+  import { encode as cborEncode } from "cborg";
+  import bs58 from "bs58";
+
+  let sk: Uint8Array | null = null;
+  let pk: Uint8Array | null = null;
+
+  function didOf(pub: Uint8Array) {
+    return `did:sol:${bs58.encode(pub)}`;
+  }
+
+  function envelope(digest: Uint8Array) {
+    const header = new Uint8Array([0xff, ...utf8ToBytes("solana offchain")]);
+    const body = utf8ToBytes(bytesToHex(digest));
+    const msg = new Uint8Array(20 + 64);
+    msg.set(header, 0);
+    msg[16] = 0;
+    msg[17] = 0;
+    msg[18] = 64;
+    msg[19] = 0;
+    msg.set(body, 20);
+    return msg;
+  }
+
+  function ensureKey() {
+    if (!sk) {
+      sk = ed25519.utils.randomPrivateKey();
+      pk = ed25519.getPublicKey(sk);
+    }
+    return { sk, pk: pk! };
+  }
+
+  document.getElementById("gen-key")?.addEventListener("click", () => {
+    sk = ed25519.utils.randomPrivateKey();
+    pk = ed25519.getPublicKey(sk);
+    const el = document.getElementById("did-out");
+    if (el) {
+      el.textContent = [
+        `secret  ${bytesToHex(sk)}`,
+        `public  ${bytesToHex(pk)}`,
+        `base58  ${bs58.encode(pk)}`,
+        `did     ${didOf(pk)}`,
+      ].join("\n");
+    }
+  });
+
+  document.getElementById("sign-rec")?.addEventListener("click", () => {
+    const { sk: s, pk: p } = ensureKey();
+    const text = (document.getElementById("body-text") as HTMLInputElement).value;
+    const unsigned = {
+      v: 1,
+      collection: "pub.tangled.post",
+      rkey: "playground1",
+      author: didOf(p),
+      ts: Date.now(),
+      prev: [],
+      vis: "public",
+      body: { text },
+    };
+    const bytes = cborEncode(unsigned);
+    const digest = blake3(bytes);
+    const msg = envelope(digest);
+    const sig = ed25519.sign(msg, s);
+    const ok = ed25519.verify(sig, msg, p);
+    const el = document.getElementById("sig-out");
+    if (el) {
+      el.textContent = [
+        `author     ${unsigned.author}`,
+        `cbor hex   ${bytesToHex(bytes).slice(0, 80)}…`,
+        `blake3     ${bytesToHex(digest)}`,
+        `envelope   ff + "solana offchain" + v0 + ascii + 64 + hex(digest)`,
+        `signature  ${bytesToHex(sig)}`,
+        `verify     ${ok}`,
+      ].join("\n");
+    }
+  });
+
+  document.getElementById("walk-cap")?.addEventListener("click", () => {
+    const { pk: p } = ensureKey();
+    const deviceSk = ed25519.utils.randomPrivateKey();
+    const devicePk = ed25519.getPublicKey(deviceSk);
+    const iss = didOf(p);
+    const aud = didOf(devicePk);
+    const parent = `tangled://${iss}/pub.tangled.chat`;
+    const amplify = `tangled://${iss}`;
+    const attenuates = parent.startsWith(amplify) && parent.length > amplify.length;
+    const el = document.getElementById("cap-out");
+    if (el) {
+      el.textContent = [
+        `iss            ${iss}`,
+        `aud (device)   ${aud}`,
+        `cmd            repo/read`,
+        `res            ${parent}`,
+        `child amplify  ${amplify}`,
+        `monotonic?     child res must extend parent, not shorten it → REJECT amplify (${attenuates ? "parent is prefix of child, ok" : "fail"})`,
+        `note           amplifying to the DID is invalid because ${amplify} is a prefix of ${parent}, not an extension.`,
+      ].join("\n");
+    }
+  });
+
+  const CIRCLE_ID = "3jzfcijpjiz0c";
+  let members = 16;
+  const offline = "member-3 (offline)";
+
+  function renderCircle() {
+    const st = document.getElementById("circle-state");
+    if (st) {
+      st.textContent = `circle id   ${CIRCLE_ID}\nmembers     ${members}\nuser action add / remove / send / leave`;
+    }
+  }
+  renderCircle();
+
+  document.getElementById("add-member")?.addEventListener("click", () => {
+    members += 1;
+    renderCircle();
+    const crossed = members === 17;
+    const el = document.getElementById("circle-out");
+    if (el) {
+      el.textContent = crossed
+        ? [
+            `added member-16`,
+            `circle id still ${CIRCLE_ID}  ← unchanged`,
+            `no re-invite, no prompt, no new group`,
+            `${offline} still a member; Welcome is in the log for next sync`,
+            `pre-join messages remain readable by those who had epoch 0`,
+            `implementer: epoch 0 → 1, dual-stack until max-skew (not a user flag)`,
+          ].join("\n")
+        : `members now ${members}. threshold is 16; crossing it does not change the circle id.`;
+    }
+  });
+</script>

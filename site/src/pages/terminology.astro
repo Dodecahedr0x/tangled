@@ -1,0 +1,31 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { getCollection, render } from "astro:content";
+
+const chapters = await getCollection("spec");
+const entry = chapters.find((c) => c.data.slug === "terminology");
+if (!entry) throw new Error("terminology chapter missing");
+const { Content, headings } = await render(entry);
+---
+
+<DocLayout title="Terminology" description="Every acronym and glossary noun in Tangled" headings={headings}>
+  <p class="callout">
+    Jump:
+    {
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").map((L) => (
+        <a href={`#${L}`} style="margin-right: 0.45em; font-family: var(--font-mono); font-size: 13px;">
+          {L}
+        </a>
+      ))
+    }
+    · <a href="#glossary">Glossary</a>
+  </p>
+  <Content />
+</DocLayout>
+
+<script is:inline>
+  document.querySelectorAll("#content table tbody tr td:first-child").forEach((td) => {
+    const L = (td.textContent || "").trim().charAt(0).toUpperCase();
+    if (L && !document.getElementById(L)) td.id = L;
+  });
+</script>

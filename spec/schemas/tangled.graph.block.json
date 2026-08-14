@@ -1,0 +1,11 @@
+{
+  "$id": "https://tangled.protocol/schemas/tangled.graph.block.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tangled.graph.block",
+  "type": "object",
+  "required": ["v", "subject"],
+  "properties": {
+    "v": { "const": 1 },
+    "subject": { "type": "string" }
+  }
+}

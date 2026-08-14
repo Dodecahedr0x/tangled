@@ -1,0 +1,28 @@
+did = tstr .regexp "did:sol:([a-z0-9]+:)?[1-9A-HJ-NP-Za-km-z]{32,44}"
+cid-bytes = #6.42(bstr)
+
+unsigned-commit = {
+  v: 1,
+  did: did,
+  data: cid-bytes,
+  rev: tstr,
+  prev: cid-bytes / null,
+  ? recovery: bool
+}
+
+commit = unsigned-commit .and {
+  sig: bstr .size 64,
+  ? sigRotation: bstr .size 64
+}
+
+mst-node = {
+  l: cid-bytes / null,
+  e: [+ mst-entry]
+}
+
+mst-entry = {
+  p: uint,
+  k: bstr,
+  v: cid-bytes,
+  t: cid-bytes / null
+}

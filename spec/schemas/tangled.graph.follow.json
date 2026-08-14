@@ -1,0 +1,12 @@
+{
+  "$id": "https://tangled.protocol/schemas/tangled.graph.follow.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tangled.graph.follow",
+  "type": "object",
+  "required": ["v", "subject"],
+  "properties": {
+    "v": { "const": 1 },
+    "subject": { "type": "string", "description": "did:sol of the followed identity" },
+    "knot": { "type": "string", "format": "uri" }
+  }
+}

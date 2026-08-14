@@ -1,0 +1,48 @@
+{
+  "comment": "16 members on HPKE, 17th add triggers MLS. Circle id unchanged. One member offline. Pre-migration records still decrypt with epoch_secret[0]. distributor dual then mls. Never-downgrade: shrink would stay mls.",
+  "threshold": 16,
+  "circle_id": "3jzfcijpjiz0c",
+  "owner": "did:sol:2aAh6oQMHgzWP4fkXZ12cU6uVAiwrYp4KDRUr5SXsWEA",
+  "members_before": [
+    "did:sol:2aAh6oQMHgzWP4fkXZ12cU6uVAiwrYp4KDRUr5SXsWEA",
+    "did:sol:A25a8LNUTEa7JVqJJoGFvot6CmWpPovGdUpBfRpj3qkW",
+    "did:sol:m8qwkmnugepkRE6Wes8VUf3WmWsbsmeZ6SyvJyhvA3u",
+    "did:sol:FsNQp9piR9NAL7Y2daWkAhPks3ak4HUBcHgmavci1Jnx",
+    "did:sol:GUti8j8Jk8bkxuAc7d9cCHhhXfasqD5HbxbMjh2wuuww",
+    "did:sol:F2c9XjyTBt21mUm4Ehnk3vQ9Rbn5C69QZc9o2Fu9WQxA",
+    "did:sol:9Y4S5StmS3563XhVFThqpGtmM5tJ3KZkcazxKPE1Y3i4",
+    "did:sol:DYWeQwboACJ6AYaEcWbMuLoqQB6cDioBsUTG92qQ29La",
+    "did:sol:HwrQBrcpHu5J817JYgeXYXbpjrpTjhNGaTePVWvBaZyT",
+    "did:sol:GBQwvbuuuNrJhmJceD115TNGgEcQi7nwyEmS3Bue5mAw",
+    "did:sol:3ekdpRVtwMDT3sFtxUdNvjeX4GFaRPYMTEA4ke1mKzca",
+    "did:sol:5LoBB6SEqkp4LCjuvXKMGhSAWNdazQq2EThCH7aw8dNQ",
+    "did:sol:GFv7pYLP3Bhn1UTK7oZs2Faik4q3kFMavpeLTNfCRbRX",
+    "did:sol:BiaXn6mTrTJ1ySRfdvhVUztJbdUJp4vxg1mxGX2cCyt9",
+    "did:sol:aYhJG6iEauWs935HxgeNWyc1M4Q5kX5ppMYPNUoYt2x",
+    "did:sol:9gw39KCHafcnAF5ifYZbc6JJGq7TQyATfFCbMyHNUbM3"
+  ],
+  "new_member": "did:sol:CBdwZSP8Wu3YYqJ1F3hAJBdtcPAKLrd1wguB1bTEZCye",
+  "offline_member": "did:sol:FsNQp9piR9NAL7Y2daWkAhPks3ak4HUBcHgmavci1Jnx",
+  "epoch_before": 0,
+  "distributor_before": "hpke",
+  "epoch_secret_0_hex": "9a84b5ad08b7c35f801b8fa24be133b2d3d7573f1011facc2d7565244f506491",
+  "epoch_after": 1,
+  "distributor_after_transition": "dual",
+  "distributor_after_skew": "mls",
+  "epoch_secret_1_hex": "d976abe58a77bcc411b1a1edd371dd5c298542089c912bed9ac7db5ecff19376",
+  "circle_id_after": "3jzfcijpjiz0c",
+  "client_api_flag_flipped": false,
+  "history_share": false,
+  "pre_migration_record": {
+    "epoch": 0,
+    "decrypts_after_grow": true,
+    "aead": "ChaCha20-Poly1305",
+    "plaintext": "hello before grow"
+  },
+  "dual_stack_max_skew_epochs": 8,
+  "dual_stack_max_skew_seconds": 259200,
+  "shrink_20_to_5": {
+    "distributor": "mls",
+    "never_downgrade": true
+  }
+}

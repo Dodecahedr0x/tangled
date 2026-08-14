@@ -1,0 +1,12 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.revocation.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.revocation",
+  "type": "object",
+  "required": ["cid", "ts", "reason"],
+  "properties": {
+    "cid": { "type": "string" },
+    "ts": { "type": "integer", "minimum": 0 },
+    "reason": { "type": "string" }
+  }
+}

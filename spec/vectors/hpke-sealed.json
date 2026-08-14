@@ -1,0 +1,16 @@
+{
+  "comment": "X25519 key agreement fixtures for HPKE DHKEM(X25519). Implementations MUST run RFC 9180 base mode with info tangled.hpke.record.v1. shared_secret_hex is the raw X25519 shared secret (DHKEM input), not the HPKE key.",
+  "recipient_agreement_sk_hex": "49cf1813c87060176acdab22f173446c28d8ebc851e75542b1029d5c0413c56c",
+  "recipient_agreement_pk_hex": "cc2cfb80c48d3abb78445286d453c3ebe9d59a743690f6070fc817ac900cdb6c",
+  "sender_ephemeral_sk_hex": "a0b26849765a4f3a83e645d59d236d90ee3b3ec2b58689dae600d07006fa52ed",
+  "sender_ephemeral_pk_hex": "fd399708b9c858ddf3392f304414caa478e1ee6d054d8d1c6e98dd2056b13448",
+  "x25519_shared_hex": "bbdac86e139d0d8947a4b374e09c645662de62adafc2bcc5e8279d7a7a331270",
+  "hpke": {
+    "kem_id": "0x0020",
+    "kdf_id": "0x0001",
+    "aead_id": "0x0003",
+    "info": "tangled.hpke.record.v1",
+    "mode": "base"
+  },
+  "plaintext_hex": "73656372657420626f6479"
+}

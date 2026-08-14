@@ -1,0 +1,27 @@
+{
+  "comment": "Single-entry MST. Inclusion proof is the root node plus the record.",
+  "key": "pub.tangled.post/3jzfcijpjiz00",
+  "record_cid": "bafyr4idnsdzdkjd2qkno4nklkxq5xqodfqqpfi6na4pswt6pdobegntsu4",
+  "node": {
+    "l": null,
+    "e": [
+      {
+        "p": 0,
+        "k_hex": "7075622e74616e676c65642e706f73742f336a7a6663696a706a697a3030",
+        "v": "bafyr4idnsdzdkjd2qkno4nklkxq5xqodfqqpfi6na4pswt6pdobegntsu4",
+        "t": null
+      }
+    ]
+  },
+  "node_cbor_hex": "a2616581a4616b581e7075622e74616e676c65642e706f73742f336a7a6663696a706a697a30306170006174f66176783b62616679723469646e73647a646b6a6432716b6e6f346e6b6c6b78713578716f64667171706669366e6134707377743670646f6265676e74737534616cf6",
+  "node_cid": "bafyr4idpxk4uaqzi6fhcvm476uhyklw3ormzhqpa6hitlcbtjkyc7czh2y",
+  "commit": {
+    "v": 1,
+    "did": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+    "data": "bafyr4idpxk4uaqzi6fhcvm476uhyklw3ormzhqpa6hitlcbtjkyc7czh2y",
+    "rev": "3jzfcijpjiz00",
+    "prev": null,
+    "sig_hex": "77dc59d8fbe1aa8f01df988bd580e709101424dfe471d1976b5ff450492d3958e72b395dfe61b539c9a62e33971b8ff92a92bd8b1d0515c418ca9b1f437a7406"
+  },
+  "commit_cbor_unsigned_hex": "a56176016364696478346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b73637265766d336a7a6663696a706a697a30306464617461783b626166797234696470786b347561717a6936666863766d3437367568796b6c77336f726d7a68717061366869746c6362746a6b796337637a6832796470726576f6"
+}

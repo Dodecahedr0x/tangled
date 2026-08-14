@@ -1,0 +1,18 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.binding.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.binding",
+  "type": "object",
+  "required": ["v", "tangled", "protocol", "foreign", "nonce", "ts", "attested", "foreignSig"],
+  "properties": {
+    "v": { "const": 1 },
+    "tangled": { "type": "string" },
+    "protocol": { "enum": ["nostr", "atproto", "activitypub", "farcaster"] },
+    "foreign": { "type": "string" },
+    "nonce": { "type": "string" },
+    "ts": { "type": "integer" },
+    "attested": { "type": "boolean" },
+    "foreignSig": { "type": "string" },
+    "foreignProof": {}
+  }
+}

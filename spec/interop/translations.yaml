@@ -1,0 +1,37 @@
+# Lossy mappings are marked. Gateways MUST preserve bytes_cid for round-trip.
+version: 1
+rows:
+  - tangled: pub.tangled.post
+    activitypub: Note
+    nostr: { kind: 1 }
+    atproto: app.bsky.feed.post
+    lossy: false
+  - tangled: pub.tangled.article
+    activitypub: Article
+    nostr: { kind: 30023, nip: 23 }
+    atproto: app.bsky.feed.post
+    lossy: true
+    note: AT Protocol has no frozen long-form lexicon in the public app; mapping to feed.post truncates or overloads text.
+  - tangled: tangled.graph.follow
+    activitypub: Follow
+    nostr: { kind: 3, nip: 2 }
+    atproto: app.bsky.graph.follow
+    lossy: false
+  - tangled: tangled.graph.block
+    activitypub: Block
+    nostr: { kind: 10000, nip: 51 }
+    atproto: app.bsky.graph.block
+    lossy: true
+    note: Nostr block/mute lists are replaceable lists, not one-record-per-subject.
+  - tangled: pub.tangled.annotation
+    activitypub: Note
+    nostr: { kind: 1 }
+    atproto: app.bsky.feed.post
+    lossy: true
+    note: Foreign reply fields (inReplyTo, e-tag, reply) map to envelope ref. Quote spans have no stable foreign field.
+  - tangled: vis.sealed
+    activitypub: stub
+    nostr: omit
+    atproto: omit
+    lossy: true
+    note: MUST NOT export plaintext. Gateways MAY emit a stub Note with content "(encrypted)".

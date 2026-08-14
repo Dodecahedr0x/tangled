@@ -1,0 +1,10 @@
+{
+  "comment": "Nostr binding. foreignSig is BIP-340 Schnorr over SHA-256(tangled-binding:v1:did:sol:…:noncehex). nostr_sk_hex is a fixture; produce sig with a BIP-340 library. attested MUST be false.",
+  "tangled": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+  "protocol": "nostr",
+  "nostr_sk_hex": "98b99594ac7c4b3907c9d83fc213b283b49d9a784d689f81611ec2001b2a65f9",
+  "nonce_hex": "f196954640479efda71c43b5d400acea",
+  "message_utf8": "tangled-binding:v1:did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs:f196954640479efda71c43b5d400acea",
+  "message_hex": "74616e676c65642d62696e64696e673a76313a6469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b733a6631393639353436343034373965666461373163343362356434303061636561",
+  "attested": false
+}

@@ -1,0 +1,20 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.post.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.post",
+  "type": "object",
+  "required": ["text"],
+  "properties": {
+    "text": { "type": "string", "maxLength": 32768 },
+    "langs": { "type": "array", "items": { "type": "string" } },
+    "reply": {
+      "type": "string",
+      "description": "CID of the parent record this post replies to"
+    },
+    "media": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Blob CIDs or pub.tangled.media record CIDs"
+    }
+  }
+}

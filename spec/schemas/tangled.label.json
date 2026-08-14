@@ -1,0 +1,15 @@
+{
+  "$id": "https://tangled.protocol/schemas/tangled.label.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tangled.label",
+  "type": "object",
+  "required": ["v", "src", "uri", "val", "neg", "ts"],
+  "properties": {
+    "v": { "const": 1 },
+    "src": { "type": "string" },
+    "uri": { "type": "string" },
+    "val": { "type": "string" },
+    "neg": { "type": "boolean" },
+    "ts": { "type": "integer" }
+  }
+}

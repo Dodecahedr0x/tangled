@@ -1,0 +1,25 @@
+---
+import DocLayout from "../../../layouts/DocLayout.astro";
+import { types } from "../../../data/types";
+---
+
+<DocLayout title="Type index" description="Rustdoc-style index of Tangled types">
+  <h1>Type index</h1>
+  <p>Normative types. Signatures are rustdoc-shaped; encoding is DAG-CBOR as in the spec.</p>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Module</th><th></th></tr>
+    </thead>
+    <tbody>
+      {
+        types.map((t) => (
+          <tr>
+            <td><a href={t.href}><code>{t.name}</code></a></td>
+            <td><code>{t.module}</code></td>
+            <td>{t.summary}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</DocLayout>

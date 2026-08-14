@@ -1,0 +1,72 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+const yaml = readFileSync(fileURLToPath(new URL("../../../spec/interop/translations.yaml", import.meta.url)), "utf8");
+---
+
+<DocLayout title="Interop" description="Translation tables for other networks">
+  <h1>Interop tables</h1>
+  <p>
+    Normative YAML from <code>spec/interop/translations.yaml</code>. Gateways MUST preserve <code>bytes_cid</code> so export emits original bytes. ActivityPub imports are attested.
+    Chapter: <a href="/spec/interoperability">Interoperability</a>.
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>Tangled</th>
+        <th>ActivityPub</th>
+        <th>Nostr</th>
+        <th>AT Protocol</th>
+        <th>Lossy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>pub.tangled.post</code></td>
+        <td><code>Note</code></td>
+        <td>kind 1</td>
+        <td><code>app.bsky.feed.post</code></td>
+        <td>no</td>
+      </tr>
+      <tr>
+        <td><code>pub.tangled.article</code></td>
+        <td><code>Article</code></td>
+        <td>kind 30023 (NIP-23)</td>
+        <td><code>app.bsky.feed.post</code></td>
+        <td>yes</td>
+      </tr>
+      <tr>
+        <td><code>pub.tangled.annotation</code></td>
+        <td><code>Note</code> (inReplyTo)</td>
+        <td>kind 1 (e tag)</td>
+        <td><code>app.bsky.feed.post</code> (reply)</td>
+        <td>yes</td>
+      </tr>
+      <tr>
+        <td><code>tangled.graph.follow</code></td>
+        <td><code>Follow</code></td>
+        <td>kind 3 (NIP-02)</td>
+        <td><code>app.bsky.graph.follow</code></td>
+        <td>no</td>
+      </tr>
+      <tr>
+        <td><code>tangled.graph.block</code></td>
+        <td><code>Block</code></td>
+        <td>NIP-51</td>
+        <td><code>app.bsky.graph.block</code></td>
+        <td>yes</td>
+      </tr>
+      <tr>
+        <td><code>vis: sealed</code></td>
+        <td>stub or omit</td>
+        <td>omit</td>
+        <td>omit</td>
+        <td>yes — no plaintext</td>
+      </tr>
+    </tbody>
+  </table>
+  <h2 id="source">Source</h2>
+  <pre><code>{yaml}</code></pre>
+</DocLayout>

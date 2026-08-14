@@ -1,0 +1,34 @@
+did = tstr .regexp "did:sol:([a-z0-9]+:)?[1-9A-HJ-NP-Za-km-z]{32,44}"
+
+circle-policy = {
+  invite: "owner" / "member",
+  write: "member",
+  history_share: bool,
+  hideMembers: bool,
+  ? max_adds_per_hour: uint
+}
+
+circle-body = {
+  v: 1,
+  name: tstr,
+  ? members: [* did],
+  policy: circle-policy,
+  epoch: uint,
+  distributor: "hpke" / "mls" / "dual",
+  ? mlsGroup: bstr,
+  threshold: 16
+}
+
+mls-log-body = {
+  type: "welcome" / "commit" / "receipt",
+  epoch: uint,
+  ? member: did,
+  payload: bstr
+}
+
+epoch-wrap-body = {
+  epoch: uint,
+  member: did,
+  enc: bstr,
+  ct: bstr
+}

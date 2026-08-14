@@ -1,0 +1,30 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.id.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.id",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "pubkey", "agreement", "rotation", "recovery", "endpoints", "alsoKnownAs", "bindings"],
+  "properties": {
+    "v": { "const": 1 },
+    "pubkey": { "type": "string", "description": "32-byte Ed25519 public key, base64 in JSON mapping" },
+    "agreement": { "type": "string", "description": "32-byte X25519 public key, base64" },
+    "rotation": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+    "recovery": { "type": "array", "items": { "type": "string" } },
+    "endpoints": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type", "url"],
+        "properties": {
+          "type": { "enum": ["knot", "loom", "gateway"] },
+          "url": { "type": "string", "format": "uri" }
+        }
+      }
+    },
+    "alsoKnownAs": { "type": "array", "items": { "type": "string" } },
+    "bindings": { "type": "array", "items": { "type": "string" } },
+    "headHint": { "type": "string" }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$id": "https://tangled.protocol/schemas/sys.circle.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "sys.circle",
+  "type": "object",
+  "required": ["v", "name", "policy", "epoch", "distributor", "threshold"],
+  "properties": {
+    "v": { "const": 1 },
+    "name": { "type": "string" },
+    "members": { "type": "array", "items": { "type": "string" } },
+    "policy": {
+      "type": "object",
+      "required": ["invite", "write", "history_share", "hideMembers"],
+      "properties": {
+        "invite": { "enum": ["owner", "member"] },
+        "write": { "const": "member" },
+        "history_share": { "type": "boolean" },
+        "hideMembers": { "type": "boolean" },
+        "max_adds_per_hour": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "epoch": { "type": "integer", "minimum": 0 },
+    "distributor": { "enum": ["hpke", "mls", "dual"] },
+    "mlsGroup": { "type": "string" },
+    "threshold": { "const": 16 }
+  }
+}

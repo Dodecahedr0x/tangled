@@ -1,0 +1,41 @@
+; Tangled v1 record, unsigned map (sig omitted) and signed map.
+
+did = tstr .regexp "did:sol:([a-z0-9]+:)?[1-9A-HJ-NP-Za-km-z]{32,44}"
+
+cid-bytes = #6.42(bstr)   ; DAG-CBOR CID tag
+
+vis = "public" / "cap" / "sealed"
+
+ciphertext = {
+  alg: "hpke-record" / "epoch-aead",
+  ? enc: bstr,
+  ? recipients: [* {
+    kid: bstr,
+    enc: bstr,
+    ct: bstr
+  }],
+  ct: bstr,
+  ? epoch: uint,
+  ? blob: cid-bytes
+}
+
+unsigned-record = {
+  v: 1,
+  type: cid-bytes,
+  collection: tstr,
+  rkey: tstr .regexp "[A-Za-z0-9._~:!-]{1,256}",
+  author: did,
+  ts: uint,
+  prev: [* cid-bytes],
+  vis: vis,
+  body: any / ciphertext / null,
+  ? signedBy: bstr .size 32,
+  ? proof: [* cid-bytes],
+  ? ref: cid-bytes,
+  ? epoch: uint,
+  ? circle: tstr
+}
+
+record = unsigned-record .and {
+  sig: bstr .size 64
+}

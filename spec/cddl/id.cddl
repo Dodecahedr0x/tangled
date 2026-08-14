@@ -1,0 +1,19 @@
+did = tstr .regexp "did:sol:([a-z0-9]+:)?[1-9A-HJ-NP-Za-km-z]{32,44}"
+cid-bytes = #6.42(bstr)
+
+endpoint = {
+  type: "knot" / "loom" / "gateway",
+  url: tstr
+}
+
+id-body = {
+  v: 1,
+  pubkey: bstr .size 32,
+  agreement: bstr .size 32,
+  rotation: [+ bstr .size 32],
+  recovery: [* bstr .size 32],
+  endpoints: [+ endpoint],
+  alsoKnownAs: [* tstr],
+  bindings: [* cid-bytes],
+  ? headHint: cid-bytes
+}

@@ -1,0 +1,11 @@
+{
+  "handle": "alice.example.com",
+  "txt_name": "_tangled.alice.example.com",
+  "txt_values": [
+    "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+    "head=bafyr4ihfp7ogii2jece4vcykrewmmuopi2g75icntrqzuia3fozesum7i4"
+  ],
+  "well_known": "https://alice.example.com/.well-known/tangled-did",
+  "alsoKnownAs_must_include": "alice.example.com",
+  "one_sided_reject": true
+}

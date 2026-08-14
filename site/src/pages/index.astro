@@ -1,0 +1,46 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+---
+
+<DocLayout title="Tangled" description="Content-network protocol: Solana identity, signed Merkle repos, capability ACL, sealed records.">
+  <p class="callout">
+    This site is a specification, not a running network. There is no public graph to join.
+  </p>
+  <h1>Tangled</h1>
+  <p>
+    A content-network protocol. Identity is a Solana Ed25519 public key. Content lives in a signed Merkle
+    repository on a host the identity controls (a <strong>knot</strong>). Authorization is object-capability.
+    Confidentiality is encryption. Discovery and moderation are unprivileged overlays.
+  </p>
+  <div class="claims">
+    <div class="claim">
+      <strong>One data plane</strong>
+      <span>Public, capability-gated, and sealed records share one repository and one sync protocol. Visibility is a field.</span>
+    </div>
+    <div class="claim">
+      <strong>Self-host is the unit</strong>
+      <span>One process and a local database is enough to exist. Looms are optional indexes of public heads.</span>
+    </div>
+    <div class="claim">
+      <strong>Fetch ≠ read</strong>
+      <span>Capabilities gate who a knot serves. Hybrid Public Key Encryption (HPKE) and Messaging Layer Security (MLS) gate who can decrypt. Circles never show those names to users.</span>
+    </div>
+    <div class="claim">
+      <strong>Other networks bind in</strong>
+      <span>Nostr, AT Protocol, ActivityPub, and Farcaster identities bind with provenance. ActivityPub imports are host-attested.</span>
+    </div>
+  </div>
+  <h2 id="architecture">Architecture</h2>
+  <pre class="sig-line">{`Wallet ──sign──► Knot (repo MST + blobs)
+                    ▲
+                    │ Merkle pull
+                 Knot B     Loom (optional public index)
+                                Gateway ──► AP / Nostr / AT Protocol`}</pre>
+  <p>
+    Followers pull. Authors do not POST into N inboxes. Relays are not the source of truth. The source of truth is a signed commit.
+  </p>
+  <p>
+    Start at the <a href="/spec/abstract">abstract</a>, the <a href="/terminology">terminology</a> page (every acronym), the
+    <a href="/spec/use-cases">use cases</a>, or the <a href="/reference/types">type index</a>.
+  </p>
+</DocLayout>

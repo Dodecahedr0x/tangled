@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.astro/
+site/dist/
+site/.astro/
+site/.impeccable/
+spec/vectors/node_modules/
+.DS_Store

@@ -1,0 +1,2301 @@
+# Tangled protocol v1
+
+Canonical specification. This is not a live network.
+
+
+
+---
+
+# 00-abstract.md
+
+---
+title: Abstract
+slug: abstract
+order: 0
+---
+
+# Abstract
+
+Tangled is a content-network protocol. An identity is a Solana Ed25519 public key. Content lives in a signed Merkle repository on a host the identity controls (a **knot**). Authorization is object-capability. Confidentiality is encryption. Discovery and moderation are unprivileged overlays. Other networks bind in with provenance, they do not define the data model.
+
+This document set is the implementable specification of Tangled version 1. Normative language follows [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) and [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174), as restated in [Conformance](./02-conformance.md). Every acronym used in these documents is defined in [Terminology](./01-terminology.md).
+
+## What Tangled is
+
+A **substrate**. Records, blobs, graphs, and media are first-class. Microblogs, long-form publishing, private groups, and datasets are applications on top of one data plane. The protocol does not privilege a social-network shape.
+
+A **self-certifying store**. A knot is a convenient place to keep bytes. It is not an authority over identity, history, or meaning. Any replica of a repository can be verified from the signatures and the Merkle root.
+
+A **self-hosting unit**. One process and a local database is enough to exist on the network. Global indexes (looms) and foreign-protocol facades (gateways) are optional.
+
+## What Tangled is not
+
+- Not a blockchain. Records are not sequenced by a global ledger. Solana keys and signatures are the identity and authenticity primitive; optional `did:sol` on-chain persistence is a transparency log, not a requirement to exist.
+- Not a message bus. Followers pull. Knots do not fan out inbox POSTs.
+- Not a permissioned-data fork. Public, capability-gated, and sealed records share one repository and one sync protocol. Visibility is a field on the record.
+- Not a live network in this repository. This repository specifies the protocol and presents it. It does not run knots.
+
+## Claims, and the tradeoffs they refuse
+
+| Claim | What it refuses |
+| --- | --- |
+| Identity is a Solana key, rotatable in-repo | Nostr’s un-rotatable key; AT Protocol’s PLC directory as a gate |
+| One data plane | AT Protocol’s split into a public Merkle Search Tree (MST) protocol and a separate permissioned protocol that provides “access control, not confidentiality” |
+| Capabilities gate fetch; encryption gates read | ActivityPub addressing that implementations ignore; AT Protocol permissioned data that the host can read |
+| Pull sync of a Merkle tree | ActivityPub N² delivery; Nostr full-event flood as the only sync |
+| Looms are unprivileged | AT Protocol relays and AppViews as required infrastructure |
+| Gateways with provenance | One-off bridges that cannot round-trip |
+
+Honest losses, stated here so the rest of the spec does not have to apologize for them: Tangled has no incumbent graph. Private records cannot be globally indexed. Capability revocation needs a time-to-live (TTL) or an online check. Human handles lean on the Domain Name System (DNS) or Solana Name Service (SNS). ActivityPub (AP) imports are gateway-attested because AP objects are not author-signed.
+
+## Document map
+
+| Document | Contents |
+| --- | --- |
+| [Terminology](./01-terminology.md) | Acronyms and glossary |
+| [Conformance](./02-conformance.md) | RFC 2119, profiles, node capabilities |
+| [Architecture](./03-architecture.md) | Actors, data plane, trust boundaries |
+| [Identifiers](./04-identifiers.md) | `did:sol`, handles, rotation, device keys |
+| [Cryptography](./05-cryptography.md) | Solana signatures, BLAKE3, HPKE, MLS |
+| [Data model](./06-data-model.md) | Records, blobs, schemas |
+| [Repositories](./07-repositories.md) | Merkle Search Tree, commits, proofs |
+| [Visibility](./08-visibility.md) | `public`, `cap`, `sealed` |
+| [Capabilities](./09-capabilities.md) | UCAN-profile certificates |
+| [Circles](./10-circles.md) | Groups, epoch secrets, seamless size migration |
+| [Synchronization](./11-sync.md) | Pull, CAR, live subscribe |
+| [HTTP API](./12-http-api.md) | Methods, content negotiation, errors |
+| [Resolution](./13-resolution.md) | DNS, SNS, knot location |
+| [Looms](./14-looms.md) | Optional public indexes |
+| [Labels](./15-labels.md) | Moderation as signed records |
+| [Interoperability](./16-interoperability.md) | Bindings, envelopes, gateways |
+| [Migration](./17-migration.md) | Export, import, multi-device |
+| [Threat model](./18-threat-model.md) | Attackers, controls, residual risk |
+| [Comparison](./19-comparison.md) | ActivityPub, Nostr, AT Protocol, Farcaster |
+| [Use cases](./20-use-cases.md) | Worked examples (informative) |
+
+Machine-readable companions: Concise Data Definition Language (CDDL) under `cddl/`, core schemas under `schemas/`, OpenAPI under `http/`, translation tables under `interop/`, test vectors under `vectors/`.
+
+
+---
+
+# 01-terminology.md
+
+---
+title: Terminology
+slug: terminology
+order: 1
+---
+
+# Terminology
+
+This page defines every acronym used in the Tangled specification and the protocol nouns that those documents rely on. Prose MUST expand an acronym on first use in each document and MUST have a row here.
+
+Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are in [Acronyms](#acronyms).
+
+## Acronyms
+
+| Acronym | Expansion | Meaning in Tangled | See |
+| --- | --- | --- | --- |
+| AEAD | Authenticated Encryption with Associated Data | Symmetric encryption of record bodies under an epoch secret or Hybrid Public Key Encryption (HPKE) context. | [Cryptography](./05-cryptography.md) |
+| ACL | Access Control List | Informal name for the capability system. Tangled does not store a central who-can-do-what table; it verifies capability chains. | [Capabilities](./09-capabilities.md) |
+| AP | ActivityPub | W3C federated social protocol. Tangled gateways MAY speak AP. AP objects are not author-signed; imports are gateway-attested. | [Interoperability](./16-interoperability.md) |
+| API | Application Programming Interface | The Hypertext Transfer Protocol (HTTP) methods a knot exposes. | [HTTP API](./12-http-api.md) |
+| ASCII | American Standard Code for Information Interchange | Restricted character set used in the Solana off-chain signing envelope when the digest is hex-encoded. | [Cryptography](./05-cryptography.md) |
+| ATProto | Authenticated Transfer Protocol | Bluesky’s protocol. Compared in this spec; a gateway MAY speak a subset of its XRPC methods. | [Comparison](./19-comparison.md) |
+| BLAKE3 | BLAKE3 hash function | The only content hash. 256-bit digest. | [Cryptography](./05-cryptography.md) |
+| C2S | Client-to-Server | ActivityPub client API. A gateway MAY expose C2S as a facade over the local repo. | [Interoperability](./16-interoperability.md) |
+| CAR | Content Addressable aRchive | IPLD file format used to export and sync repositories. | [Synchronization](./11-sync.md) |
+| CBOR | Concise Binary Object Representation | Binary encoding. Tangled uses DAG-CBOR, the canonical IPLD profile of CBOR. | [Data model](./06-data-model.md) |
+| CDDL | Concise Data Definition Language | Schema language for CBOR types in `spec/cddl/`. | [Data model](./06-data-model.md) |
+| CID | Content Identifier | CIDv1 naming a DAG-CBOR block hashed with BLAKE3-256. | [Data model](./06-data-model.md) |
+| CRDT | Conflict-free Replicated Data Type | Not used in version 1. Concurrent same-key writes use Last-ts-wins among causal heads, with optional merge records. | [Data model](./06-data-model.md) |
+| DAG | Directed Acyclic Graph | IPLD linking: blocks point at other blocks by CID. Repositories are DAGs. | [Repositories](./07-repositories.md) |
+| DAG-CBOR | DAG profile of CBOR | Canonical CBOR used on the wire and as the input to BLAKE3. | [Cryptography](./05-cryptography.md) |
+| DHKEM | Diffie–Hellman Key Encapsulation Mechanism | HPKE KEM. Tangled uses DHKEM(X25519, HKDF-SHA256). | [Cryptography](./05-cryptography.md) |
+| DID | Decentralized Identifier | `did:sol:<base58-pubkey>`. Generative by default. | [Identifiers](./04-identifiers.md) |
+| DNS | Domain Name System | One handle type: TXT at `_tangled.<domain>` or HTTPS well-known. | [Resolution](./13-resolution.md) |
+| DoS | Denial of Service | Threat class, including forced-upgrade by spam-adding circle members. | [Threat model](./18-threat-model.md) |
+| E2EE | End-to-End Encryption | Sealed records: the knot stores ciphertext. Distinct from capability gating. | [Visibility](./08-visibility.md) |
+| Ed25519 | Edwards-curve Digital Signature Algorithm, 25519 | Solana’s signature scheme. Identity keys and record signatures. | [Cryptography](./05-cryptography.md) |
+| FID | Farcaster ID | Numeric on-chain identity in Farcaster. Bindable via `sys/binding`. | [Interoperability](./16-interoperability.md) |
+| HKDF | HMAC-based Key Derivation Function | Used inside HPKE and to derive application keys from an epoch secret. | [Cryptography](./05-cryptography.md) |
+| HMAC | Hash-based Message Authentication Code | Building block of HKDF. | [Cryptography](./05-cryptography.md) |
+| HPKE | Hybrid Public Key Encryption | RFC 9180. 1:1 sealed records and small-group epoch-secret wraps. | [Cryptography](./05-cryptography.md) |
+| HTTP | Hypertext Transfer Protocol | Transport for the knot API. HTTP/1.1 and HTTP/2. | [HTTP API](./12-http-api.md) |
+| HTTPS | HTTP Secure | HTTP over Transport Layer Security (TLS). Required for production knots. | [HTTP API](./12-http-api.md) |
+| IPLD | InterPlanetary Linked Data | Content-addressed data model. CID, DAG-CBOR, CAR. | [Data model](./06-data-model.md) |
+| IRI | Internationalized Resource Identifier | RFC 3987. ActivityPub object `id` values are IRIs; the canonical `foreign_id` for `activitypub` is that `id`. | [Interoperability](./16-interoperability.md) |
+| JSON | JavaScript Object Notation | Debug and HTTP mapping of DAG-CBOR. Not canonical for hashing. | [Data model](./06-data-model.md) |
+| JWT | JSON Web Token | Not used. Capabilities are DAG-CBOR UCAN-profile certificates, not JWTs. | [Capabilities](./09-capabilities.md) |
+| KEM | Key Encapsulation Mechanism | HPKE primitive. See DHKEM. | [Cryptography](./05-cryptography.md) |
+| MLS | Messaging Layer Security | RFC 9420. Large-group distributor of the circle epoch secret. Version 1 required for group-capable implementations. | [Circles](./10-circles.md) |
+| MST | Merkle Search Tree | Ordered Merkle tree keyed by `collection/rkey`. Repository data structure. | [Repositories](./07-repositories.md) |
+| NIP | Nostr Implementation Possibility | Nostr extension documents. Cited where Tangled maps kinds. | [Interoperability](./16-interoperability.md) |
+| OpenAPI | OpenAPI Specification | Machine-readable HTTP API in `spec/http/openapi.yaml`. | [HTTP API](./12-http-api.md) |
+| PDS | Personal Data Server | AT Protocol name for a user host. A Tangled knot is the analogous unit, not a PDS. | [Comparison](./19-comparison.md) |
+| PLC | Public Ledger of Credentials | AT Protocol DID method (`did:plc`) and its directory. Tangled does not use PLC. | [Identifiers](./04-identifiers.md) |
+| RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420. | [Conformance](./02-conformance.md) |
+| RPC | Remote Procedure Call | Knot methods are HTTP RPCs in the `tangled.*` namespace. | [HTTP API](./12-http-api.md) |
+| S2S | Server-to-Server | ActivityPub federation. A gateway MAY speak S2S. | [Interoperability](./16-interoperability.md) |
+| SHA-256 | Secure Hash Algorithm 256-bit | Used inside HKDF-SHA256 and MLS. Not the content hash (that is BLAKE3). | [Cryptography](./05-cryptography.md) |
+| SIWS | Sign In With Solana | Human session login to a knot. Not used to sign records. | [Cryptography](./05-cryptography.md) |
+| SNS | Solana Name Service | On-chain name → pubkey mapping. An optional handle type. | [Resolution](./13-resolution.md) |
+| SQLite | SQLite database | Recommended local store for a self-hosted knot. Not a wire requirement. | [Architecture](./03-architecture.md) |
+| TCB | Trusted Computing Base | Identity, signatures, and encryption are in the TCB. Looms and gateways are not. | [Architecture](./03-architecture.md) |
+| TLS | Transport Layer Security | Required for production HTTPS. | [HTTP API](./12-http-api.md) |
+| TTL | Time To Live | Capability expiry and dual-stack max-skew. Offline capability checks rely on TTL. | [Capabilities](./09-capabilities.md) |
+| UCAN | User Controlled Authorization Network | Capability certificate family. Tangled profiles UCAN; it does not use JWT-UCAN as the wire format. | [Capabilities](./09-capabilities.md) |
+| URI | Uniform Resource Identifier | Handles, DIDs, collection names, HTTP endpoints. | [Identifiers](./04-identifiers.md) |
+| URL | Uniform Resource Locator | A URI that locates a knot or well-known resource. | [Resolution](./13-resolution.md) |
+| UTF-8 | Unicode Transformation Format, 8-bit | Text encoding for JSON mappings and UTF-8 off-chain messages. | [Cryptography](./05-cryptography.md) |
+| UUID | Universally Unique Identifier | Not required. Record keys (`rkey`) are TID-like or caller-chosen. | [Data model](./06-data-model.md) |
+| W3C | World Wide Web Consortium | Publisher of DID Core, ActivityPub, and HTTP Message Signatures. | [Identifiers](./04-identifiers.md) |
+| X25519 | X25519 Diffie–Hellman | Key-agreement curve. Listed separately in `sys/id`; not derived from the Ed25519 identity key for ECDH. | [Identifiers](./04-identifiers.md) |
+| XRPC | AT Protocol HTTP RPC style | Method names like `com.atproto.repo.getRecord`. Tangled uses `tangled.*`. Gateways MAY speak a subset of XRPC. | [Interoperability](./16-interoperability.md) |
+| YAML | YAML Ain’t Markup Language | Translation tables in `spec/interop/`. | [Interoperability](./16-interoperability.md) |
+| BIP | Bitcoin Improvement Proposal | BIP-340 is the Schnorr signature used on Nostr bindings. | [Interoperability](./16-interoperability.md) |
+| CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open. Authorized methods MUST NOT use `*`. | [HTTP API](./12-http-api.md) |
+| GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. | [Data model](./06-data-model.md) |
+| QR | Quick Response code | Out-of-band way to learn a knot URL. | [Resolution](./13-resolution.md) |
+| UI | User Interface | Clients MUST NOT expose HPKE vs MLS in UI. | [Circles](./10-circles.md) |
+| WebCrypto | Web Cryptography API | Browsers MAY keep device keys non-extractable. | [Migration](./17-migration.md) |
+
+## Glossary
+
+**Annotation pattern.** A member writes a sealed record in their own repository, encrypted to a circle, with envelope `circle` set and optional `ref` pointing at a target CID. Default write pattern for social applications. Fetch uses a membership grant (`circle/read`).
+
+**Attested.** A claim whose authenticity rests on a gateway or host, not on the original author’s signature. ActivityPub imports are attested.
+
+**Backlink index.** A knot-local or loom index of public records keyed by envelope `ref` (or body `reply`). Exposed as `tangled.sync.queryBacklinks` and `tangled.loom.query?type=ref`. Not a global inbox.
+
+**Blob.** Opaque bytes addressed by CID, stored beside the repository. Media, CAR segments, ciphertext payloads larger than a record.
+
+**Canonical foreign_id.** The protocol-defined identifier of a foreign object (Nostr event id, AT strong URI, ActivityPub `id` IRI, Farcaster message hash). The `sys.foreign` rkey is derived from `protocol` plus this value.
+
+**Capability (cap).** A delegable, attenuable, expiring certificate that authorizes a command on a resource. Presented to a knot to fetch `vis: cap` or `vis: sealed` bytes.
+
+**Circle.** A group with membership and a read/write policy. User operations are create, add member, remove member, send, leave. The cryptographic distributor (HPKE wrap vs MLS) is not a user-facing mode.
+
+**Circle-scoped record.** A record whose envelope `circle` field is set. `vis` MUST be `sealed`. Fetch MAY be authorized by `circle/read` on that circle.
+
+**Collection.** A named prefix in a repository, written as a reverse-DNS type such as `pub.tangled.post` or `sys/id`.
+
+**Commit.** A signed snapshot of a repository: DID, MST root CID, revision, previous commit CID, Solana signature.
+
+**Device key.** A Solana keypair that is not the identity key, authorized by a capability to sign on behalf of the identity for a limited command set.
+
+**Distributor.** The mechanism that delivers `epoch_secret[N]` to circle members: HPKE wrap (small-group) or MLS exporter (large-group). Chosen automatically.
+
+**Dual-stack epoch.** The single transition epoch after HPKE→MLS grow during which the new epoch secret is available both as an MLS exporter secret and as HPKE wraps, so offline members keep reading.
+
+**Epoch secret.** A symmetric key that Authenticated Encryption with Associated Data (AEAD) uses for circle application payloads at epoch `N`.
+
+**Fiber.** Informal name for a capability. Normative text says **capability**.
+
+**Foreign binding.** A `sys/binding` record that proves a Tangled identity controls (or is attested as) an identity on another network.
+
+**Gateway.** A knot that also speaks a foreign protocol and stores translations as `sys/foreign` envelopes.
+
+**Generative DID.** A `did:sol` that has no on-chain document. The identifier is the public key. Default.
+
+**Handle.** A human-readable name bidirectionally bound to a DID: a DNS name or an SNS name.
+
+**Head.** The latest commit CID of a repository, as advertised by a knot.
+
+**History share.** Circle policy that, on add-member, also wraps prior epoch secrets to the new member. Off by default. Not a side effect of size migration.
+
+**Identity key.** The Solana Ed25519 keypair that *is* the account.
+
+**Invocation.** A request signed by a capability’s audience, carrying the proof chain.
+
+**Knot.** The host process. Serves repositories and blobs. Self-hostable as one process and a local database.
+
+**Label.** A signed record asserting a classification of another record or DID. Clients compose labelers. Knots are not the moderation authority.
+
+**Last-ts-wins.** Version 1 merge rule: among same-key causal heads, later `ts` is live; CID tie-break. A merge record lists concurrent heads in `prev`. Not a CRDT.
+
+**Loom.** Optional indexer of public heads. Not in the Trusted Computing Base (TCB).
+
+**Membership grant.** A `circle/read` capability the circle owner issues to a member DID. Revoked on remove. Independent of knot URL.
+
+**Record.** A typed, content-addressed object signed by a Solana key, stored in a repository.
+
+**Repo (repository).** One identity’s signed MST plus its blobs.
+
+**rkey.** The record key inside a collection. Unique per collection per repo.
+
+**Sealed.** Visibility class: the body is ciphertext. The knot stores opaque bytes.
+
+**Shared-repo pattern.** A dedicated circle DID owns an MST; members hold `repo/write` capabilities and sign as device keys (`author` is the circle DID). The hosting knot signs commits. Used for wikis and datasets.
+
+**Strand.** Informal name for a repository. Normative text says **repo**.
+
+**Threshold.** Spec constant `CIRCLE_MLS_THRESHOLD = 16`. The member count at which a circle that has never used MLS MUST migrate to MLS. Not a client setting.
+
+**TID.** Timestamp identifier. A sortable `rkey` derived from time plus entropy. Recommended, not required.
+
+**Unsigned record.** The DAG-CBOR map of a record with the `sig` field omitted. Input to BLAKE3 for the signing envelope.
+
+**Visibility (`vis`).** Record field: `public`, `cap`, or `sealed`.
+
+**Welcome.** MLS message that introduces a member to a group. Published as a sealed record in the circle log.
+
+**Yarn.** Informal name for a schema document. Normative text says **schema**.
+
+
+---
+
+# 02-conformance.md
+
+---
+title: Conformance
+slug: conformance
+order: 2
+---
+
+# Conformance
+
+The key words **MUST**, **MUST NOT**, **REQUIRED**, **SHALL**, **SHALL NOT**, **SHOULD**, **SHOULD NOT**, **RECOMMENDED**, **NOT RECOMMENDED**, **MAY**, and **OPTIONAL** in this document set are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) and [RFC 8174](https://www.rfc-editor.org/rfc/rfc8174) when, and only when, they appear in all capitals.
+
+## Version
+
+This is Tangled version **1**. The integer `v` on records, commits, and capabilities is `1`. A future version MUST increment `v` and MUST define compatibility with version 1.
+
+## Profiles
+
+An implementation advertises a profile. Profiles are additive. Advertising a profile means the implementation implements every MUST in that profile.
+
+| Profile | Who | MUST implement |
+| --- | --- | --- |
+| `knot.public` | Any knot | Identity, public records, MST, pull sync, HTTP API for public methods including `tangled.sync.getBlob` for publicly referenced blobs, handle resolution. SHOULD implement `tangled.sync.queryBacklinks` from locally stored public records |
+| `knot.cap` | Knots that serve `vis: cap` | Capability verification, revocation fetch or TTL, authorized sync, authorized `getBlob` |
+| `knot.sealed` | Knots that store sealed records | Opaque blob storage, encrypted rkeys, no plaintext logging of bodies, `circle/read` for circle-scoped records they store |
+| `knot.group` | Knots that host circles | Both Hybrid Public Key Encryption (HPKE) small-group and Messaging Layer Security (MLS) large-group distributors, seamless migration, membership grants, honor `circle/read` |
+| `client.verify` | Any client | Signature verification, MST proofs, DID and handle resolution |
+| `client.group` | Clients that join circles | Both distributors, dual-stack catch-up, never-downgrade |
+| `gateway.ap` | Optional | ActivityPub C2S/S2S facade, attested imports labeled as such |
+| `gateway.nostr` | Optional | Nostr NIP-01 relay mapping |
+| `gateway.atproto` | Optional | AT Protocol XRPC subset over the same MST |
+
+A knot that only hosts public repositories MAY omit `knot.cap`, `knot.sealed`, and `knot.group`. It MUST advertise the omission in node capabilities ([HTTP API](./12-http-api.md#tangled-node-describe)).
+
+A `client.group` implementation MUST NOT expose Hybrid Public Key Encryption (HPKE) versus Messaging Layer Security (MLS) as a user-facing mode, setting, or prompt.
+
+## Node capabilities document
+
+`GET /xrpc/tangled.node.describe` returns:
+
+```json
+{
+  "v": 1,
+  "did": "did:sol:…",
+  "profiles": ["knot.public", "knot.cap"],
+  "protocols": [],
+  "maxBlob": 134217728
+}
+```
+
+`protocols` lists foreign facades this knot speaks (`activitypub`, `nostr`, `atproto`). Empty means none. `maxBlob` is bytes.
+
+## Conformance tests
+
+An implementation claiming a profile MUST pass the vectors in `spec/vectors/` that the profile lists:
+
+| Vector file | Profiles |
+| --- | --- |
+| `unsigned-record.json` | `client.verify`, `knot.public` |
+| `solana-signature.json` | `client.verify`, `knot.public` |
+| `mst-proof.json` | `client.verify`, `knot.public` |
+| `capability-chain.json` | `knot.cap`, `client.verify` |
+| `hpke-sealed.json` | `knot.sealed`, `client.group` |
+| `mls-welcome-commit.json` | `knot.group`, `client.group` |
+| `circle-grow-dual-stack.json` | `knot.group`, `client.group` |
+| `handle-dns.json` | `knot.public`, `client.verify` |
+| `binding-nostr.json` | `gateway.nostr` or any client that consumes bindings |
+| `circle-read-auth.json` | `knot.group`, `knot.sealed`, `client.verify` |
+| `getblob-auth.json` | `knot.public`, `knot.cap`, `knot.sealed` |
+
+Passing means: given the inputs, the implementation produces the stated digests, accepts the stated signatures, and rejects the stated negative cases.
+
+## Extensibility
+
+Unknown record types MUST be stored and synced if the record is well-formed (valid CID, valid signature, known `v`). Knots MUST NOT drop unknown `type` values on public collections. Clients MUST ignore unknown fields when the CDDL `any` / extra-map rule allows them.
+
+New HTTP methods MUST live under `tangled.*` or an application namespace. Knots MUST return `MethodNotImplemented` for unknown `tangled.*` methods rather than a generic 404 that hides whether the knot is a Tangled knot.
+
+## Normative references
+
+Implementations MUST follow the profiles of:
+
+- RFC 8949 (CBOR) as constrained by the DAG-CBOR canonicalization in [Cryptography](./05-cryptography.md)
+- RFC 9180 (HPKE) with the ciphersuite in that chapter
+- RFC 9420 (MLS) with ciphersuite `0x0001` for `knot.group` / `client.group`
+- [did:sol method](https://identity-com.github.io/sol-did/did-method-spec.html) generative profile
+- [Solana off-chain message format](https://docs.anza.xyz/cli/examples/sign-offchain-message)
+- UCAN delegation semantics as profiled in [Capabilities](./09-capabilities.md)
+
+
+---
+
+# 03-architecture.md
+
+---
+title: Architecture
+slug: architecture
+order: 3
+---
+
+# Architecture
+
+Tangled separates **who you are**, **what you wrote**, **who may fetch it**, **who may read it**, and **who helps you find it**. Those are different jobs. Incumbent protocols fuse them, then pay for the fusion.
+
+## Actors
+
+```
+  Wallet ──sign──► Knot A (repo + blobs)
+                      ▲
+                      │ Merkle pull
+                      │
+                   Knot B
+                      │
+                      ▼
+              Loom (optional index of public heads)
+                      │
+              Gateway knot ──translate──► ActivityPub / Nostr / AT Protocol
+```
+
+**Identity** is a Solana Ed25519 public key. A wallet holds it. See [Identifiers](./04-identifiers.md).
+
+**Knot** is the host. It stores one or more repositories and their blobs. It answers HTTP. It is cheap to self-host: one process, one local database (SQLite is RECOMMENDED, not required). A provider MAY host many identities on one knot. The knot is not the identity. If the knot lies, signatures and Merkle proofs detect it. If the knot disappears, the repository CAR moves to another knot.
+
+**Repo** is one identity’s signed Merkle Search Tree (MST) plus blobs. The identity’s `sys/id` record lives here.
+
+**Record** is a typed object in the MST, signed by a Solana key.
+
+**Capability** is a certificate that authorizes a command on a resource. Knots that advertise `knot.cap` verify capabilities before serving non-public bytes.
+
+**Circle** is a group. Members share an epoch secret. Users add and remove members. They do not pick Hybrid Public Key Encryption (HPKE) or Messaging Layer Security (MLS).
+
+**Loom** indexes **public** heads. Clients choose looms. A loom can censor its index; it cannot rewrite a repository. Looms are outside the Trusted Computing Base (TCB).
+
+**Gateway** is a knot that also speaks a foreign protocol. Translations are stored as `sys/foreign` records with provenance. Gateways are outside the TCB for authenticity of ActivityPub (AP) objects (those objects are not author-signed). For Nostr and AT Protocol, the original signatures remain verifiable.
+
+## Data plane
+
+One repository, one sync protocol, three visibility values on the record:
+
+| `vis` | Fetch | Read | Rebroadcast |
+| --- | --- | --- | --- |
+| `public` | Anyone | Anyone | Yes |
+| `cap` | Bearer of a valid capability | Anyone who fetched (host included) | No |
+| `sealed` | Bearer of a valid capability | Holders of the epoch secret or HPKE recipient | No |
+
+Authorization (who the knot serves) and confidentiality (what ciphertext reveals) are separate layers. See [Visibility](./08-visibility.md).
+
+## Control plane
+
+Writes are local. The author signs a record, the knot inserts it into the MST, the knot signs a new commit. Followers pull the new head and the missing blocks. There is no inbox POST to every follower. There is no required global firehose.
+
+Live updates are an optional WebSocket subscribe on the author’s knot, capability-gated when the collection is not public.
+
+## Trust boundaries
+
+| Component | In the TCB? | If it is malicious |
+| --- | --- | --- |
+| Identity key / wallet | Yes | Attacker is the identity until rotation |
+| Device key | Scoped | Limited to the capability’s command and TTL |
+| Knot | Availability and `vis: cap` plaintext | Cannot forge public or sealed records; can withhold bytes; can read `vis: cap` |
+| Replica / other knots | Availability | Same as knot for copies they hold |
+| Loom | No | Can omit or rank; cannot forge |
+| Gateway | No for AP; verification-only for Nostr/AT | Can lie about AP; cannot forge Nostr/AT if clients verify |
+| DNS / SNS | Handle binding | Can seize the name, not the DID |
+| `did:sol` on-chain document | Optional transparency | Can be withheld; generative DID still works |
+
+## Self-hosting
+
+A conforming `knot.public` MUST run on a single machine with:
+
+- An HTTP server
+- Storage for MST nodes, records, commits, and blobs
+- The identity’s or a delegated device’s signing capability for commits it produces
+- Outbound HTTP to resolve handles and to pull other repos the operator follows
+
+It MUST NOT require a relay, a loom, a PLC directory, or an AppView to accept writes or to serve the operator’s own data to clients that know the knot URL.
+
+## Application layer
+
+Core collections (`sys/*`, graph, labels, circles) are specified here. Applications add collections. Unknown collections sync. Example applications (post, article, annotation, media, album, page, circle chat) are specified so the substrate is demonstrable; they are not the protocol. Worked examples: [Use cases](./20-use-cases.md).
+
+## Why pull
+
+ActivityPub delivers by pushing into inboxes. Cost grows with audience. Failure is silent. Tangled followers remember the author’s knot location (from `sys/id` and handle resolution) and pull the MST. Cost grows with the bytes you read. Failure is visible: the head does not move.
+
+Nostr relays store events and let clients subscribe. There is no authoritative repository, so clients poll many relays and hope. Tangled has an authoritative signed head per identity, and any number of replicas.
+
+AT Protocol pulls too, then inserts a relay that concatenates every public commit into a firehose so AppViews can exist. Tangled looms MAY do that for public data. They MUST NOT be required for two knots to sync.
+
+
+---
+
+# 04-identifiers.md
+
+---
+title: Identifiers
+slug: identifiers
+order: 4
+---
+
+# Identifiers
+
+A Tangled identity is a Solana account: a 32-byte Ed25519 public key. Display form is Bitcoin-alphabet base58, 43 or 44 characters. Every wallet is already an identity. There is no registration. There is no on-chain rent required to exist.
+
+## DID
+
+The Decentralized Identifier (DID) is generative [`did:sol`](https://identity-com.github.io/sol-did/did-method-spec.html):
+
+```
+did:sol:<base58-pubkey>
+```
+
+Implementations MUST accept `did:sol:` on mainnet with no cluster prefix. Implementations MUST accept `did:sol:devnet:` and `did:sol:testnet:` when talking to those clusters. The identifier without a cluster prefix denotes mainnet-beta.
+
+Tangled MUST NOT invent a `did:tangled` method.
+
+A generative DID has no on-chain document. Resolution of a generative DID MUST produce a DID document whose sole verification method is the public key itself, with `capabilityInvocation` and `authentication` granted to that key.
+
+Persisting a DID document on-chain via the `did:sol` program is OPTIONAL. When present, it is a transparency log for rotation, not a gate on existence. A knot MUST serve `sys/id` even if no on-chain document exists.
+
+## sys/id
+
+The repository MUST contain a record at collection `sys.id` with rkey `self` (written `sys/id` in prose). That record is the operational DID document for Tangled.
+
+CDDL: `IdRecord` in `spec/cddl/id.cddl`.
+
+Fields:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `v` | `1` | Version |
+| `pubkey` | `bstr .size 32` | Identity Ed25519 public key, raw |
+| `agreement` | `bstr .size 32` | X25519 public key for Hybrid Public Key Encryption (HPKE) and Messaging Layer Security (MLS). MUST be a distinct key. Implementations MUST NOT convert the identity Ed25519 key to X25519 for Diffie–Hellman. |
+| `rotation` | `[+ bstr .size 32]` | Ordered Solana public keys that may rotate the identity. Index 0 is highest priority. |
+| `recovery` | `[* bstr .size 32]` | Keys that may start a recovery. Empty is allowed; losing the identity key is then permanent. |
+| `endpoints` | `[+ Endpoint]` | Knot URLs. `type` is `"knot"`. First is preferred. |
+| `alsoKnownAs` | `[* text]` | Handles this DID claims: DNS names and SNS names. |
+| `bindings` | `[* cid]` | CIDs of `sys/binding` records. |
+| `headHint` | `cid` (optional) | Last commit CID this identity published, for stale-head detection. |
+
+The record is signed like any other record, by the current identity key or by a rotation key during a rotation commit.
+
+Clients MUST cache the latest `sys/id` CID they have verified. A knot that serves an older `sys/id` is stale or hostile. Clients SHOULD compare `headHint` and the served commit head.
+
+## Handles
+
+A handle is a human-readable name bound to a DID. Two types:
+
+1. **DNS.** A hostname such as `alice.example.com`. Proof is either:
+   - A DNS TXT record at `_tangled.<hostname>` whose value is the DID, or
+   - `https://<hostname>/.well-known/tangled-did` serving `text/plain` with the DID as the sole line, or JSON `{"did":"did:sol:…"}`.
+2. **SNS.** A Solana Name Service domain. Proof is the SNS record whose owner or specified Tangled field is the identity public key. Resolution procedure is in [Resolution](./13-resolution.md).
+
+Bidirectional binding: `sys/id.alsoKnownAs` MUST list the handle, and the handle proof MUST name the DID. Clients MUST reject one-sided claims.
+
+A DID MAY have zero handles. A DID MAY have several. The DID is the stable identifier; the handle is a pointer.
+
+## Rotation
+
+Three procedures. Implementations MUST NOT conflate them.
+
+### Device-key-only
+
+Revoke the old device capability; issue a new `repo/write` (and related) capability to the new device public key. `sys/id.pubkey` and `sys/id.agreement` MUST NOT change. Circle epoch secrets MUST NOT be re-wrapped. See [Circles](./10-circles.md#device-key-only-rotation).
+
+### Agreement-only
+
+The X25519 `agreement` key is compromised or rotated on a schedule; the identity Ed25519 key is unchanged. Write a new `sys/id` with the new `agreement`. Sign the commit with the current identity key (no rotation commit). Then follow [Circles](./10-circles.md#agreement-rotation): the rotating member’s client re-wraps epoch secrets and, when the distributor is MLS, publishes an MLS Update.
+
+### Identity key (and agreement)
+
+To rotate the identity key:
+
+1. Produce a new Ed25519 keypair and a new X25519 agreement key. Writers MUST rotate `agreement` whenever they rotate `pubkey`.
+2. Write a new `sys/id` listing the new `pubkey`, the new `agreement`, and an updated `rotation` list that still includes a key the operator holds.
+3. Sign the new repository commit with **both** the current identity key and a key from `rotation` (two signatures on the commit; see [Repositories](./07-repositories.md#rotation-commits)).
+4. Optionally submit the new verification methods to the on-chain `did:sol` program.
+5. Re-wrap circle epoch secrets and publish MLS Updates as specified in [Circles](./10-circles.md#agreement-rotation). The rotating member’s client MUST do this without a user-facing cryptographic mode.
+
+The Decentralized Identifier (DID) string remains `did:sol:<original-base58>`. `sys/id.pubkey` is the current signing key. After rotation, records signed by the old key remain valid in history. New records MUST be signed by the new key. Capabilities issued by the old key remain valid until they expire or are revoked; issuers SHOULD revoke and reissue.
+
+If the identity key is stolen and a rotation key is held:
+
+- The operator rotates as above.
+- Clients that cached the previous `sys/id` accept the rotation because it is signed by a listed rotation key.
+- Clients that only know the stolen key MUST be told the new head out of band (DNS `head` TXT, SNS field, or a replica). This is the cost of having no global PLC directory.
+
+If both identity and rotation keys are lost, the DID is unrecoverable unless a `recovery` key exists. A recovery key MAY produce a rotation commit. Knots SHOULD delay serving a recovery-only rotation for 72 hours while serving both heads, matching the recovery window idea in AT Protocol without a PLC operator.
+
+Moving a knot (`endpoints` only) is [Migration](./17-migration.md). It MUST NOT rotate `pubkey` or `agreement`.
+
+## Device keys
+
+The identity key SHOULD NOT live on every laptop. A device generates its own Solana keypair. The identity issues a capability (`repo/write` attenuated to collections and a TTL) to that device public key. The device signs records with the device key. The record’s `author` remains the identity DID. The record includes `signedBy` (the device public key) and the capability CID in `proof`.
+
+Verifiers MUST:
+
+1. Verify the record signature against `signedBy`.
+2. Verify the capability chain from the identity to `signedBy`.
+3. Verify the capability authorizes the collection and has not expired or been revoked.
+
+## Foreign identifiers
+
+Other-network identifiers are not Tangled identities. They bind through `sys/binding` as specified in [Interoperability](./16-interoperability.md). `alsoKnownAs` MUST NOT be used as the only proof of a foreign identity.
+
+## Comparison notes
+
+- Nostr: the public key is the identity, but it cannot rotate. Tangled rotates.
+- AT Protocol: DID plus PLC directory. Tangled uses `did:sol` generative, no directory required.
+- ActivityPub: `@user@host`. The host is the identity. Tangled’s host is a location.
+- Farcaster: on-chain FID plus rent. Tangled requires no rent to exist.
+
+
+---
+
+# 05-cryptography.md
+
+---
+title: Cryptography
+slug: cryptography
+order: 5
+---
+
+# Cryptography
+
+Tangled reuses existing primitives. This chapter profiles them. It does not invent a signature scheme, a KEM, or a group ratchet.
+
+## Algorithms
+
+| Role | Algorithm | Notes |
+| --- | --- | --- |
+| Identity and record signatures | Ed25519 | Solana’s scheme. 32-byte public key, 64-byte signature |
+| Content hash | BLAKE3-256 | Only content hash. SHA-256 appears only inside HKDF and MLS |
+| Block identifier | CIDv1, codec `dag-cbor` (0x71), multihash `blake3` (0x1e), 32-byte digest | |
+| Canonical encoding | DAG-CBOR | Input to BLAKE3. JSON is a mapping, not a hash input |
+| 1:1 and small-group wrap | HPKE RFC 9180 | KEM `0x0020` DHKEM(X25519, HKDF-SHA256), KDF `0x0001` HKDF-SHA256, AEAD `0x0003` ChaCha20Poly1305 |
+| Circle large-group | MLS RFC 9420 | Ciphersuite `0x0001` `MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519` |
+| Circle application AEAD | ChaCha20-Poly1305 | Key = HKDF-SHA256(`epoch_secret[N]`, info=`tangled.epoch.aead.v1`) |
+
+Implementations MUST reject other signature schemes for Tangled records. Foreign envelopes MAY carry foreign signatures as opaque bytes.
+
+## DAG-CBOR canonicalization
+
+Unsigned records, commits, capabilities, and schema documents MUST hash as DAG-CBOR with:
+
+- Major types as in RFC 8949
+- Map keys as UTF-8 strings, sorted by UTF-8 byte order
+- No indefinite-length items
+- No tags other than CID tag `42` as specified by DAG-CBOR
+- Integers in shortest form
+- No duplicate map keys
+
+JSON mapping: CIDs become `{"/":"<base32-cid>"}` (IPLD JSON). Bytes become `{"/":{"bytes":"<base64>"}}`. Implementations MUST NOT hash JSON.
+
+## Content Identifier
+
+```
+cid = CIDv1( 0x71 dag-cbor, 0x1e blake3, 32, blake3(dag-cbor-bytes) )
+```
+
+Display: `b` multibase (base32, lowercase, no padding) unless a document says otherwise. Test vectors use this encoding.
+
+## Solana signatures
+
+Public keys and signatures on the wire (DAG-CBOR) are raw bytes, 32 and 64. Display is base58.
+
+### Signing envelope
+
+A record signature is Ed25519 over the **Solana off-chain message** whose body is the hex digest of the unsigned record. This is mandatory so a Tangled signature cannot be a valid Solana transaction, and so hardware wallets and `solana sign-offchain-message` agree.
+
+Construct the message as:
+
+```
+header     = 0xff || "solana offchain"          ; 16 bytes
+version    = 0x00                               ; 1 byte, currently the only version
+format     = 0x00                               ; 1 byte, restricted ASCII
+length     = uint16le(64)                       ; 2 bytes, body length
+body       = lowercase_hex( BLAKE3-256( unsigned_record_dag_cbor ) )
+                                                ; 64 ASCII bytes
+message    = header || version || format || length || body
+signature  = Ed25519.Sign(identity_or_device_sk, message)
+```
+
+`unsigned_record_dag_cbor` is the record map with `sig` omitted.
+
+Verifiers MUST rebuild this exact byte string and call Ed25519 verify with the author’s (or `signedBy`) public key.
+
+Wallet-adapter `signMessage` is equivalent if and only if the client passes `message` (the full envelope bytes) to the wallet. Clients MUST NOT pass only the digest or only the CBOR.
+
+Sign In With Solana (SIWS) authenticates a human session to a knot’s HTTPS surface. SIWS MUST NOT be used as a record signature.
+
+### Commit signatures
+
+A commit signs the same envelope construction, with `unsigned_record_dag_cbor` replaced by the unsigned commit map (`sig` and `sigRotation` omitted). Rotation commits carry a second signature `sigRotation` over the same message, verified against a key listed in the previous `sys/id.rotation`.
+
+## HPKE
+
+Used for:
+
+1. **1:1 sealed records.** The body is an HPKE seal to the recipient’s X25519 `agreement` key. Info string: `tangled.hpke.record.v1`. Associated data: the unsigned record’s DAG-CBOR without `body` and `sig`.
+2. **Small-group epoch wraps.** Each member receives HPKE wrap of `epoch_secret[N]`. Info string: `tangled.hpke.epoch.v1`. Associated data: `circle_did || uint64be(N)`.
+
+Single-shot HPKE (base mode) MUST be used. The encapsulating key (`enc`) is stored beside the ciphertext.
+
+## MLS
+
+Ciphersuite MUST be `0x0001`. Credential type: basic credential whose identity is the 32-byte Solana public key (not the DID string). Application ID: `tangled.circle.v1`.
+
+The MLS **exporter secret** with label `tangled.epoch` and context `uint64be(N)` and length 32 is `epoch_secret[N]` when the distributor is MLS.
+
+Welcome and Commit messages are stored as sealed records in the circle log (`sys.circle.mls`, rkey = TID). They are not user-visible.
+
+Group-capable implementations MUST implement MLS. Knots that only advertise `knot.public` MAY omit it.
+
+## Epoch application keys
+
+```
+epoch_secret[N]     : 32 bytes   (from HPKE wrap or MLS exporter)
+aead_key            = HKDF-SHA256-Extract-Expand(
+                        salt = "tangled.epoch.aead.v1",
+                        ikm  = epoch_secret[N],
+                        info = circle_did,
+                        L    = 32)
+nonce_base          = HKDF-SHA256-Extract-Expand(
+                        salt = "tangled.epoch.nonce.v1",
+                        ikm  = epoch_secret[N],
+                        info = circle_did,
+                        L    = 12)
+```
+
+Record AEAD nonce = `nonce_base` XOR first 12 bytes of BLAKE3(unsigned record without body). Ciphertext is ChaCha20-Poly1305 over the body bytes.
+
+## Constants
+
+| Name | Value |
+| --- | --- |
+| `CIRCLE_MLS_THRESHOLD` | 16 |
+| `DUAL_STACK_MAX_SKEW_EPOCHS` | 8 |
+| `DUAL_STACK_MAX_SKEW_SECONDS` | 259200 (72 hours) |
+| `AGREEMENT_ROTATION_MAX_SKEW_SECONDS` | 604800 (7 days) |
+| `RECOVERY_DELAY_SECONDS` | 259200 |
+| `CAPABILITY_MAX_TTL_SECONDS` | 31536000 (365 days) |
+
+Implementations MUST use these values. They MUST NOT expose them as interop-breaking settings.
+
+## Negative requirements
+
+- MUST NOT use the identity Ed25519 key for X25519 Diffie–Hellman.
+- MUST NOT sign raw DAG-CBOR or a raw 32-byte digest without the off-chain envelope.
+- MUST NOT use JWT as the capability encoding.
+- MUST NOT treat SIWS as a record signature.
+- MUST NOT re-encrypt history on HPKE→MLS migration.
+
+
+---
+
+# 06-data-model.md
+
+---
+title: Data model
+slug: data-model
+order: 6
+---
+
+# Data model
+
+Everything a knot stores is either a **record** (a typed, signed object in the Merkle Search Tree) or a **blob** (opaque bytes addressed by CID). Schemas are records. Capabilities are records. Foreign envelopes are records.
+
+## Record
+
+CDDL: `Record` in `spec/cddl/record.cddl`.
+
+```
+Record v1 = {
+  v: 1,
+  type: cid,              ; schema CID
+  collection: text,       ; e.g. "pub.tangled.post"
+  rkey: text,             ; unique in (did, collection)
+  author: did,            ; "did:sol:<base58>"
+  ts: uint,               ; Unix milliseconds
+  prev: [* cid],          ; causal parents
+  vis: vis,               ; "public" / "cap" / "sealed"
+  body: any / ciphertext,
+  ? signedBy: bstr .size 32,
+  ? proof: [* cid],       ; capability CIDs
+  ? ref: cid,             ; annotation target (record CID)
+  ? epoch: uint,          ; circle epoch for sealed application data
+  ? circle: text,         ; did:sol:<owner>#<circle-rkey> when circle-scoped
+  sig: bstr .size 64
+}
+```
+
+`type` is the CID of a `sys.schema` record. Implementations MAY also match `collection` as a hint; verification is against `type`.
+
+`rkey` MUST match `[A-Za-z0-9._~:!-]{1,256}`. A timestamp identifier (TID) is RECOMMENDED: 13-character Crockford base32 of `(unix_micros << 10) | entropy10`. Nested wiki slugs for `pub.tangled.page` are specified in [Page slugs](#page-slugs).
+
+`prev` lists CIDs of **same-key** causal parents: records that share this record’s `(author, collection, rkey)`. Empty means a root. Cross-record replies and annotations MUST use envelope `ref` (and MAY repeat the target in the application body as `reply`); they MUST NOT use `prev` for a different rkey. Concurrent writes are resolved by **Last-ts-wins among causal heads** ([Merge rule](#merge-rule-last-ts-wins)).
+
+`signedBy` and `proof` are REQUIRED when the signer is a device key. They MUST be absent when the identity key signs.
+
+`ref` is the CID of the record this record annotates or replies to at the envelope layer. Application bodies MAY also carry `reply` (a record CID). Clients assembling threads MUST treat `ref` as authoritative when both are present and MUST reject a public record whose `reply` CID disagrees with `ref`.
+
+`circle` marks a **circle-scoped** record. If `circle` is present:
+
+- `vis` MUST be `sealed`
+- the value MUST be `did:sol:<owner>#<circle-rkey>` identifying a `sys.circle` record
+- after decrypt, if the application body contains a `circle` field, it MUST equal the envelope value; clients MUST discard a mismatch
+- fetch MAY be authorized by `circle/read` on that circle, not only by `repo/read` on this author ([Capabilities](./09-capabilities.md), [Circles](./10-circles.md#membership-grant))
+
+The record CID is BLAKE3 of the **complete** DAG-CBOR including `sig`. The unsigned map (no `sig`) is the signing input as specified in [Cryptography](./05-cryptography.md).
+
+## Visibility
+
+`vis` is defined in [Visibility](./08-visibility.md). Summary:
+
+- `public` — body is plaintext DAG-CBOR of the application value.
+- `cap` — body is plaintext; the knot serves it only with a capability.
+- `sealed` — body is a `Ciphertext` map.
+
+## Ciphertext
+
+```
+Ciphertext = {
+  alg: "hpke-record" / "epoch-aead",
+  ? enc: bstr,            ; HPKE encapsulating key
+  ? recipients: [* { kid: bstr, enc: bstr, ct: bstr }],
+  ct: bstr,               ; ciphertext + tag
+  ? epoch: uint
+}
+```
+
+`alg = "hpke-record"` is 1:1 HPKE. `alg = "epoch-aead"` is circle AEAD under `epoch_secret[epoch]`.
+
+## Blobs
+
+A blob is raw bytes. Its CID uses codec `raw` (0x55) and BLAKE3-256. Maximum size is the knot’s `maxBlob` (MUST be at least 1 MiB, SHOULD be at least 128 MiB).
+
+Records reference blobs by CID. Knots MUST NOT infer a blob’s meaning from its bytes. Sealed records MAY store ciphertext as a blob and keep a small `Ciphertext` header in the record with `ct` omitted and `blob: cid` set. For sealed media, the blob bytes MUST be ciphertext, not plaintext. Fetch is `tangled.sync.getBlob` ([Synchronization](./11-sync.md#get-blob)).
+
+## Schemas
+
+Collection `sys.schema`, rkey = TID. Body:
+
+```
+Schema = {
+  v: 1,
+  name: text,             ; "pub.tangled.post"
+  fields: any,            ; JSON Schema 2020-12 object describing the body
+  ? cddl: text            ; optional CDDL for the body
+}
+```
+
+The schema’s CID is `type` on instance records. Evolving a schema means publishing a new schema record (new CID). Old records keep the old `type`. Compatibility maps are OPTIONAL application data, not a protocol concern.
+
+Core schemas in `spec/schemas/` are frozen for version 1. Applications add schemas as records; they do not need a registry.
+
+## Core collections
+
+| Collection | rkey | Purpose |
+| --- | --- | --- |
+| `sys.id` | `self` | DID document |
+| `sys.schema` | TID | Schemas |
+| `sys.revocation` | capability CID (base32) | Revocations |
+| `sys.binding` | TID | Foreign identity bindings |
+| `sys.foreign` | TID | Foreign object envelopes |
+| `sys.circle` | circle TID | Circle definition |
+| `sys.circle.mls` | TID | MLS Welcome/Commit |
+| `sys.circle.wrap` | `{epoch}-{member-base58}` | HPKE wraps of epoch secrets |
+| `tangled.graph.follow` | target DID (safe) | Follow |
+| `tangled.graph.block` | target DID (safe) | Block |
+| `tangled.label` | TID | Labels |
+| `tangled.blobref` | blob CID (base32) | Optional metadata for a blob |
+
+“Safe” DID rkey: replace `:` with `.` so `did.sol.<base58>`.
+
+A follow record MAY include `knot` (the target’s knot URL) so first-time clients can resolve without a directory. Clients MUST still verify `sys/id` at that URL.
+
+## Example application collections
+
+Informative, fully specified in `spec/schemas/`:
+
+| Collection | Body gist |
+| --- | --- |
+| `pub.tangled.post` | `text` (≤ 32 KiB), `langs`, optional `reply` (parent record CID), optional `media` CIDs |
+| `pub.tangled.article` | `title`, optional `text` preview, optional canonical `blob`, `langs`, optional `media` CIDs |
+| `pub.tangled.annotation` | `text`, optional `quote` span, optional `media`; envelope `ref` MUST be the target record CID |
+| `pub.tangled.media` | `blob`, `alt`, `mime` |
+| `pub.tangled.album` | `title`, `items` (CIDs of `pub.tangled.media` records) |
+| `pub.tangled.page` | wiki page: `title`, `text` and/or `blob`; rkey is the slug encoded as in [Page slugs](#page-slugs) |
+| `pub.tangled.chat` | sealed circle message: `text` or blob; body `circle` MUST equal envelope `circle` |
+
+These exist so a substrate is not a secret microblog. Conforming knots MUST sync them like any collection. Conforming clients need not implement their UI. When `pub.tangled.article.blob` is set, clients MUST treat that blob as the canonical body; `text` is a preview.
+
+## Merge rule (Last-ts-wins)
+
+Version 1 does **not** specify a Conflict-free Replicated Data Type (CRDT). The merge rule for records that share `(author, collection, rkey)` is **Last-ts-wins among causal heads**:
+
+1. Record B **supersedes** record A when they share `(author, collection, rkey)` and A’s CID appears in B’s `prev`, or in the `prev` of a same-key ancestor of B.
+2. A **causal head** is a same-key record that is not superseded.
+3. The **live** record is the causal head with the greatest `ts`. If `ts` is equal, the lexicographically greatest record CID wins (CID compared as multibase base32 text).
+4. A **merge record** is a same-key record whose `prev` lists two or more causal heads. Writing one is OPTIONAL. A client that merges concurrent edits MUST include every concurrent head it considered in `prev`. The body is the author’s merged value. There is no automatic field-wise merge.
+5. If no merge record exists, step 3 picks one concurrent head. The loser remains in the Merkle Search Tree (MST) until a delete tombstone or a later merge record `prev`s it.
+6. A delete (`body` `null`) is an ordinary record under this rule: its `prev` SHOULD list every causal head being deleted.
+
+Implementations MUST apply this rule for `pub.tangled.page` and for any other same-key edit. Clients MUST NOT invent a CRDT for v1.
+
+## Page slugs
+
+`pub.tangled.page` uses `rkey` as the page slug. The rkey charset forbids `/`, so nested pages use `.` as the path separator.
+
+**Encoding (normative):**
+
+- A slug is a sequence of one or more **segments** joined by `.`.
+- Each segment MUST match `[A-Za-z0-9_~:!-]+` (the rkey charset minus `.`) and MUST be at least one character.
+- The complete rkey MUST match `[A-Za-z0-9._~:!-]{1,256}` and MUST NOT start with `.`, end with `.`, or contain `..`.
+- There is no percent-encoding. Characters outside the segment charset MUST NOT appear in the rkey; they belong in the page `title`.
+- `.` in the rkey is only a path separator. A single-segment page MUST NOT include `.` (put punctuation in `title`).
+
+**Display (normative):** clients presenting a wiki hierarchy MUST render slug `a.b.c` as `a/b/c`. The stored rkey remains `a.b.c`. Example: rkey `rfc.draft` is the page `rfc/draft`; rkey `Home` is the page `Home`.
+
+## Deletes
+
+A delete is a record with the same `collection` and `rkey`, `body` `null`, `prev` listing the CIDs being deleted, and a new `sig`. Public deletes are tombstones in the MST. Sealed deletes MUST be indistinguishable from other sealed records at the knot (same size class); the body ciphertext decrypts to `null`.
+
+Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges.
+
+
+---
+
+# 07-repositories.md
+
+---
+title: Repositories
+slug: repositories
+order: 7
+---
+
+# Repositories
+
+A repository is a signed Merkle Search Tree (MST) of records plus a blob store. The MST is the same idea as AT Protocol’s repository: keys are `collection/rkey`, values are record CIDs, interior nodes are content-addressed. Tangled uses BLAKE3 and DAG-CBOR instead of SHA-256 and DAG-CBOR-with-sha256.
+
+Partial sync and inclusion proofs are why MST is used for **all** visibility classes, including sealed collections. AT Protocol’s permissioned-data proposal abandons MST for a set hash because “partial sync is less important.” Tangled keeps one code path.
+
+## Keys
+
+MST key = UTF-8 `collection + "/" + rkey`. Keys MUST be unique. Keys MUST NOT contain `0x00`.
+
+## Node structure
+
+Fanout is 4 bits (16-way), as in AT Protocol. A node is:
+
+```
+MstNode = {
+  l: cid / null,          ; left subtree for keys before this node’s first entry
+  e: [+ MstEntry]
+}
+
+MstEntry = {
+  p: uint,                ; prefix length shared with previous key
+  k: bstr,                ; key suffix
+  v: cid,                 ; record CID
+  t: cid / null           ; right subtree
+}
+```
+
+Empty repository: no nodes; the data CID on the commit is the CID of an empty node `{l: null, e: []}`.
+
+Implementations MUST produce the same node CID as `spec/vectors/mst-proof.json` for the listed insertions.
+
+## Commit
+
+```
+Commit = {
+  v: 1,
+  did: did,
+  data: cid,              ; MST root
+  rev: text,              ; TID, monotonically increasing
+  prev: cid / null,
+  sig: bstr .size 64,
+  ? sigRotation: bstr .size 64
+}
+```
+
+`rev` MUST be greater (TID order) than `prev`’s commit `rev` when `prev` is not null.
+
+The commit CID is BLAKE3 of the complete DAG-CBOR including signatures. The signing envelope hashes the unsigned commit ([Cryptography](./05-cryptography.md#commit-signatures)).
+
+A knot advertises **head** = latest commit CID for a DID.
+
+## Rotation commits
+
+When `sys/id` changes `pubkey`, the commit MUST include `sigRotation` verifiable with a key listed in the **previous** `sys/id.rotation`. Verifiers MUST:
+
+1. Load previous `sys/id` from `prev` commit’s MST.
+2. Verify `sig` with the new `pubkey` (the new identity signs its own first commit).
+3. Verify `sigRotation` with a previous rotation key.
+
+Recovery commits (signed by `recovery` instead of `rotation`) MUST set `recovery: true` on the commit. Knots SHOULD serve both the old head and the recovery head for `RECOVERY_DELAY_SECONDS`.
+
+## Proofs
+
+An inclusion proof for key `k` is the list of MST nodes from the root to the leaf that holds `k`, plus the record block. A verifier:
+
+1. Hashes the record, checks it equals `v`.
+2. Reconstructs parent nodes, checks they equal the links.
+3. Checks the root equals `commit.data`.
+4. Verifies `commit.sig`.
+
+An exclusion proof is the node path showing where `k` would be and that it is not.
+
+Knots advertising `knot.public` MUST implement `tangled.sync.getRecord` returning a proof.
+
+## CAR export
+
+A repository export is a Content Addressable aRchive (CAR) v1 whose roots are `[commit CID]` and whose blocks are: the commit, every MST node, every record, and optionally blobs. The header `roots` MUST be the commit CID.
+
+Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed).
+
+## Sealed collections in the MST
+
+Sealed records occupy MST keys. The key is `collection + "/" + encrypted_rkey` where `encrypted_rkey` is hex of `ChaCha20-Poly1305(key=HKDF(epoch_secret, "tangled.rkey"), nonce=0, plaintext=rkey)` truncated to 32 bytes and hex-encoded. Listing a sealed collection therefore does not leak plaintext rkeys. Members who hold `epoch_secret[N]` can map keys back. Knots MUST store whatever key the writer sent; they MUST NOT require plaintext rkeys for `vis: sealed`.
+
+Public and `cap` collections use plaintext `collection/rkey`.
+
+## Multiple identities
+
+One knot MAY host many DIDs. Each DID has its own MST and commit chain. There is no knot-level Merkle root.
+
+
+---
+
+# 08-visibility.md
+
+---
+title: Visibility and access control
+slug: visibility
+order: 8
+---
+
+# Visibility and access control
+
+Visibility is a field on the record. It is not a second protocol. Fetch (authorization) and read (confidentiality) are different.
+
+## Classes
+
+### public
+
+- Body is plaintext.
+- Anyone MAY fetch. Knots advertising `knot.public` MUST serve public records without a capability.
+- Anyone MAY rebroadcast, index, and prove inclusion.
+- Looms MAY ingest.
+
+### cap
+
+- Body is plaintext on the knot.
+- The knot MUST NOT serve the record, its MST path, or its blobs unless the request presents a valid capability for `repo/read` on that DID, collection prefix, or record CID.
+- The knot operator can read plaintext. This class is authorization, not confidentiality. Use it for data the host is allowed to see (server-side search the user opted into, collaborative docs on a trusted knot).
+- Looms MUST NOT ingest.
+
+### sealed
+
+- Body is `Ciphertext` (or a header pointing at a ciphertext blob).
+- Fetch rules are the same as `cap`: a capability is REQUIRED.
+- The knot MUST treat the body as opaque. It MUST NOT log decoded bodies. It cannot decode them without epoch secrets or HPKE recipient keys, which MUST NOT live on the knot except in a client running on the same machine.
+- Looms MUST NOT ingest.
+- Encrypted rkeys: see [Repositories](./07-repositories.md#sealed-collections-in-the-mst).
+
+## Capability presentation
+
+Requests for `cap` and `sealed` MUST include:
+
+```
+Authorization: Cap <base64url(capability-invocation-dag-cbor)>
+```
+
+The invocation is specified in [Capabilities](./09-capabilities.md). Knots that do not advertise `knot.cap` MUST return `ProfileRequired`.
+
+## What a knot is allowed to know
+
+| Class | Knot sees plaintext body | Knot sees collection and rkey | Knot sees recipients |
+| --- | --- | --- | --- |
+| public | Yes | Yes | N/A |
+| cap | Yes | Yes | N/A |
+| sealed | No | Encrypted rkey only | HPKE `enc` bytes, not identities, unless wraps are stored as records the knot can read — wraps are themselves `vis: sealed` |
+
+HPKE wraps of epoch secrets (`sys.circle.wrap`) are `vis: sealed` with `alg = "hpke-record"` to each member. A knot that stores them sees ciphertext. Member identity is in the rkey `{epoch}-{member-base58}` — that leaks membership to the knot. Circle definitions MAY set `hideMembers: true`, in which case wrap rkeys MUST be random TIDs and the member mapping lives inside the ciphertext. Default is `hideMembers: false` because it makes debugging and capability grants tractable. Large-group MLS Welcomes already leak membership to anyone who can fetch the circle log; `hideMembers` is best-effort against the knot, not against members.
+
+## Mixing classes in one repo
+
+A repository MAY contain all three classes. Sync of public collections uses ordinary getRepo. Sync of `cap`/`sealed` collections requires a capability and returns only those collections the capability authorizes. A `repo/read` capability with resource `did:sol:…/pub.tangled.chat` MUST NOT leak sibling collections. A `circle/read` capability MUST return only records whose envelope `circle` matches the resource (plus the circle log on the owner’s repo, as specified in [Circles](./10-circles.md#membership-grant)).
+
+## Blobs
+
+A blob has no `vis` field. Authorization follows records that reference it:
+
+- If at least one **non-deleted** `vis: public` record in that DID’s repository references the blob CID, `tangled.sync.getBlob` MUST serve it without a capability.
+- Otherwise the knot MUST require a valid `blob/get` on `tangled://<did>/blob/<cid>`, or a `repo/read` that covers a referencing record, or a `circle/read` that covers a circle-scoped referencing record.
+- The same CID referenced from both a public record and a sealed record is public. Clients that need confidentiality MUST AEAD the bytes and store ciphertext.
+
+## Deletes and takedown
+
+Three distinct events. Implementations MUST NOT conflate them.
+
+**Author delete.** A tombstone: same `collection` and `rkey`, `body` `null`, `prev` listing the CIDs being deleted. Public tombstones remain in the MST so sync converges. Sealed deletes MUST be indistinguishable from other sealed records at the knot (same size class); the body ciphertext decrypts to `null`.
+
+**Knot hosting refusal.** A knot MAY stop serving any record (hosting policy). It MUST NOT rewrite a record’s bytes. It MAY omit the record from `getRepo` and MUST answer `getRecord` with `NotFound` or `Unavailable`. This is not a tombstone. Replicas that still hold the commit MAY serve the original bytes after signature verification. Clients MUST NOT treat origin `NotFound` as an author delete when a replica presents a valid inclusion proof for the same head, or when the origin head still includes the key.
+
+**Label.** A signed opinion. It does not delete or authorize refusal. See [Labels](./15-labels.md).
+
+Takedown of public data is hosting refusal, optionally plus a label. Replicas and CAR exports remain valid. This is verifiable exit, not a global delete. Knots MUST still export a CAR of what they do host.
+
+
+---
+
+# 09-capabilities.md
+
+---
+title: Capabilities
+slug: capabilities
+order: 9
+---
+
+# Capabilities
+
+Authorization is object-capability. A capability is a certificate: issuer, audience, command, resource, attenuation, proofs, expiry, signature. Tangled profiles User Controlled Authorization Network (UCAN) semantics and encodes certificates as DAG-CBOR, not JSON Web Tokens (JWT).
+
+## Soundness properties
+
+Implementations MUST provide:
+
+| Property | Meaning |
+| --- | --- |
+| Unforgeable | Only the issuer’s Solana key can create a valid certificate at that layer of the chain |
+| Monotonic attenuation | A delegate MUST NOT amplify command, resource, or time |
+| Revocable | Issuer (or an ancestor) can publish `sys.revocation`; verifiers MUST honor it when online |
+| Least authority | Resource is a DID, a collection prefix, or a record CID — not “the knot” |
+| Auditable | Certificates are records; they have CIDs |
+
+## Certificate
+
+```
+Capability = {
+  v: 1,
+  iss: did,                 ; issuer
+  aud: did,                 ; audience (may be a device did:sol)
+  cmd: command,
+  res: text,                ; resource URI
+  nbf: uint,                ; not-before, Unix seconds
+  exp: uint,                ; expiry, Unix seconds
+  pol: [* caveat],          ; extra constraints
+  prf: [* cid],             ; proofs (parent capabilities)
+  ? meta: { * text => any },
+  sig: bstr .size 64
+}
+```
+
+`exp - nbf` MUST NOT exceed `CAPABILITY_MAX_TTL_SECONDS`. `exp` MUST be greater than `nbf`.
+
+The signature uses the Solana off-chain envelope over the unsigned capability map, signed by `iss` (or a device key of `iss` with a proof that allows `cap/issue`).
+
+## Commands
+
+| Command | Meaning |
+| --- | --- |
+| `repo/read` | Fetch records and MST nodes |
+| `repo/write` | Insert records (still must be signed) |
+| `blob/get` | Fetch blobs |
+| `blob/put` | Store blobs |
+| `circle/invite` | Add members to a circle the resource identifies |
+| `circle/remove` | Remove members |
+| `circle/read` | Fetch circle-scoped records and referenced blobs; fetch the circle log on the owner repo |
+| `knot/replicate` | Pull authorized collections as a replica |
+| `cap/issue` | Issue attenuated children |
+| `*` | All commands; only the identity key MAY issue `*` |
+
+Unknown commands MUST be rejected.
+
+## Resources
+
+A resource URI:
+
+```
+tangled://<did>
+tangled://<did>/<collection>
+tangled://<did>/<collection>/<rkey>
+tangled://<did>/blob/<cid>
+tangled://circle/<owner-did>/<circle-rkey>
+```
+
+Attenuation: a child capability’s `res` MUST equal the parent’s `res` or be a path prefix extension of it. `tangled://did:sol:X/pub.tangled.chat` is a valid child of `tangled://did:sol:X`. The reverse is invalid.
+
+A `tangled://circle/…` resource is **not** a prefix of `tangled://did:sol:…`. `repo/read` on an author DID does not grant `circle/read`, and `circle/read` does not grant `repo/read` on unrelated collections. `circle/read` authorizes only:
+
+1. `sys.circle` with rkey `<circle-rkey>` on `<owner-did>`
+2. `sys.circle.wrap` and `sys.circle.mls` records on `<owner-did>` whose envelope `circle` matches
+3. Any record stored by the verifying knot whose envelope `circle` equals `did:sol:<owner>#<circle-rkey>`
+4. Blobs referenced by records in (2) or (3)
+
+## Circle/read verification
+
+Verification steps 1–2 and 4–7 of [Invocation](#invocation) apply. Step 3 is replaced: the root `iss` MUST be `<owner-did>` (the author of that `sys.circle` record) or a `cap/issue` delegate recorded in that owner’s `sys/id`. The hosted DID of the knot answering the request NEED NOT equal `iss`. By writing a record with envelope `circle` set, the author delegates fetch authorization for that record to valid `circle/read` capabilities on that circle.
+
+`res` MUST be a `tangled://circle/<owner-did>/<circle-rkey>` URI. A `circle/read` invocation whose `res` is a `tangled://did:sol:…` URI MUST be rejected. A `repo/read` capability MUST NOT authorize `circle/read`, and MUST NOT cause `getRepoAuth` to include sibling collections. Authorization vectors: `spec/vectors/circle-read-auth.json`.
+
+## Caveats
+
+`pol` is a list of predicates. Version 1 predicates:
+
+| Caveat | Meaning |
+| --- | --- |
+| `["eq", json-pointer, value]` | Invocation args must equal |
+| `["lt", json-pointer, number]` | Less than |
+| `["valid_until", seconds]` | Additional cap on `exp` |
+| `["max_uses", n]` | Knots that track invocations SHOULD enforce; offline verifiers MAY ignore |
+
+Unknown caveats MUST cause rejection (fail closed).
+
+## Invocation
+
+A request signs an invocation:
+
+```
+Invocation = {
+  v: 1,
+  cap: cid,                 ; leaf capability
+  prf: [+ Capability],      ; chain, leaf last, root first
+  cmd: command,
+  res: text,
+  args: { * text => any },
+  ts: uint,
+  aud: did,                 ; the knot DID, or the resource DID for peer pull
+  nonce: bstr .size 16,
+  sig: bstr .size 64        ; audience of the leaf cap
+}
+```
+
+HTTP: `Authorization: Cap <base64url(DAG-CBOR(Invocation))>`.
+
+Verification:
+
+1. Leaf `aud` matches the invocation signer.
+2. Each certificate’s `aud` matches the next certificate’s `iss` (or the invocation signer for the leaf).
+3. Root `iss` matches the resource DID’s identity (or a `cap/issue` delegate recorded in `sys/id`). For `circle/read`, the resource DID is the circle **owner**, as specified in [Circle/read verification](#circleread-verification).
+4. Commands and resources attenuate monotonically.
+5. `nbf <= now <= exp` for every certificate.
+6. No CID in the chain is present in the issuer’s `sys.revocation` (online) OR every certificate has `exp` within the client’s accepted offline TTL (offline).
+7. Signatures verify.
+
+## Revocation
+
+Collection `sys.revocation`, rkey = base32 of the revoked capability CID (without multibase prefix). Body: `{ cid: cid, ts: uint, reason: text }`. Signed by the issuer or an ancestor issuer.
+
+Revocation is not transitive to unrelated chains. It IS transitive to children of the revoked CID: a chain that contains a revoked CID is invalid.
+
+Online verifiers MUST fetch `sys.revocation` for each issuer in the chain (cache TTL RECOMMENDED 60 seconds). Offline verifiers MUST require `exp` no more than 2 hours in the future (`OFFLINE_MAX_REMAINING = 7200`) unless they have a cached revocation MST.
+
+## Root authority
+
+The identity key may issue any command on its DID. It does not need a parent certificate. `prf` is empty. This is the only uncertified issuer.
+
+
+---
+
+# 10-circles.md
+
+---
+title: Circles
+slug: circles
+order: 10
+---
+
+# Circles
+
+A circle is a group. From the user’s point of view the operations are: create, add member, remove member, send, leave. There is no “upgrade group,” no re-invite, no new circle id, no decryption gap, and no prompt. Hybrid Public Key Encryption (HPKE) versus Messaging Layer Security (MLS) MUST NOT appear in any client API that authors or readers call.
+
+## Definition record
+
+Collection `sys.circle`, rkey = TID (this TID is the circle id). The author DID plus rkey form the circle DID for resource URIs: `tangled://circle/did:sol:<author>/<rkey>` in prose, stored as `circle: did:sol:…#<rkey>`.
+
+```
+Circle = {
+  v: 1,
+  name: text,
+  members: [* did],           ; omitted or empty when hideMembers
+  policy: {
+    invite: "owner" / "member",
+    write: "member",
+    history_share: bool,      ; default false
+    hideMembers: bool         ; default false
+  },
+  epoch: uint,                ; current N
+  distributor: "hpke" / "mls" / "dual",
+  ? mlsGroup: bstr,           ; MLS group context hash, once MLS has been used
+  threshold: 16               ; MUST equal CIRCLE_MLS_THRESHOLD
+}
+```
+
+`distributor` is diagnostic for implementations. Clients MUST NOT show it. `threshold` is written so a reader of the record can detect a non-conforming writer; writers MUST emit `16`.
+
+`sys.circle` MUST use `vis: public` or `vis: cap`. It MUST NOT use `vis: sealed` (policy and membership grants have to be verifiable without the epoch secret). `hideMembers: true` SHOULD use `vis: cap` so looms do not ingest an empty-but-named group if the owner wants it unlisted. Wrap and MLS log records MUST use `vis: sealed` and MUST set envelope `circle`.
+
+## Epoch secret
+
+Application payloads in a circle are AEAD’d with keys derived from `epoch_secret[N]` ([Cryptography](./05-cryptography.md#epoch-application-keys)). How members obtain `N` is the only thing that changes with size.
+
+| Distributor | When (automatic) | Mechanism |
+| --- | --- | --- |
+| Small-group `hpke` | `len(members) ≤ 16` **and** the circle has never used MLS | HPKE-wrap of `epoch_secret[N]` to each member’s X25519, stored in `sys.circle.wrap` |
+| Large-group `mls` | `len(members) > 16`, **or** the circle has already used MLS | MLS exporter secret with label `tangled.epoch` **is** `epoch_secret[N]` |
+| Dual-stack `dual` | The single transition after HPKE→MLS grow | Both of the above for epoch `N+1` |
+
+## Write patterns
+
+**Annotation (default).** A member writes a `vis: sealed` record in **their** repository with envelope `circle` set, `body.alg = "epoch-aead"`, `epoch = N`, `ref` optional. The record is portable. The circle knot does not become a god. Other members fetch it with a **membership grant** (`circle/read`), not with pairwise `repo/read` on every sender. Cost: each member pulls every other member (N−1).
+
+**Shared repo.** The circle has a dedicated Solana key (a DID the owner creates) whose repository is the shared object. Used for wikis, datasets, and optional high-traffic chat. One subscribe. Specified below.
+
+Both patterns use the same epoch secret. Users do not pick a pattern as a cryptographic mode; clients pick it per application.
+
+## Membership grant
+
+When a DID is added to a circle, the owner MUST issue a capability to that DID:
+
+- `cmd`: `circle/read`
+- `res`: `tangled://circle/<owner-did>/<circle-rkey>`
+- `exp` within `CAPABILITY_MAX_TTL_SECONDS`
+
+This is the **membership grant**. The adder MAY also issue `circle/invite` if `policy.invite` is `"member"`. Application senders MUST set envelope `circle` on circle-scoped records. Knots that advertise `knot.group` or `knot.sealed` MUST honor `circle/read` as specified in [Capabilities](./09-capabilities.md#circleread-verification).
+
+On remove or leave, the owner MUST publish `sys.revocation` for that member’s membership grant(s) **and** advance the epoch. Revocation stops fetch; the epoch advance stops read of new payloads. A revoked member MAY still hold ciphertext they already fetched and old epoch secrets.
+
+## Shared-repo pattern
+
+The owner creates a Solana keypair whose DID `W` owns the MST. `W` is hosted on a knot. Records in that repo have `author` = `W`. Collaborators hold attenuated `repo/read`, `repo/write`, and `blob/*` capabilities; they sign records with their device key (`signedBy` + `proof`). The hosting knot MUST sign commits with a key of `W` (identity key or a device key with `repo/write`). That is the same hosting arrangement as any identity that does not keep its identity key on the knot.
+
+`vis: cap` is the class for a wiki the host is allowed to search. `vis: sealed` plus envelope `circle` is the class for a confidential shared object. Collaborators cannot rotate `W`; the owner holds that key. Example collection: `pub.tangled.page`, rkey = slug.
+
+The owner MAY instead host the wiki as a collection prefix on their own Decentralized Identifier (DID). Then `author` is the owner, and collaborators are device-like writers of that collection. A dedicated DID isolates a compromised collaborator capability from the owner’s other collections.
+
+## Create
+
+Owner generates `epoch_secret[0]` (32 cryptographically random bytes), writes `Circle` with `distributor: "hpke"`, `epoch: 0`, `members: [owner]`, and a wrap to the owner. MLS is not involved.
+
+## Add member
+
+User action: add a DID.
+
+Implementation:
+
+1. Authorize via `circle/invite` policy.
+2. Linearize on the circle commit log (one membership change at a time).
+3. Issue (or refresh) the membership grant to the new member.
+4. If `distributor` is `hpke` and `len(members)+1 ≤ 16`: new epoch `N+1`, new random `epoch_secret[N+1]`, HPKE-wrap to every current member including the new one. Old wraps remain so history decrypts.
+5. If `distributor` is `hpke` and `len(members)+1 > 16`: perform **seamless grow** below. This is still “add member” to the user.
+6. If `distributor` is `mls` or `dual`: MLS Add + Commit, Welcome for the new member. If `dual`, also HPKE-wrap `epoch_secret[N+1]` to members who have not processed Welcome.
+
+If `history_share` is true, the owner (or the adder, if they hold old secrets) additionally wraps epoch secrets `0..N` to the new member. If false, the new member cannot decrypt pre-join records. `history_share` is an explicit policy, not a side effect of size migration.
+
+## Seamless grow (HPKE → MLS)
+
+The `addMember` that first exceeds 16 members MUST:
+
+1. Create an MLS group whose members are exactly the current circle including the new member. Credential for each member is that member’s 32-byte Solana public key. Ciphersuite `0x0001`.
+2. Publish a Welcome for every current member as `sys.circle.mls` records, `vis: sealed` to that member (HPKE 1:1). Offline members pick them up on next sync. No accept dialog.
+3. Advance to epoch `N+1`. Set `epoch_secret[N+1]` to the MLS exporter secret (label `tangled.epoch`, context `uint64be(N+1)`, 32 bytes).
+4. Set `distributor: "dual"`. HPKE-wrap `epoch_secret[N+1]` to every member who has not been observed to process Welcome (initially: everyone). Application senders encrypt **once**, to the epoch AEAD key. Laggards decrypt via the wrap they already understand; caught-up members decrypt via MLS.
+5. Dual-stack ends when every member known at the transition has a Welcome receipt record (`sys.circle.mls` body `{type:"receipt", epoch, member}`) **or** `DUAL_STACK_MAX_SKEW_EPOCHS` epochs have passed **or** `DUAL_STACK_MAX_SKEW_SECONDS` have elapsed, whichever first. Then `distributor: "mls"`. Knots MUST stop writing new HPKE wraps for this circle except as required by `hideMembers` debugging flags (none in v1).
+6. Membership changes during dual-stack are applied as MLS epochs, never as a new HPKE-only epoch.
+
+## Never downgrade
+
+Once a circle has published an MLS epoch (`mlsGroup` is set), it stays on MLS even if membership later drops to two. Implementations MUST NOT return to `hpke`. Ping-pong is not seamless. MLS is correct for two members.
+
+## Agreement rotation
+
+Rotating `sys/id.agreement` (with or without rotating `pubkey`) changes the X25519 key that Hybrid Public Key Encryption (HPKE) wraps and Messaging Layer Security (MLS) leaves use. Moving a knot does **not**. Rotating only a device key does **not**. HPKE versus MLS MUST NOT appear as a user-facing “upgrade group,” “re-wrap,” or “re-invite” prompt. The rotating member’s client performs the steps in this section automatically after it publishes the new `sys/id`.
+
+### Who initiates
+
+The rotating member’s client MUST initiate re-wrap. Other members (usually the circle owner, on the next epoch advance) MUST read the current `agreement` from that member’s `sys/id` when wrapping. They MUST NOT wait for a confirmation dialog.
+
+### MUST path
+
+After a new `sys/id` whose `agreement` changed:
+
+1. The rotating client MUST HPKE-wrap every `epoch_secret[N]` it still needs — the current epoch, and prior epochs if it retains history or `history_share` is true — to the **new** agreement key. Info string remains `tangled.hpke.epoch.v1`.
+2. It MUST publish those wraps as `sys.circle.wrap` records with envelope `circle` set and `vis: sealed`. It SHOULD write them in **its own** repository so its other devices can pull without `repo/write` on the owner. The owner SHOULD copy observed self-wraps into the owner’s circle log.
+3. If `distributor` is `mls` or `dual`, the rotating client MUST publish an MLS Update/Commit whose leaf HPKE key is the new agreement public key. If `pubkey` also changed, the MLS credential MUST be the new 32-byte Solana public key. Offline circle members pick this up from the log; it is not a re-invite.
+4. The rotating client SHOULD `tangled.sync.notify` the circle owner’s knot after the new `sys/id` commit.
+
+Identity-key rotation without a new `agreement` is forbidden: writers MUST emit a new X25519 key together with a new `pubkey` ([Identifiers](./04-identifiers.md#rotation)).
+
+### Old agreement window
+
+Wraps to the previous agreement key remain valid for decryption until `AGREEMENT_ROTATION_MAX_SKEW_SECONDS` after the new `sys/id` record’s `ts`. During that window:
+
+- Devices of the rotating member that have not synced MAY decrypt with the old agreement private key.
+- An owner who advances the epoch SHOULD wrap to **both** agreement keys if it has not observed a wrap (or MLS receipt) for the new key.
+- After the window, owners MUST wrap only to the current `sys/id.agreement`. The rotating client SHOULD discard the old agreement private key once every device it controls holds the new wraps.
+
+An offline **device of the rotator** that returns after the window without new wraps MUST obtain them from another of that member’s devices (the online device re-publishes). An offline **circle member** is unaffected except that they will observe the new `sys/id` on next pull.
+
+### Device-key-only rotation
+
+Revoke the old device’s capabilities; issue new ones to the new device key. `sys/id.pubkey` and `sys/id.agreement` MUST NOT change. Clients MUST NOT re-wrap epoch secrets and MUST NOT publish MLS Updates solely because a device key changed.
+
+## Remove member and leave
+
+User action: remove or leave.
+
+Advance epoch. Under `hpke`, generate a new secret and wrap to remaining members only. Under `mls` or `dual`, MLS Remove + Commit. The removed member loses `epoch_secret[N+1]` onward (forward secrecy). They keep secrets they already have. There is no extra “key rotation ceremony” in the UI.
+
+## Send
+
+Encrypt the application body with the current epoch AEAD. Recipients decrypt with `epoch_secret[epoch]` from wraps or MLS. If a sender is lagging (still on `N-1` during dual-stack), receivers MUST accept epochs in `[current - DUAL_STACK_MAX_SKEW_EPOCHS, current]`. Older epochs MUST be rejected for new sends; they remain valid for historical records.
+
+Senders using the annotation pattern MUST set envelope `circle`. Clients SHOULD `subscribe` or poll each current member’s knot; they MAY `tangled.sync.notify` after send. There is no circle-wide inbox POST.
+
+## Offline members
+
+Welcomes and wraps are records. Sync delivers them. An offline member who returns during dual-stack reads via HPKE wrap, processes Welcome, and continues on MLS. An offline member who returns after dual-stack MUST still have a Welcome in the log; if the Welcome was GC’d (MUST NOT before max-skew), the member is re-Welcomed by any current member — still not a user-facing re-invite: the client does it on sync.
+
+## Forced-upgrade denial of service
+
+Spam-adding members to trigger MLS is a policy problem, not a dialog. Circles SHOULD rate-limit invites (`max_adds_per_hour` in `policy`, default 30). Clients MUST NOT ask the user to “confirm MLS.”
+
+## Conformance
+
+`spec/vectors/circle-grow-dual-stack.json` MUST pass: 16 members on HPKE, 17th added, one member offline throughout, pre-migration records still decrypt, circle id unchanged, no client API flag. Shrink 20→5 stays MLS. Add and remove during dual-stack linearize. Agreement rotation MUST follow [Agreement rotation](#agreement-rotation); `spec/vectors/circle-read-auth.json` covers membership-grant authorization, not wrap ciphertext.
+
+
+---
+
+# 11-sync.md
+
+---
+title: Synchronization
+slug: sync
+order: 11
+---
+
+# Synchronization
+
+Followers pull. Authors do not push into N inboxes. Relays are not the source of truth. The source of truth is a signed commit CID (the **head**) and the Merkle Search Tree (MST) behind it.
+
+## Head
+
+`GET /xrpc/tangled.sync.getHead?did=`
+
+Returns `{ did, commit, rev, knot }`. `commit` is the head CID. No capability for public repos. `repo/read` required if the knot hides the DID (unusual; default is to advertise heads).
+
+Clients MUST cache `(did, commit)` and detect rollback: a head with `rev` less than a previously verified `rev` for the same DID is an attack or a recovery race. Recovery races are specified in [Identifiers](./04-identifiers.md#rotation).
+
+## Get record
+
+`GET /xrpc/tangled.sync.getRecord?did=&collection=&rkey=`
+
+Returns the record block, the MST inclusion proof, and the commit. For `vis: cap` and `vis: sealed`, a capability is REQUIRED. For sealed collections the caller MAY pass `rkey` as the encrypted key they computed.
+
+## Get blocks
+
+`POST /xrpc/tangled.sync.getBlocks` with body `{ cids: [cid] }` (max 256). Returns a CAR of those blocks. Missing CIDs are listed in `missing`.
+
+Version 1 uses a **single MST**. Public collections are served without a capability. When walking a proof for a public record, interior nodes MAY mention sibling keys, including encrypted rkeys of sealed records. Sibling keys leak the existence of other records; that is acceptable. Sibling values are CIDs; fetching a non-public record CID still requires a capability. Proof nodes themselves are not confidential. Knots MUST serve MST nodes for public proofs without a capability, even if siblings are sealed keys.
+
+`getBlocks` of a non-public **record** CID requires a capability that covers that record (`repo/read`, or `circle/read` if the record is circle-scoped). `getBlocks` of a **blob** CID MUST follow the same authorization as `getBlob`.
+
+## Get blob
+
+`GET /xrpc/tangled.sync.getBlob?did=&cid=`
+
+Returns raw bytes (`Content-Type: application/octet-stream`) whose BLAKE3-256 matches the CID (codec `raw` 0x55). Authorization is specified in [Visibility](./08-visibility.md#blobs): serve without a capability only if a non-deleted public record in that DID’s repository references the CID; otherwise require `blob/get`, `repo/read` covering a referencing record, or `circle/read` covering a circle-scoped referencing record.
+
+Knots advertising `knot.public` MUST implement this method for publicly referenced blobs. Authorization vectors: `spec/vectors/getblob-auth.json`.
+
+## Get repo
+
+`GET /xrpc/tangled.sync.getRepo?did=&since=`
+
+Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`.
+
+Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections.
+
+## Notify (optional)
+
+`POST /xrpc/tangled.sync.notify` body `{ did, commit }` — a hint that a head moved. Knots MAY ignore. Used by replicas and looms. MUST NOT be required for correctness.
+
+## Live
+
+`GET /xrpc/tangled.sync.subscribe?did=&collection=` Upgrade: WebSocket.
+
+Messages: `{ t: "commit", commit: cid, ops: [{action, collection, rkey, cid}] }`.
+
+Public collections: no cap. Others: cap on subscribe. Heartbeat every 30 seconds. The server MAY drop slow clients.
+
+## Query backlinks
+
+`GET /xrpc/tangled.sync.queryBacklinks?cid=`
+
+Optional `collection=` (restrict hits) and `limit=` (default 50, max 500).
+
+Returns public records **this knot already stores** whose envelope `ref` equals `cid`, or whose application body `reply` equals `cid` when envelope `ref` is absent. This is a **local backlink index**, not a network search.
+
+```
+{
+  "hits": [{ "did", "collection", "rkey", "cid", "commit" }],
+  "count": 3,
+  "overlay": true,
+  "complete": false
+}
+```
+
+Knots advertising `knot.public` SHOULD maintain the index from public records they ingest (hosted repositories, follows, replicas). They MUST NOT crawl other knots in order to answer this method. They MUST NOT include `vis: cap` or `vis: sealed` records. Tombstones MUST NOT appear in `hits`. `count` is `len(hits)` after those filters (or the untruncated count if `limit` clipped `hits`). `overlay` MUST be `true`. `complete` MUST be `false` unless the knot can prove it stores every public annotator (v1 knots cannot; they MUST send `false`).
+
+A knot that does not implement the index MUST return `MethodNotImplemented`. Clients treat that as zero observed remote annotations from this knot.
+
+Discovery of annotations without knowing every annotator DID is specified in [Looms](./14-looms.md#annotation-discovery).
+
+## Follow
+
+A follow is a public record `tangled.graph.follow`. The follower’s client:
+
+1. Resolves the target DID to a knot URL.
+2. Pulls `getHead` / `getRepo` on an interval or subscribe.
+3. Stores the knot URL in local follow state.
+
+The author’s knot does no extra work per follower. That is the efficiency claim against ActivityPub.
+
+## Replication
+
+A replica holds a copy of a repo. Public repos: anyone MAY replicate. `cap`/`sealed`: `knot/replicate` capability. Replicas advertise themselves in their own `sys/id` or in a loom. Clients MAY fail over to a replica if the author’s knot is down, after verifying the commit signature.
+
+## Diff cost
+
+MST diff is O(changed keys × tree height). Tree height is ~log16(n). This is the efficiency claim against Nostr’s “replay all events from all relays.”
+
+
+---
+
+# 12-http-api.md
+
+---
+title: HTTP API
+slug: http-api
+order: 12
+---
+
+# HTTP API
+
+Knots speak HTTP. Method names follow `tangled.<ns>.<name>`. The path is `/xrpc/<method>`. GET for cacheable reads, POST for bodies and invocations that do not fit a query string.
+
+Machine-readable: [`spec/http/openapi.yaml`](./http/openapi.yaml).
+
+## Content negotiation
+
+Clients MUST send `Accept: application/cbor, application/json`. Knots MUST serve `application/cbor` (DAG-CBOR) when requested, and MAY serve `application/json` using the IPLD JSON mapping. `Content-Type` on POST MUST be one of those two.
+
+CIDs in query strings are multibase base32 (`b…`).
+
+## Errors
+
+JSON/CBOR map:
+
+```
+{ "error": "CapabilityRequired", "message": "…", "retry": false }
+```
+
+| error | HTTP | When |
+| --- | --- | --- |
+| `InvalidRequest` | 400 | Bad params |
+| `InvalidSignature` | 400 | Sig verify failed |
+| `CapabilityRequired` | 401 | Missing cap |
+| `CapabilityInvalid` | 403 | Cap present but fails |
+| `NotFound` | 404 | No such DID/record |
+| `MethodNotImplemented` | 404 | Unknown `tangled.*` method on a Tangled knot |
+| `ProfileRequired` | 501 | Method needs a profile the knot omitted |
+| `BlobTooLarge` | 413 | |
+| `RateLimited` | 429 | |
+| `Unavailable` | 503 | |
+
+## Methods
+
+### tangled.node.describe
+
+`GET`. No auth. Returns profiles, protocols, maxBlob, knot DID.
+
+### tangled.sync.getHead
+
+`GET ?did=`. See [Synchronization](./11-sync.md).
+
+### tangled.sync.getRecord
+
+`GET ?did=&collection=&rkey=`. Optional `Authorization: Cap`.
+
+### tangled.sync.getBlob
+
+`GET ?did=&cid=`. Raw blob bytes. No capability when a live public record references `cid`; otherwise `Authorization: Cap` (`blob/get`, `repo/read`, or `circle/read`). See [Synchronization](./11-sync.md#get-blob).
+
+### tangled.sync.getBlocks
+
+`POST` `{ "cids": ["b…"] }`.
+
+### tangled.sync.getRepo
+
+`GET ?did=&since=&blobs=`.
+
+### tangled.sync.getRepoAuth
+
+`POST` invocation + `{ did, since, blobs }`. For `circle/read`, the CAR is only circle-scoped records (and the circle log on the owner).
+
+### tangled.sync.queryBacklinks
+
+`GET ?cid=&collection=&limit=`. Local public backlink index. Knots SHOULD implement it; they MUST NOT crawl. See [Synchronization](./11-sync.md#query-backlinks).
+
+### tangled.sync.notify
+
+`POST` `{ did, commit }`.
+
+### tangled.sync.subscribe
+
+`GET` WebSocket.
+
+### tangled.repo.putRecord
+
+`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for.
+
+### tangled.repo.putBlob
+
+`POST` raw bytes, `Content-Type: application/octet-stream`. Returns `{ cid }`.
+
+### tangled.repo.import
+
+`POST` a CAR (`Content-Type: application/vnd.ipld.car`) plus identity session or `repo/write` on the DID. The knot MUST verify every commit signature in the CAR and MUST refuse a DID it already hosts unless `force` is true (recovery).
+
+### tangled.identity.resolve
+
+`GET ?handle=` or `?did=`. Returns DID, `sys/id` CID, knot endpoints. The knot MAY resolve handles it does not host by performing DNS/SNS lookup.
+
+### tangled.cap.verify
+
+`POST` an Invocation. Returns `{ ok: true, cmd, res }` or `CapabilityInvalid`. Useful for gateways.
+
+### tangled.loom.query
+
+`GET ?q=&type=`. OPTIONAL. Looms only. When `type=ref`, `q` is a record CID. Response includes `hits`, untrusted `count`, `overlay: true`, `complete: false`. See [Looms](./14-looms.md).
+
+### tangled.loom.firehose
+
+`GET` WebSocket of public commits. OPTIONAL. Looms only.
+
+## Sessions (SIWS)
+
+Sign In With Solana authenticates a browser to **this knot** for `putRecord` as the identity. The SIWS message MUST include the knot domain, the DID, a nonce, and `issuedAt`. Sessions MUST expire (RECOMMENDED 24 hours). SIWS MUST NOT replace record signatures: the record is still signed with the off-chain envelope. A knot MAY hold a delegated device key and sign on behalf of a web client only if the user issued a `repo/write` capability to that device key; that is an implementation choice and MUST be disclosed in `node.describe` as `custodialSign: true`. Default is `false`.
+
+## CORS
+
+Public reads MUST be CORS-available (`Access-Control-Allow-Origin: *`). Authorized methods MUST NOT use `*`; they MUST echo a specific origin or use a non-browser client.
+
+## Transport
+
+Production knots MUST use HTTPS. `localhost` MAY use HTTP. HTTP/2 is RECOMMENDED.
+
+
+---
+
+# 13-resolution.md
+
+---
+title: Resolution
+slug: resolution
+order: 13
+---
+
+# Resolution
+
+Resolution turns a handle or a DID into a knot URL and a DID document. It does not confer trust beyond what signatures later verify.
+
+## DID → knot
+
+1. If the client has a cached `sys/id` for the DID, use `endpoints` whose `type` is `"knot"`, in list order, skipping endpoints that failed recently.
+2. Else if an on-chain `did:sol` document exists and lists a service endpoint of type `TangledKnot`, use it. On-chain data is OPTIONAL.
+3. Else the client MUST be given a knot URL out of band (QR, follow record that includes `knot`, previous session).
+
+There is no global directory. That is intentional.
+
+## Handle → DID (DNS)
+
+Hostname `h`.
+
+1. Query TXT `_tangled.h`. If a TXT value starts with `did:sol:`, that is the DID. If a TXT value starts with `head=`, it is a commit CID hint.
+2. If TXT is absent, `GET https://h/.well-known/tangled-did` (Follow redirects only to the same host). Body is the DID (trimmed) or JSON `{"did":"…","head":"b…"}`.
+3. Fetch `sys/id` from the knot in that DID’s endpoints (or from a well-known `https://h/.well-known/tangled-id.json` serving the record).
+4. Verify `h` is in `alsoKnownAs`. If not, abort.
+
+TXT and well-known MUST agree if both exist; if they disagree, abort.
+
+## Handle → DID (SNS)
+
+Let `n` be an SNS domain.
+
+1. Resolve the SNS record per the Solana Name Service program for the cluster implied by the DID (mainnet default).
+2. The record MUST contain a field `tangled` or, if absent, the account owner MUST equal the identity public key.
+3. Fetch `sys/id`, verify `n` is in `alsoKnownAs`.
+
+SNS seizure: whoever controls the SNS domain controls the handle, not the DID. Same as DNS.
+
+## Bidirectional rule
+
+Clients MUST reject handle claims that fail either direction. A DID listing a handle it does not control is a lie. A handle pointing at a DID that does not list it is a lie.
+
+## Head hints
+
+DNS TXT `head=<cid>` and SNS `head` reduce stale-head windows. Clients SHOULD fetch the hinted commit and verify it is a descendant of (or equal to) their cache, or a valid rotation/recovery.
+
+## Negative caching
+
+Failed DNS lookups SHOULD be cached per DNS TTL. Failed well-known lookups SHOULD be cached 5 minutes. Clients MUST NOT cache a successful DID→knot mapping longer than 24 hours without re-checking `sys/id`.
+
+
+---
+
+# 14-looms.md
+
+---
+title: Looms
+slug: looms
+order: 14
+---
+
+# Looms
+
+A loom indexes **public** heads. It is an unprivileged overlay. Two knots can sync without one. A client that never talks to a loom can still follow people it knows.
+
+## What a loom does
+
+- Subscribe to or poll `getHead` on knots it knows.
+- Ingest public records (and only public records).
+- Serve queries: posts mentioning a DID, recent public commits, records whose envelope `ref` or body `reply` equals a CID, hashtag indexes if applications emit them.
+- Serve labels it trusts, or pass through labeler DIDs.
+
+## What a loom MUST NOT do
+
+- Require membership for a knot to exist.
+- Ingest `vis: cap` or `vis: sealed` records.
+- Rewrite records. Indexes point at CIDs.
+- Claim to be authoritative for a DID’s head. The author’s knot (and signed commits) are authoritative.
+
+## Discovery of knots
+
+A loom learns knot URLs from:
+
+- Operator configuration
+- `tangled.sync.notify`
+- Public follow graphs (walk `tangled.graph.follow`, resolve handles)
+- Other looms (gossip of `{did, knot, commit}` tuples)
+
+There is no required global firehose. A loom MAY offer one for public data: a WebSocket of public commits. Clients treat it as a hint stream and MUST verify signatures.
+
+## Client composition
+
+Clients SHOULD let the user pick looms, as they pick labelers. A censored loom is left. That is verifiable exit at the discovery layer.
+
+## Node advertisement
+
+A loom is a knot with `profiles` containing `loom.index`. Methods:
+
+- `GET /xrpc/tangled.loom.query?q=&type=`
+- `GET /xrpc/tangled.loom.firehose` WebSocket of public commits
+
+These methods are OPTIONAL. They are specified so looms interoperate instead of inventing search APIs.
+
+`tangled.loom.query` returns `{ hits, count, overlay, complete }` for public records only. Each hit is `{ did, collection, rkey, cid, commit }`. When `type=ref`, `q` is a record CID; hits MUST be public records whose envelope `ref` equals `q`, or whose body `reply` equals `q` when envelope `ref` is absent. Looms MUST NOT invent hits for `cap` or `sealed` records.
+
+`count` is the number of distinct matching record CIDs the loom observes (not clipped by a hit page size). `overlay` MUST be `true`. `complete` MUST be `false` in v1 (a loom is not the whole network). Comment counts are specified below.
+
+## Annotation discovery
+
+There is no global reply inbox and no ActivityPub (AP) inbox fan-out. A reader finds annotations on a record by **pulling indexes of records already stored**, never by contacting every annotator Decentralized Identifier (DID).
+
+Version 1 path, in order:
+
+1. **Author repo.** Pull the target author’s repository. Annotations the author wrote (same DID) are visible. Remote annotations are not, unless they happen to live in that repo.
+2. **Local backlink index.** `tangled.sync.queryBacklinks?cid=` on knots the client already talks to (the author’s knot, the client’s home knot, replicas). Each knot answers only from public records it already stores. Specified in [Synchronization](./11-sync.md#query-backlinks).
+3. **Loom overlay (OPTIONAL).** `tangled.loom.query?type=ref&q=<cid>` on looms the user chose. Looms remain optional: a client that only pulls the article author’s repo MUST still work; it sees zero remote annotations until it consults an index.
+
+Clients MUST union hits by record CID and MUST verify each hit’s signature and MST inclusion before display. Clients MUST NOT treat an empty result as proof that no annotations exist in the network.
+
+Knots SHOULD index `ref` / `reply` as they ingest public records. They MUST NOT start a new pull of unknown DIDs because of a `queryBacklinks` call (that would restore N²).
+
+## Comment counts
+
+A comment **count** is an untrusted overlay. It MUST NOT be a field on the target record that clients treat as canonical: the target author can write any integer, and no reader can verify it without enumerating annotations.
+
+**Computation.** For a target CID `T` and an observer (client, knot, or loom):
+
+```
+count(T) = number of distinct public, non-deleted record CIDs
+           this observer stores whose envelope ref = T
+           (or body reply = T when ref is absent)
+```
+
+Typical filter: collection `pub.tangled.annotation` or posts with `reply`. Observers MAY filter further (block lists, labels). They MUST document the filter if they expose `count`.
+
+**Labeling.** Clients MUST present the figure as an overlay bound to its source, for example `12 (this loom)` or `3 (observed locally)`. They MUST NOT present it as an author-signed or globally complete count. `overlay: true` on the query response is the machine label.
+
+Hostile looms can inflate or omit counts. Clients that care MUST verify hits or pick another loom. That is the same trust model as any loom query.
+
+
+---
+
+# 15-labels.md
+
+---
+title: Labels
+slug: labels
+order: 15
+---
+
+# Labels
+
+Moderation is signed opinion, not protocol-level deletion. A **label** is a public record asserting something about a DID or a record CID. Clients subscribe to **labeler** DIDs and apply labels locally. Knots MAY additionally refuse to host (that is hosting policy, not a label).
+
+## Record
+
+Collection `tangled.label`, rkey = TID.
+
+```
+Label = {
+  v: 1,
+  src: did,                 ; labeler, MUST equal author
+  uri: text,                ; tangled://did/… or tangled://did/collection/rkey
+  val: text,                ; "spam", "nsfw", "scam", "ok", or a namespaced value
+  neg: bool,                ; true = retract
+  ts: uint
+}
+```
+
+`val` SHOULD be a short token. Namespaced values (`pub.example.hate`) are allowed. Clients MUST ignore unknown `val` they have no policy for.
+
+## Semantics
+
+- The labeler DID is the authority over its own labels, nothing else.
+- A later label with `neg: true` and the same `(src, uri, val)` retracts.
+- Labels do not delete data. They advise clients.
+- Multiple labelers may disagree. Clients MUST expose composition: which labelers are on.
+
+## Knots
+
+A knot MAY refuse to serve content it will not host. It MUST NOT rewrite. It MAY attach its own labels. It MUST still export a CAR of what it does host.
+
+A knot MUST NOT silently drop public records from `getRepo` **because a labeler disliked them**. Filtering by label is a client (or loom) job. Hosting refusal is a different event: `NotFound` or `Unavailable` for that record, optional omission from `getRepo`, which replicas can fill. Author tombstones are a third event. See [Visibility](./08-visibility.md#deletes-and-takedown).
+
+Clients that fail over to a replica MUST verify the commit signature and MUST NOT treat origin unavailability as a tombstone.
+
+## Comparison
+
+This is AT Protocol’s label idea, kept, without making an AppView mandatory to see the network. ActivityPub instance-admin god-mode is a knot hosting policy, not a network-wide fact. Nostr client-side mute lists are a subset of labels.
+
+
+---
+
+# 16-interoperability.md
+
+---
+title: Interoperability
+slug: interoperability
+order: 16
+---
+
+# Interoperability
+
+Tangled is a substrate that other networks can bind to. Bridges MUST follow this chapter so they round-trip with each other instead of each inventing a mapping.
+
+## Foreign identity bindings
+
+Collection `sys.binding`, rkey = TID.
+
+```
+Binding = {
+  v: 1,
+  tangled: did,             ; did:sol:…
+  protocol: "nostr" / "atproto" / "activitypub" / "farcaster",
+  foreign: text,            ; npub/hex, AT DID, actor URI, or FID string
+  nonce: bstr .size 16,
+  ts: uint,
+  attested: bool,           ; true only for activitypub
+  foreignSig: bstr,         ; protocol-specific
+  ? foreignProof: any
+}
+```
+
+The Tangled record signature proves the Solana key. `foreignSig` proves the foreign key (or host). Both MUST verify. `sys/id.bindings` SHOULD list the CID.
+
+### Nostr
+
+`foreign` is the 64-hex public key. `foreignSig` is a Schnorr signature (BIP-340) over SHA-256 of the UTF-8 string:
+
+```
+tangled-binding:v1:did:sol:<base58>:<hex(nonce)>
+```
+
+Alternatively, `foreignProof` MAY be a NIP-01 event of kind `30078` (arbitrary app data) with `content` equal to the Tangled DID and `tags` including `["d","tangled-binding"]`. Then `foreignSig` is that event’s `sig`. Verifiers MUST check `pubkey` equals `foreign`.
+
+### AT Protocol
+
+`foreign` is the AT DID (`did:plc:…` or `did:web:…`). `foreignProof` MUST include the DID document. `foreignSig` is the AT signing key’s signature over the same `tangled-binding:v1:…` bytes, using the AT key type (k256 or p256 as in the DID document). Verifiers MUST check the signing key is listed in that document.
+
+### ActivityPub
+
+ActivityPub actors do not have a user key in the ratified specification. `attested` MUST be `true`. `foreign` is the actor URI. `foreignProof` is either:
+
+- An HTTP Message Signature over `GET {actorURI}` that includes header `Tangled-Binding: did:sol:…`, or
+- `https://{actor-host}/.well-known/tangled-binding.json` listing `{ "did": "did:sol:…", "actor": "https://…" }` served on the actor host.
+
+Clients MUST display AP-bound identities as **host-attested**, never as key-equals-person.
+
+### Farcaster
+
+`foreign` is the FID decimal string. `foreignSig` is Ed25519 from a currently valid Farcaster signer key over `tangled-binding:v1:…`. `foreignProof` MUST include the signer key and a proof it is registered to the FID (hub message or on-chain lookup description).
+
+## Envelopes
+
+Collection `sys.foreign`, rkey derived as in [Idempotent import](#idempotent-import).
+
+```
+Foreign = {
+  v: 1,
+  protocol: text,           ; MUST be "nostr" / "atproto" / "activitypub" / "farcaster"
+  foreign_id: text,         ; canonical id, see below
+  bytes_cid: cid,           ; raw blob of original bytes
+  translator: did,          ; gateway DID
+  attested: bool,
+  ? mapped: cid             ; CID of the Tangled application record, if any
+  ? mapped_lossy: bool
+}
+```
+
+**Round-trip:** exporting a previously imported object MUST emit the original bytes from `bytes_cid` when present. Gateways MUST NOT re-encode Nostr events or AT records if `bytes_cid` exists.
+
+## Canonical foreign_id
+
+`foreign_id` MUST be the **canonical** identifier of the foreign object, not a gateway-local alias. Two gateways importing the same object MUST produce the same `(protocol, foreign_id)` pair.
+
+| `protocol` | Canonical `foreign_id` |
+| --- | --- |
+| `nostr` | Lowercase 64-hex NIP-01 event id (SHA-256 of the serialized event) |
+| `atproto` | Strong AT URI: `at://<did>/<collection>/<rkey>#<record-cid>` with the DID, collection, rkey, and record Content Identifier (CID) as in the AT commit. The `#<record-cid>` fragment is REQUIRED so an edit is a new object |
+| `activitypub` | The object’s `id` Internationalized Resource Identifier (IRI), exactly as published, as an absolute IRI. Gateways MUST NOT invent a fragment or trailing slash. Scheme `http` / `https` MUST be lowercase; the rest of the IRI MUST be copied verbatim |
+| `farcaster` | Lowercase hex of the Farcaster message hash |
+
+Unknown `protocol` values MAY be imported; then `foreign_id` MUST be a stable, documented identifier for that protocol. Gateways that speak the four listed protocols MUST use this table.
+
+## Idempotent import
+
+The rkey of `sys.foreign` MUST be the lowercase hex of BLAKE3-256(`UTF-8(protocol) || 0x00 || UTF-8(foreign_id)`) where `foreign_id` is the canonical value. A second import of the same `(protocol, foreign_id)` MUST update that record in place (`prev` pointing at the prior envelope CID) and MUST NOT insert a second envelope. If the computed rkey already holds an envelope whose stored `foreign_id` differs, that is a hash collision: the knot MUST NOT overwrite; it MUST reject the write.
+
+If `mapped` is set and that CID is still in the local MST as a native application record, a later import MUST NOT write a second application record.
+
+**Native export.** Exporting a Tangled-authored object MUST write `sys.foreign` with `mapped` equal to the native record CID and `bytes_cid` equal to the bytes that were actually sent. `foreign_id` MUST be the canonical id of those bytes (for example the Nostr event id after the event is signed). A later export of the same native CID MUST reuse that envelope and MUST emit `bytes_cid`; it MUST NOT mint a new foreign id. If the native record has a new CID (an edit), the gateway MAY create a new envelope with a new canonical `foreign_id`.
+
+`mapped_lossy: true` MUST be set on the envelope when the gateway also writes a Tangled application record and the mapping truncates or stubs.
+
+## Duplicate envelopes (pre-canonical or divergent gateways)
+
+If two envelopes for the same object were written with different `foreign_id`s (gateways that ignored this chapter, or a protocol that had no canonical id yet), clients MUST detect duplicates as follows, in order:
+
+1. **`bytes_cid` equality.** Distinct `sys.foreign` records whose `bytes_cid` values are equal are the same object. Clients MUST render one and MAY keep both envelopes.
+2. **Id inside the bytes.** If `bytes_cid` differs (re-encoding) but the foreign bytes contain a protocol id, clients MUST extract it with the table above (Nostr event id from the event, AT record CID from the commit proof, ActivityPub `id` IRI from the JSON-LD, Farcaster message hash) and compare canonical `(protocol, foreign_id)`.
+3. **`mapped` equality.** Distinct envelopes with the same `mapped` CID are the same native record exported twice.
+
+Clients MUST NOT treat distinct canonical `foreign_id`s as duplicates without one of these equalities. Merging duplicate envelopes (one surviving rkey, the other tombstoned with `prev`) is OPTIONAL operator hygiene.
+
+## Translation tables
+
+Normative tables live in `spec/interop/*.yaml`. Summary:
+
+| Tangled | ActivityPub | Nostr | AT Protocol |
+| --- | --- | --- | --- |
+| `pub.tangled.post` | `Note` | kind `1` | `app.bsky.feed.post` |
+| `pub.tangled.article` | `Article` | kind `30023` (NIP-23) | `app.bsky.feed.post` with long text, or a custom lexicon — **lossy** |
+| `pub.tangled.annotation` | `Note` (`inReplyTo`) | kind `1` (`e` tag) | `app.bsky.feed.post` (`reply`) — **lossy** |
+| `tangled.graph.follow` | `Follow` | kind `3` contact list (NIP-02) / NIP-51 | `app.bsky.graph.follow` |
+| `tangled.graph.block` | `Block` | NIP-51 mute/block | `app.bsky.graph.block` |
+| `vis: sealed` | stub `Note` content `"(encrypted)"` or omit | MUST NOT export plaintext | MUST NOT export plaintext |
+
+Lossy mappings MUST set `mapped_lossy: true` on the envelope when a gateway also writes a Tangled application record.
+
+## Gateway knots
+
+A knot MAY speak foreign protocols. It advertises them in `tangled.node.describe` → `protocols`.
+
+### ActivityPub
+
+C2S/S2S facade over the local repo. Outbox items are public Tangled posts mapped to `Note`. Inbox items become `sys.foreign` plus, if mappable, a `pub.tangled.post` with `attested: true`. The gateway DID is `translator`. Dual-publish (a native public post also emitted as an outbox `Note`) MUST still write the envelope; if that `Note` returns on S2S, idempotent rkey collision MUST update the envelope only.
+
+### Nostr
+
+A NIP-01 relay interface. `EVENT` of kind 1 with a valid sig becomes an envelope + mapped post, `attested: false`. `REQ` filters are served from public collections. Sealed records MUST NOT appear.
+
+### AT Protocol
+
+Subset: `com.atproto.repo.getRecord`, `com.atproto.repo.listRecords`, `com.atproto.sync.getRepo` over public collections whose schemas have an AT lexicon mapping. The MST is the same MST. This is a facade, not an AT PDS.
+
+## Honesty
+
+| Foreign protocol | Import authenticity |
+| --- | --- |
+| Nostr | Independently verifiable (event id + sig) |
+| AT Protocol | Independently verifiable (record + commit proof) if the gateway stored the proof |
+| ActivityPub | Gateway-attested |
+| Farcaster | Independently verifiable if signer proof is stored |
+
+Clients MUST surface `attested` in UI when rendering imported AP objects.
+
+
+---
+
+# 17-migration.md
+
+---
+title: Migration and multi-device
+slug: migration
+order: 17
+---
+
+# Migration and multi-device
+
+Account portability is a CAR plus a DID. The knot is a location.
+
+## Export
+
+`GET /xrpc/tangled.sync.getRepo?did=&blobs=true` with a `repo/read` capability covering all collections (identity session suffices on the home knot). The CAR MUST include commits, MST nodes, records of every visibility class the capability allows, and referenced blobs.
+
+The operator SHOULD also export device capability private keys they still need, out of band. The CAR does not contain private keys.
+
+## Import
+
+On the destination knot:
+
+1. `POST /xrpc/tangled.repo.import` with the CAR (method defined in OpenAPI). The knot verifies commit signatures.
+2. Write a new `sys/id` with the new knot in `endpoints` (first).
+3. Sign a new commit (rotation commit if `pubkey` also changes; otherwise a location-only commit signed by the identity key).
+4. Update DNS TXT / well-known / SNS to the same DID (handle unchanged) and optional `head=` hint.
+
+Followers pull the new endpoint from `sys/id`. There is no follower-move protocol. Old knots MAY 301 `getHead` to the new URL.
+
+## Multi-device
+
+Each device gets a device key and a `repo/write` capability with a TTL. Revoke by `sys.revocation`. The identity key stays on a hardware wallet or an offline machine.
+
+Web clients: either the browser holds a device key in non-extractable WebCrypto, or the knot custodially signs (`custodialSign: true`, disclosed). Custodial signing means that knot can write as the user. It is OPTIONAL and NOT RECOMMENDED for sealed circles.
+
+## Backup
+
+Any replica with `knot/replicate` is a backup. The operator MAY copy the SQLite file; that is an implementation convenience, not a protocol object.
+
+## Circle membership across move
+
+Circle Welcomes and membership grants are addressed to DIDs, not knots. Moving the knot does not change membership. The member’s client still decrypts. If `history_share` was false, old epochs remain as they were. Device-key revocation (`sys.revocation` of a `repo/write` capability) does not remove the DID from circles; other devices of the same DID continue.
+
+Moving a knot MUST NOT rotate the identity or agreement keys. Location is `sys/id.endpoints`.
+
+If the operator **also** rotates the identity key and/or the X25519 `agreement` key, that is [Identifiers](./04-identifiers.md#rotation) plus [Circles](./10-circles.md#agreement-rotation): the rotating member’s client MUST re-wrap circle epoch secrets to the new agreement key (Hybrid Public Key Encryption (HPKE) wraps and, when the distributor is Messaging Layer Security (MLS), an MLS Update/Commit). That MUST NOT be presented as a user-facing cryptographic mode. Old agreement wraps remain valid for `AGREEMENT_ROTATION_MAX_SKEW_SECONDS`. Device-key-only rotation MUST NOT re-wrap.
+
+The old knot MAY retain sealed ciphertext until the operator deletes it. Copies that already left do not come back. That is not fixed by changing `endpoints`.
+
+## What does not migrate automatically
+
+- Loom indexes (they recrawl)
+- SIWS sessions on the old knot
+- Gateway-attested AP follower counts on foreign servers (those servers follow the actor URI, which a gateway may keep stable)
+
+
+---
+
+# 18-threat-model.md
+
+---
+title: Threat model
+slug: threat-model
+order: 18
+---
+
+# Threat model
+
+Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Attackers include malicious knots, stolen wallets, leaked capabilities, hostile looms, hostile gateways, DNS/SNS operators, and other members of a circle.
+
+## Identity
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Steal identity key | Rotation keys; hardware wallet; device keys for daily use | If rotation keys are stolen too, the attacker is the identity |
+| Steal device key | Capability TTL and revocation | Offline verifiers may accept until TTL |
+| Hostile knot serves stale `sys/id` | Cached CID, DNS/SNS `head=` hint, replicas | First-time clients with only a knot URL can be lied to until they compare a second source |
+| PLC-style directory seizure | No PLC | None of that class |
+| DNS or SNS handle seizure | DID remains; handle moves | Users who only know the handle can be phished |
+
+## Signatures
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Confuse a record sig with a Solana transaction | Mandatory `\xffsolana offchain` envelope | Implementations that skip the envelope are non-conforming and unsafe |
+| Replay an invocation | `nonce` + `ts` on Invocation; knots SHOULD track nonces | Distributed knots need shared nonce state or short clock skew |
+
+## Visibility
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Knot reads `vis: cap` | Expected; do not put secrets in `cap` | Operator compromise |
+| Knot reads `sealed` | Epoch secrets and HPKE recipient keys MUST NOT live on the knot | Client malware; knot that is also the client |
+| Listing sealed collections leaks rkeys | Encrypted rkeys | Existence of sealed records and, if `hideMembers` is false, wrap rkeys leak membership to the knot |
+| Dual-stack window: HPKE wrap of the new epoch secret lives too long | `DUAL_STACK_MAX_SKEW_*`; stop wraps after | An offline member’s wrap can be fetched by anyone with a leftover `repo/read` cap during the window |
+| Agreement rotation: leftover wrap to the old X25519 key | `AGREEMENT_ROTATION_MAX_SKEW_SECONDS`; wrap to both keys only during the window; rotating client discards the old agreement private key after | Offline device of the rotator that misses the window needs a republish from another of their devices |
+
+## Circles
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Removed member reads new messages | New epoch; they are not wrapped; MLS Remove | They keep old epoch secrets |
+| Compromised member | They can read current epoch; MLS updates after remove | Past messages they already decrypted |
+| MLS epoch skip / fork | Linearize on circle commit log; verify MLS epoch is monotonic | Split-brain if two owners ignore linearization — policy `invite: owner` avoids dual owners |
+| Forced-upgrade DoS (spam adds to trigger MLS) | `max_adds_per_hour`; not a user dialog | Determined owner can still grow |
+| Stolen or leftover membership grant | Revoke on remove; epoch advance | Fetch of ciphertext until revocation is visible; decrypt still needs epoch secrets |
+| Malicious Welcome | Verify credential = member Solana key; ignore Welcomes not in the circle log signed by an authorized committer | None if clients skip verification |
+| Identity/agreement rotation without re-wrap | Rotating member’s client MUST re-wrap and MLS-Update; not a user prompt | Offline rotator device past max-skew cannot decrypt until republish |
+
+## Discovery and gateways
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Loom omits you | Choose another loom; pull direct | Reach among people who only use that loom |
+| Loom or knot inflates a comment count | Counts are untrusted overlays (`overlay: true`); clients MUST label the source and MAY verify hits | Users who treat a count as canonical |
+| Gateway forges ActivityPub | `attested: true` in UI; no author sig exists to check | Users who ignore the badge |
+| Gateway drops `bytes_cid` and re-encodes | Spec forbids; clients SHOULD prefer envelopes with `bytes_cid` | Non-conforming gateways |
+| Two gateways assign different `foreign_id`s | Canonical `foreign_id` per protocol; rkey MUST be BLAKE3 of `protocol`, a 0x00 byte, and `foreign_id`; duplicates detected by `bytes_cid` or id-inside-bytes | Envelopes written before canonicalization remain until merged |
+| Selective translation | Another gateway; original network remains | Split view |
+
+## Availability
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Knot downtime | Replicas, CAR export, client cache | If nobody replicated and the operator has no CAR, data is gone |
+| Blob withholding | CID mismatch detected; replica | Same as knot downtime for those bytes |
+
+## Out of scope
+
+- Traffic analysis of who pulls which DID (use Tor or equivalent if needed)
+- Quantum break of Ed25519/X25519 (future version)
+- Legal compulsion of a knot operator (sealed records still hide bodies; metadata may not)
+
+
+---
+
+# 19-comparison.md
+
+---
+title: Comparison
+slug: comparison
+order: 19
+---
+
+# Comparison
+
+This chapter is evidence-based. Claims about other protocols cite their own specs and widely documented behavior. Tangled does not win “every dimension including network effects”; it has no incumbent graph. That is stated here so marketing cannot creep in.
+
+## Identity
+
+| Dimension | Nostr | AT Protocol | ActivityPub | Farcaster | Tangled |
+| --- | --- | --- | --- | --- | --- |
+| Primitive | secp256k1 key | DID (`did:plc` default) | `https` actor URI | On-chain FID | Solana Ed25519 key, `did:sol` generative |
+| Rotation | Not in NIP-01 | Rotation keys + PLC log | Change servers, new URI | Custody key transfer | Rotation keys in `sys/id`; optional on-chain `did:sol` |
+| Recovery | None | 72h window via PLC | Admin | Recovery address | Recovery keys in `sys/id`, 72h delay |
+| Handle | NIP-05 | DNS | `@user@host` | Fname / ENS | DNS and SNS, bidirectional |
+| Who seizes the account | Nobody (and nobody restores) | Not the DID; PDS can takedown | Home-server admin | Recovery address; Fname registry | Nobody for the DID; DNS/SNS for the handle |
+| Cost to exist | Free | Free | Free (operator pays) | Gas + rent | Free; Solana rent only if persisting `did:sol` on-chain |
+
+Nostr NIP-01: the public key is the account; lost `nsec` is permanent. AT Protocol `did:plc`: a global directory (Bluesky-operated at time of writing) is the default method. ActivityPub: identity is the actor URI on a domain. Farcaster SPEC: FID on OP Mainnet, recurring storage rent.
+
+## Data and sync
+
+| Dimension | Nostr | AT Protocol | ActivityPub | Farcaster | Tangled |
+| --- | --- | --- | --- | --- | --- |
+| Store | Relays, events | PDS repo (MST) | Server collections | Hubs / Snapchain CRDT | Knot repo (MST) |
+| Sync | Subscribe to events | Firehose + pull | Inbox POST | Gossip CRDT | Pull MST; optional loom firehose of **public** heads |
+| Self-host cost | Cheap relay | Cheap PDS, expensive relay/AppView | Full server | Hub | Cheap knot; loom optional |
+| Portability | Rebroadcast events | CAR + DID | Followers, not posts (Mastodon) | FID transfer | CAR + DID |
+
+Mastodon’s own move docs: posts do not move. AT Protocol repository spec: CAR export. ActivityPub delivery: POST to inboxes (N²). AT Protocol federation architecture: relays aggregate PDS firehoses.
+
+## Access control and confidentiality
+
+| Dimension | Nostr | AT Protocol | ActivityPub | Farcaster | Tangled |
+| --- | --- | --- | --- | --- | --- |
+| Authorization | Relay policy; otherwise public | Public repo; permissioned-data proposal is a **second** protocol, “access control, not confidentiality” | Addressing (`to`/`cc`/`bto`), often ignored | Public hubs | Capabilities on the **same** repo |
+| Confidentiality | NIP-44 DMs | Out of scope in permissioned-data proposal | Not E2EE | Not E2EE | `vis: sealed` + HPKE and MLS |
+| Groups | Relays / NIP-29 | Spaces (proposal) | Groups as actors | Channels | Circles; size migration invisible |
+
+AT Protocol proposal 0016 (permissioned data): quote, “this protocol provides access control, not confidentiality.” Tangled refuses that split.
+
+## Discovery and moderation
+
+| Dimension | Nostr | AT Protocol | ActivityPub | Farcaster | Tangled |
+| --- | --- | --- | --- | --- | --- |
+| Global index | Many relays, hope | Relay + AppView, de facto required to see the network | Instance timelines | Hubs | Loom optional |
+| Moderation | Client mute, relay ban | Labels + AppView | Instance admin | App-edge | Labels; knot hosting policy |
+
+## Interoperability
+
+Nostr, AT Protocol, and ActivityPub do not specify round-tripping each other. Tangled specifies bindings, envelopes with original bytes, and translation tables. ActivityPub imports remain attested because the AP spec has no author signature.
+
+## Where Tangled is not better
+
+- **Network effects.** Zero users at spec time.
+- **Implementation maturity.** This document is a spec, not a running network.
+- **Human onboarding without keys.** ActivityPub email-and-password on a server is easier. Tangled can custodially sign (`custodialSign`), at the cost of knot trust.
+- **Private global search.** Impossible if sealed; AT Protocol permissioned-data also refuses this, honestly.
+- **Handle independence from DNS/SNS.** Zooko’s triangle. Same class of problem as everyone else.
+
+## Summary sentence
+
+Tangled takes Nostr’s key-as-account, AT Protocol’s signed Merkle repo and labels, ActivityPub’s self-hosting, and none of their fused mistakes: un-rotatable keys, a required global directory or firehose, server-custodial identity, or access control without confidentiality.
+
+
+---
+
+# 20-use-cases.md
+
+---
+title: Use cases
+slug: use-cases
+order: 20
+---
+
+# Use cases
+
+This chapter is **informative**. It walks applications through Tangled version 1 so an implementer can see which records, visibility classes, capabilities, and sync calls are involved. Normative requirements live in the cited chapters. Where a walkthrough needed a protocol rule that was missing, that rule was added there. Acronyms are defined in [Terminology](./01-terminology.md); the first use of each in this chapter is expanded.
+
+Actors are named. Identifiers are abbreviated (`did:sol:A…`). There is no live network.
+
+## 1. Public microblog
+
+**Actors.** Ada self-hosts a `knot.public`. Bo follows Ada. Cyd labels Ada’s post. A loom is optional.
+
+**Records.** Ada writes `pub.tangled.post` (`vis: public`, `text`, optional `media` blob Content Identifiers (CIDs), optional `reply` = parent **record CID**). Bo writes `tangled.graph.follow` (`vis: public`, rkey = Ada’s Decentralized Identifier (DID)-safe, body `subject`, optional `knot` URL). Cyd writes `tangled.label` (`vis: public`) with `uri` `tangled://did:sol:A…/pub.tangled.post/<rkey>` and `val` `spam` or `ok`.
+
+**Vis / caps.** None for public fetch. Device key + `repo/write` if Ada’s identity key is offline ([Identifiers](./04-identifiers.md#device-keys)).
+
+**Sync.** Bo resolves Ada (handle or follow.`knot`), `getHead` / `getRepo` or `subscribe` on Ada’s knot. Replies live in the **replier’s** repo; they are not POSTed into Ada. Thread assembly is: walk `reply` / `ref` CIDs; query knots Bo already talks to (`tangled.sync.queryBacklinks?cid=`); and/or query a loom (`type=ref`). Ada never fans out.
+
+**Failure / threat.** Loom omits Ada: Bo still pulls Ada’s knot. Cyd’s label does not delete the post ([Labels](./15-labels.md)). Ada’s knot can refuse to host; that is not a network delete (use case 8). A client that only pulls Ada sees Ada’s own replies; remote annotations appear after consulting a backlink index. Empty index is not proof that none exist ([Looms](./14-looms.md#annotation-discovery)).
+
+**Coverage.** `reply` is a record CID. Discovery is pull-based: author repo, local backlink index, optional loom. There is no global inbox; that is a protocol limitation with specified client behavior, not an unspecified gap.
+
+## 2. Private circle chat (5 → 20)
+
+**Actors.** Owner O, members M1–M19. M19 is offline during the add that crosses 16. `history_share: false`. Users add members; they never pick a cryptographic distributor.
+
+**Records.** O writes `sys.circle` (`vis: public` or `vis: cap`, never `sealed`) with `policy.history_share = false`. Wraps and Welcomes: `sys.circle.wrap` / `sys.circle.mls`, `vis: sealed`, envelope `circle` set. Each send is `pub.tangled.chat` in the **sender’s** repo, `vis: sealed`, `alg: epoch-aead`, envelope `circle` = `did:sol:O…#<circle-rkey>`. On add, O issues a **membership grant**: `circle/read` on `tangled://circle/did:sol:O…/<rkey>` to the new member ([Circles](./10-circles.md#membership-grant), [Capabilities](./09-capabilities.md)).
+
+**Vis / caps.** Fetch: `circle/read` (cross-repo) or `repo/read` on the sender. Read: `epoch_secret[N]`. The hosting knot sees ciphertext and, unless `hideMembers`, wrap rkeys.
+
+**Sync.** Members list peers from `sys.circle`, resolve each `sys/id`, `getRepoAuth` / `subscribe` with `circle/read`. Annotation pattern: N−1 pulls. Crossing 16 is still “add member”: same circle id, dual-stack epoch, Welcomes in the log. M19 returns, reads via wrap, processes Welcome, continues. Pre-join records do not decrypt (`history_share` false). Shrink 20→5 stays on the large-group distributor ([Circles](./10-circles.md#never-downgrade)).
+
+**Failure / threat.** Removed member keeps old epochs, loses new ones. Forced adds are rate-limited, not a confirm dialog. Offline past dual-stack max-skew: client re-Welcomes on sync; not a user-facing re-invite. Honest loss: membership grants must be revoked on remove or the removed member can still **fetch** ciphertext they can no longer decrypt.
+
+**Coverage.** Size migration was specified. Missing pieces were envelope `circle`, `circle/read`, and how members fetch each other’s annotation-pattern messages.
+
+## 3. Long-form publishing with media and comments
+
+**Actors.** Ada publishes. Bo comments. Media on Ada’s knot.
+
+**Records.** Ada `putBlob` for the article body (markdown) and for images. Ada writes `pub.tangled.media` (`blob`, `mime`, `alt`) and `pub.tangled.article` (`title`, `blob` canonical body, optional `text` preview, `media` CIDs). Bo writes `pub.tangled.annotation` in Bo’s repo with envelope `ref` = article CID.
+
+**Vis / caps.** Public article: anyone `getRecord` / `getBlob`. Capability-gated draft: `vis: cap` until Ada writes a public successor (`prev`).
+
+**Sync.** Readers pull Ada. Comments: pull Bo if known; `tangled.sync.queryBacklinks?cid=<article>` on knots already in use; optional loom `type=ref&q=<article-cid>`. Counts from those queries are overlays (`overlay: true`), never a field Ada can forge as canonical ([Looms](./14-looms.md#comment-counts)). Blobs via `tangled.sync.getBlob` ([Synchronization](./11-sync.md#get-blob)).
+
+**Failure / threat.** Ada tombstones the article; blob becomes non-public once no live public record references it. Bo’s annotation remains in Bo’s repo (dangling `ref` is allowed). A client that never consults an index sees zero remote comments; that is required behavior, not a bug.
+
+**Coverage.** Article schema, `pub.tangled.annotation`, `ref`, `getBlob`, backlink query, overlay counts.
+
+## 4. Shared wiki / dataset (shared-repo)
+
+**Actors.** Owner O creates circle DID `did:sol:W…` (dedicated key) hosted on O’s knot. Collaborators C1, C2.
+
+**Records.** Circle definition as in use case 2. Wiki pages: `pub.tangled.page` in **W’s** Merkle Search Tree (MST), rkey = slug (`Home`, `rfc.draft` displayed as `rfc/draft`). Dataset rows: application collection plus blobs. Concurrent edits: **Last-ts-wins among causal heads**; a record whose `prev` lists both concurrent heads is a merge record ([Data model](./06-data-model.md#merge-rule-last-ts-wins)). Slugs MUST NOT contain `/`; `.` is the nested-page separator ([Data model](./06-data-model.md#page-slugs)).
+
+**Vis / caps.** Typical wiki: `vis: cap` (host may search). Confidential wiki: `vis: sealed` + envelope `circle` + epoch Authenticated Encryption with Associated Data (AEAD). O issues to each collaborator: `repo/read` + `repo/write` + `blob/*` attenuated to `tangled://did:sol:W…/pub.tangled.page` (and blob prefix), plus `circle/read` if sealed. Writers sign records with their device key; `author` is `did:sol:W…`; `signedBy` + `proof` required. The knot signs **commits** with a device key of W ([Circles](./10-circles.md#shared-repo-pattern)).
+
+**Sync.** One `subscribe` on W. Not N member pulls.
+
+**Failure / threat.** `vis: cap` means O’s knot operator can read plaintext — that is the point of this class. Stolen collaborator cap: revoke, epoch-advance if sealed. The circle identity key is another secret O must hold; collaborators cannot rotate W.
+
+**Coverage.** Shared-repo pattern, commit signing, `author`/`signedBy`, page schema, Last-ts-wins, nested slugs. No Conflict-free Replicated Data Type (CRDT).
+
+## 5. Cross-network import, export, dual-publish
+
+**Actors.** Gateway G (`gateway.nostr` + `gateway.ap`). Ada bound to a Nostr key (verifiable) and an ActivityPub (AP) actor (attested).
+
+**Records.** `sys.binding` for each foreign id. Import: blob of original bytes; `sys.foreign` with canonical `foreign_id` (Nostr event id, AT strong URI, ActivityPub object `id` Internationalized Resource Identifier (IRI), Farcaster message hash), `bytes_cid`, `translator` = G, `attested` false for Nostr and true for AP; optional mapped `pub.tangled.post`. rkey of `sys.foreign` MUST be hex of BLAKE3 (`protocol || 0x00 || canonical foreign_id`) ([Interoperability](./16-interoperability.md#canonical-foreign_id)).
+
+**Round-trip.** Export MUST emit `bytes_cid` bytes when present. Native Ada post exported to Nostr: G writes `sys.foreign` with `mapped` = Ada’s post CID and `bytes_cid` = the event bytes. Re-export of that CID MUST reuse the envelope and MUST NOT mint a new event id. Re-import MUST NOT create a second post. If two gateways used different `foreign_id`s before canonicalization, clients detect duplicates by `bytes_cid` equality or the protocol id inside the bytes.
+
+**Dual-publish.** Ada’s public post is mapped to an AP `Note` in G’s outbox. If that `Note` returns on Server-to-Server (S2S), the idempotent envelope key collides and G updates the envelope, not the native record.
+
+**Failure / threat.** Clients MUST show AP objects as host-attested. G can lie about AP; G cannot forge a Nostr sig if the client verifies. AP follower counts live on foreign servers; article→Authenticated Transfer Protocol (ATProto) is lossy (`mapped_lossy`).
+
+**Coverage.** Bindings, envelopes, attested vs verifiable, canonical `foreign_id`, idempotent rkeys, native-export `mapped`, duplicate detection.
+
+## 6. Account migration
+
+**Actors.** Ada moves from knot K1 to K2. Same DID, same handle. Laptop device key revoked. Circle member throughout.
+
+**Records.** Export a Content Addressable aRchive (CAR) (`getRepo?blobs=true` with a cap covering all classes). `import` on K2. New `sys/id` with K2 first in `endpoints`. Location commit (identity key). Domain Name System (DNS) / Solana Name Service (SNS) unchanged for the DID; update knot URL / `head=` hint. `sys.revocation` for the laptop capability.
+
+**Vis / caps.** Identity session on K2. Membership grants are to Ada’s DID, not K1; circle membership survives ([Migration](./17-migration.md)). Device revoke does not remove Ada from circles.
+
+**Sync.** Followers re-resolve `sys/id` (max 24h cache). K1 MAY 301 `getHead`. No follower-move protocol.
+
+**Failure / threat.** Sign In With Solana (SIWS) on K1 dies. Looms recrawl. K1 may still hold sealed ciphertext until the operator deletes it; copies that left K1 remain. If nobody replicated and the CAR is lost, data is gone. **Location move does not rotate keys.** If Ada also rotates the identity and agreement keys, her client MUST re-wrap circle epoch secrets to the new X25519 `agreement` key (and MLS-Update if the circle is on MLS) without a user-facing mode ([Circles](./10-circles.md#agreement-rotation), [Migration](./17-migration.md#circle-membership-across-move)). Device-key-only revoke of the laptop does not re-wrap.
+
+**Coverage.** Location vs identity rotation vs device rotation are distinct. Foreign AP followers follow G’s actor URI, not K1.
+
+## 7. Sealed media album (invented)
+
+**Actors.** Ada shares an album with circle C (use case 2), not with the public.
+
+**Records.** For each photo: AEAD the bytes under `epoch_secret[N]`; `putBlob` the ciphertext; `pub.tangled.media` with `vis: sealed`, envelope `circle`, `Ciphertext` header `{alg: epoch-aead, epoch: N, blob: cid}` (`ct` omitted). Album index: `pub.tangled.album` (`title`, `items` = media record CIDs), same vis and `circle`.
+
+**Vis / caps.** `circle/read` + `blob/get` (implied by `circle/read` for referenced blobs). Knot MUST NOT serve these blobs as public. Clients MUST encrypt media bytes; a plaintext blob CID in a sealed body is fetchable by anyone who learns the CID from a leak.
+
+**Sync.** Members pull Ada (and other contributors) as in use case 2; `getBlob` per item.
+
+**Failure / threat.** `history_share: false`: a late joiner does not decrypt old photos. Removed member keeps photos they already fetched. Same CID placed in a **public** record makes the bytes public. Honest loss: encrypted rkeys hide names, not the count of sealed objects on the knot.
+
+**Coverage.** Ciphertext-as-blob existed; `getBlob` authorization and the album schema did not.
+
+## 8. Takedown versus replica (invented)
+
+**Actors.** Ada’s public post. Knot K refuses to keep hosting it (policy). Replica R still has the CAR. Labeler L writes `val: nsfw`.
+
+**Records.** Three different objects, not one:
+
+| Event | What the MST does | What clients see |
+| --- | --- | --- |
+| Author delete | Tombstone (`body` `null`, `prev` set) | Protocol delete; sync converges |
+| Knot hosting refusal | Bytes unchanged if retained; MAY omit from `getRepo` | `NotFound` or `Unavailable`; **not** a tombstone |
+| Label | New `tangled.label` | Opinion; compose labelers |
+
+**Sync.** Clients that only talk to K lose availability. Clients that fail over to R, after verifying commit signatures, still see the post unless Ada tombstoned it. K MUST NOT rewrite record bytes.
+
+**Failure / threat.** Users confuse K’s 404 with Ada’s delete. Hostile K withholds; replicas detect by head/rev, not by filling missing records as “deleted.” Honest loss: there is no global takedown.
+
+**Coverage.** Visibility and labels said this in outline; the three-way distinction and replica failover were easy to misread.

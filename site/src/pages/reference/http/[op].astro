@@ -1,0 +1,53 @@
+---
+import DocLayout from "../../../layouts/DocLayout.astro";
+import { httpMethods } from "../../../data/http";
+
+export function getStaticPaths() {
+  return httpMethods.map((m) => ({
+    params: { op: m.id },
+    props: { m },
+  }));
+}
+
+const { m } = Astro.props;
+---
+
+<DocLayout title={m.id} description={m.summary}>
+  <p>
+    <span class={`badge ${m.method.toLowerCase()}`}>{m.method}</span>
+    <code>{m.path}</code>
+  </p>
+  <h1>{m.id}</h1>
+  <p>{m.summary}</p>
+  <p><strong>Auth:</strong> {m.auth}</p>
+  {
+    m.params.length > 0 && (
+      <>
+        <h2 id="params">Parameters</h2>
+        <table>
+          <thead><tr><th>Name</th><th>In</th><th>Required</th><th></th></tr></thead>
+          <tbody>
+            {m.params.map((p) => (
+              <tr>
+                <td><code>{p.name}</code></td>
+                <td>{p.in}</td>
+                <td>{p.required ? "yes" : "no"}</td>
+                <td>{p.note}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </>
+    )
+  }
+  {
+    m.request && (
+      <>
+        <h2 id="request">Example request</h2>
+        <pre><code>{m.request}</code></pre>
+      </>
+    )
+  }
+  <h2 id="response">Example response</h2>
+  <pre><code>{m.response}</code></pre>
+</DocLayout>
