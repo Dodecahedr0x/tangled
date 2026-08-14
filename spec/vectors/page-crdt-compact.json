@@ -1,0 +1,433 @@
+{
+  "comment": "Concurrent ins A and B, then compact K whose frontier includes both. Late op L has the same prev as K (not K itself), so L is concurrent with K. Apply(K) MUST equal Apply(R0,A,B). Apply(K,L) MUST equal Apply(R0,A,B,L) and Apply(L,K). A reader that has L MUST merge L on top of K’s snapshot; K is stale relative to L, not invalid.",
+  "algorithm": "page compact snapshot + rga-text + lww-register",
+  "collection": "pub.tangled.page",
+  "rkey": "Home",
+  "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+  "schema_cid": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+  "records": [
+    {
+      "id": "R0",
+      "cid": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+      "unsigned": {
+        "v": 1,
+        "type": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+        "collection": "pub.tangled.page",
+        "rkey": "Home",
+        "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "ts": 1700000000000,
+        "prev": [],
+        "vis": "public",
+        "body": {
+          "ops": [
+            {
+              "op": "lww",
+              "path": "title",
+              "value": "Home"
+            },
+            {
+              "op": "ins",
+              "after": null,
+              "run": "Hello"
+            }
+          ]
+        }
+      },
+      "signature_hex": "414b817ea4d8b485f184582cca83518b2ddc22069ec12a0ce52c3fc8f9d0d580b03f1a0d8e83b770a06d923698c75483a595ddf831f8944996274361090c4a02",
+      "unsigned_cbor_hex": "a96176016274731b0000018bcfe5680063766973667075626c696364626f6479a1636f707382a3626f70636c77776470617468657469746c656576616c756564486f6d65a3626f7063696e736372756e6548656c6c6f656166746572f664707265768064726b657964486f6d656474797065783b6261667972346967646269716a6d7636703668616e6e7a7a376c6f36686c6f346672723535346a68336d636b32617633796e70347778357177797566617574686f7278346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b736a636f6c6c656374696f6e707075622e74616e676c65642e70616765"
+    },
+    {
+      "id": "A",
+      "cid": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+      "unsigned": {
+        "v": 1,
+        "type": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+        "collection": "pub.tangled.page",
+        "rkey": "Home",
+        "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "ts": 1700000001000,
+        "prev": [
+          "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti"
+        ],
+        "vis": "public",
+        "body": {
+          "ops": [
+            {
+              "op": "ins",
+              "after": {
+                "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                "i": 4
+              },
+              "run": " Alice"
+            }
+          ]
+        }
+      },
+      "signature_hex": "731f80ca6a54f86c6d1cab53c9775bc800dde1e837dd91b69de847b2035821054643ce08f0e2d5501e2ec107fe4cdf172e9b2877e444339a68c3eb9ab7552707",
+      "unsigned_cbor_hex": "a96176016274731b0000018bcfe56be863766973667075626c696364626f6479a1636f707381a3626f7063696e736372756e6620416c696365656166746572a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469647072657681783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c706475667877746964726b657964486f6d656474797065783b6261667972346967646269716a6d7636703668616e6e7a7a376c6f36686c6f346672723535346a68336d636b32617633796e70347778357177797566617574686f7278346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b736a636f6c6c656374696f6e707075622e74616e676c65642e70616765"
+    },
+    {
+      "id": "B",
+      "cid": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+      "unsigned": {
+        "v": 1,
+        "type": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+        "collection": "pub.tangled.page",
+        "rkey": "Home",
+        "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "ts": 1700000002000,
+        "prev": [
+          "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti"
+        ],
+        "vis": "public",
+        "body": {
+          "ops": [
+            {
+              "op": "ins",
+              "after": {
+                "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                "i": 4
+              },
+              "run": " Bob"
+            }
+          ]
+        }
+      },
+      "signature_hex": "7eb837762621d47c04060e8e697191eca586d4b927c7103256dd0ec43f39b74ff699eaa75170537227f7dd5e4a1d20b56ef435d7615e7925eb53a9b6669e9a0f",
+      "unsigned_cbor_hex": "a96176016274731b0000018bcfe56fd063766973667075626c696364626f6479a1636f707381a3626f7063696e736372756e6420426f62656166746572a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469647072657681783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c706475667877746964726b657964486f6d656474797065783b6261667972346967646269716a6d7636703668616e6e7a7a376c6f36686c6f346672723535346a68336d636b32617633796e70347778357177797566617574686f7278346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b736a636f6c6c656374696f6e707075622e74616e676c65642e70616765"
+    },
+    {
+      "id": "K",
+      "cid": "bafyr4igkra2wmgjbqfrvq5mhgvrzmrfot5juzliq4rqfwdhqs4flz7ec7e",
+      "unsigned": {
+        "v": 1,
+        "type": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+        "collection": "pub.tangled.page",
+        "rkey": "Home",
+        "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "ts": 1700000003000,
+        "prev": [
+          "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+          "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze"
+        ],
+        "vis": "public",
+        "body": {
+          "compact": 1,
+          "frontier": [
+            "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+            "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze"
+          ],
+          "snapshot": {
+            "atoms": [
+              {
+                "id": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 0
+                },
+                "parent": null,
+                "ch": "H",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 1
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 0
+                },
+                "ch": "e",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 2
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 1
+                },
+                "ch": "l",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 3
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 2
+                },
+                "ch": "l",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 4
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 3
+                },
+                "ch": "o",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 0
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 4
+                },
+                "ch": " ",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 1
+                },
+                "parent": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 0
+                },
+                "ch": "A",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 2
+                },
+                "parent": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 1
+                },
+                "ch": "l",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 3
+                },
+                "parent": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 2
+                },
+                "ch": "i",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 4
+                },
+                "parent": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 3
+                },
+                "ch": "c",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 5
+                },
+                "parent": {
+                  "op": "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+                  "i": 4
+                },
+                "ch": "e",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 0
+                },
+                "parent": {
+                  "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                  "i": 4
+                },
+                "ch": " ",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 1
+                },
+                "parent": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 0
+                },
+                "ch": "B",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 2
+                },
+                "parent": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 1
+                },
+                "ch": "o",
+                "del": false
+              },
+              {
+                "id": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 3
+                },
+                "parent": {
+                  "op": "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze",
+                  "i": 2
+                },
+                "ch": "b",
+                "del": false
+              }
+            ],
+            "title": {
+              "value": "Home",
+              "ts": 1700000000000,
+              "cid": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti"
+            },
+            "blob": null
+          }
+        }
+      },
+      "signature_hex": "5a860db24e459dd7ee2d6ccf17008f33a00a68b89a6df6d266441f6cd02f60dc60c0c8778742e5e800acd4fbdca3e599a231f38b9bf7fe408c2d9c791683be08",
+      "unsigned_cbor_hex": "a96176016274731b0000018bcfe573b863766973667075626c696364626f6479a367636f6d70616374016866726f6e7469657282783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a6568736e617073686f74a364626c6f62f66561746f6d738fa46263686148626964a2616900626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696364656cf466706172656e74f6a46263686165626964a2616901626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696364656cf466706172656e74a2616900626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a4626368616c626964a2616902626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696364656cf466706172656e74a2616901626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a4626368616c626964a2616903626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696364656cf466706172656e74a2616902626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a4626368616f626964a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696364656cf466706172656e74a2616903626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a46263686120626964a2616900626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a46263686141626964a2616901626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616900626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971a4626368616c626964a2616902626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616901626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971a46263686169626964a2616903626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616902626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971a46263686163626964a2616904626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616903626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971a46263686165626964a2616905626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e7879617874796769716364656cf466706172656e74a2616904626f70783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971a46263686120626964a2616900626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a656364656cf466706172656e74a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469a46263686142626964a2616901626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a656364656cf466706172656e74a2616900626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a65a4626368616f626964a2616902626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a656364656cf466706172656e74a2616901626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a65a46263686162626964a2616903626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a656364656cf466706172656e74a2616902626f70783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a65657469746c65a36274731b0000018bcfe5680063636964783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c70647566787774696576616c756564486f6d65647072657682783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a6564726b657964486f6d656474797065783b6261667972346967646269716a6d7636703668616e6e7a7a376c6f36686c6f346672723535346a68336d636b32617633796e70347778357177797566617574686f7278346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b736a636f6c6c656374696f6e707075622e74616e676c65642e70616765"
+    },
+    {
+      "id": "L",
+      "cid": "bafyr4igo2nco3h3kdhxwznab6dupvjfx743yahor6cchpsaminsahu33dm",
+      "unsigned": {
+        "v": 1,
+        "type": "bafyr4igdbiqjmv6p6hannzz7lo6hlo4frr554jh3mck2av3ynp4wx5qwyu",
+        "collection": "pub.tangled.page",
+        "rkey": "Home",
+        "author": "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs",
+        "ts": 1700000004000,
+        "prev": [
+          "bafyr4ifwxkwl2iigbpqvhysieqk6esytuiv55nzdws722bgynxyaxtygiq",
+          "bafyr4ihxyom5qil43dp4vmubpdujq6pns4iyg7dakix4tmacsmeibxhqze"
+        ],
+        "vis": "public",
+        "body": {
+          "ops": [
+            {
+              "op": "ins",
+              "after": {
+                "op": "bafyr4ibasdmjcpqvs7i3cgysx6nk2magj2jzwmdpdk2cmh22blpdufxwti",
+                "i": 4
+              },
+              "run": "!"
+            }
+          ]
+        }
+      },
+      "signature_hex": "4a289a7392781bc5c96b5147365c4266b4e64c4b08a62815fcbb835881a2204cf2b68d25b06dfd8e0ca08897c1603d09370c49d5229ff467055664de56e6c701",
+      "unsigned_cbor_hex": "a96176016274731b0000018bcfe577a063766973667075626c696364626f6479a1636f707381a3626f7063696e736372756e6121656166746572a2616904626f70783b62616679723469626173646d6a63707176733769336367797378366e6b326d61676a326a7a776d6470646b32636d683232626c7064756678777469647072657682783b626166797234696677786b776c32696967627071766879736965716b366573797475697635356e7a6477733732326267796e787961787479676971783b626166797234696878796f6d3571696c3433647034766d75627064756a7136706e73346979673764616b697834746d6163736d6569627868717a6564726b657964486f6d656474797065783b6261667972346967646269716a6d7636703668616e6e7a7a376c6f36686c6f346672723535346a68336d636b32617633796e70347778357177797566617574686f7278346469643a736f6c3a3273786b6e797175625770715053726b37486e6377314e797979535851416f586134486562625a5639714b736a636f6c6c656374696f6e707075622e74616e676c65642e70616765"
+    }
+  ],
+  "compact_id": "K",
+  "frontier_ids": [
+    "A",
+    "B"
+  ],
+  "late_id": "L",
+  "concurrent_with_compact": true,
+  "stale_vs_extra_ops": [
+    "L"
+  ],
+  "apply_compact_only": {
+    "title": "Home",
+    "text": "Hello Bob Alice",
+    "blob": null
+  },
+  "apply_history": {
+    "title": "Home",
+    "text": "Hello Bob Alice",
+    "blob": null
+  },
+  "apply_compact_plus_late": {
+    "title": "Home",
+    "text": "Hello Bob! Alice",
+    "blob": null
+  },
+  "apply_late_plus_compact": {
+    "title": "Home",
+    "text": "Hello Bob! Alice",
+    "blob": null
+  },
+  "apply_full_history_plus_late": {
+    "title": "Home",
+    "text": "Hello Bob! Alice",
+    "blob": null
+  },
+  "orders": [
+    {
+      "order": [
+        "K"
+      ],
+      "live": {
+        "title": "Home",
+        "text": "Hello Bob Alice",
+        "blob": null
+      }
+    },
+    {
+      "order": [
+        "K",
+        "L"
+      ],
+      "live": {
+        "title": "Home",
+        "text": "Hello Bob! Alice",
+        "blob": null
+      }
+    },
+    {
+      "order": [
+        "L",
+        "K"
+      ],
+      "live": {
+        "title": "Home",
+        "text": "Hello Bob! Alice",
+        "blob": null
+      }
+    },
+    {
+      "order": [
+        "R0",
+        "A",
+        "B",
+        "L"
+      ],
+      "live": {
+        "title": "Home",
+        "text": "Hello Bob! Alice",
+        "blob": null
+      }
+    }
+  ],
+  "live": {
+    "title": "Home",
+    "text": "Hello Bob! Alice",
+    "blob": null
+  },
+  "converges": true,
+  "sibling_rule": "atom-id descending (multibase base32 CID text, then i)"
+}

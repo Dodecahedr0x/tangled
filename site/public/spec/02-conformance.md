@@ -65,8 +65,10 @@ An implementation claiming a profile MUST pass the vectors in `spec/vectors/` th
 | `binding-nostr.json` | `gateway.nostr` or any client that consumes bindings |
 | `circle-read-auth.json` | `knot.group`, `knot.sealed`, `client.verify` |
 | `getblob-auth.json` | `knot.public`, `knot.cap`, `knot.sealed` |
+| `page-crdt-concurrent.json` | `client.verify`; any client that materializes `pub.tangled.page` |
+| `page-crdt-compact.json` | `client.verify`; any client that materializes `pub.tangled.page` |
 
-Passing means: given the inputs, the implementation produces the stated digests, accepts the stated signatures, and rejects the stated negative cases.
+Passing means: given the inputs, the implementation produces the stated digests, accepts the stated signatures, and rejects the stated negative cases. For `page-crdt-concurrent.json`, it also means both listed apply orders produce the stated `live` value. For `page-crdt-compact.json`, it also means Apply(compact) equals Apply(history), the late op is concurrent with the compact, and Apply(compact, late) equals Apply(history, late) in both listed orders.
 
 ## Extensibility
 

@@ -26,7 +26,7 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | CBOR | Concise Binary Object Representation | Binary encoding. Tangled uses DAG-CBOR, the canonical IPLD profile of CBOR. | [Data model](./06-data-model.md) |
 | CDDL | Concise Data Definition Language | Schema language for CBOR types in `spec/cddl/`. | [Data model](./06-data-model.md) |
 | CID | Content Identifier | CIDv1 naming a DAG-CBOR block hashed with BLAKE3-256. | [Data model](./06-data-model.md) |
-| CRDT | Conflict-free Replicated Data Type | Not used in version 1. Concurrent same-key writes use Last-ts-wins among causal heads, with optional merge records. | [Data model](./06-data-model.md) |
+| CRDT | Conflict-free Replicated Data Type | Version 1 uses a specified CRDT for `pub.tangled.page` (Replicated Growable Array (RGA) text, Last-Writer-Wins (LWW) register title and blob, plus signed compaction). Other core collections use Last-ts-wins among causal heads. | [Data model](./06-data-model.md) |
 | DAG | Directed Acyclic Graph | IPLD linking: blocks point at other blocks by CID. Repositories are DAGs. | [Repositories](./07-repositories.md) |
 | DAG-CBOR | DAG profile of CBOR | Canonical CBOR used on the wire and as the input to BLAKE3. | [Cryptography](./05-cryptography.md) |
 | DHKEM | Diffie–Hellman Key Encapsulation Mechanism | HPKE KEM. Tangled uses DHKEM(X25519, HKDF-SHA256). | [Cryptography](./05-cryptography.md) |
@@ -45,14 +45,18 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | IRI | Internationalized Resource Identifier | RFC 3987. ActivityPub object `id` values are IRIs; the canonical `foreign_id` for `activitypub` is that `id`. | [Interoperability](./16-interoperability.md) |
 | JSON | JavaScript Object Notation | Debug and HTTP mapping of DAG-CBOR. Not canonical for hashing. | [Data model](./06-data-model.md) |
 | JWT | JSON Web Token | Not used. Capabilities are DAG-CBOR UCAN-profile certificates, not JWTs. | [Capabilities](./09-capabilities.md) |
+| LWW | Last-Writer-Wins | Per-path register in the page CRDT (`title`, `blob`): later record `ts` wins; CID tie-break. Distinct from Last-ts-wins, which picks a whole record. | [Data model](./06-data-model.md) |
 | KEM | Key Encapsulation Mechanism | HPKE primitive. See DHKEM. | [Cryptography](./05-cryptography.md) |
 | MLS | Messaging Layer Security | RFC 9420. Large-group distributor of the circle epoch secret. Version 1 required for group-capable implementations. | [Circles](./10-circles.md) |
 | MST | Merkle Search Tree | Ordered Merkle tree keyed by `collection/rkey`. Repository data structure. | [Repositories](./07-repositories.md) |
+| NFC | Normalization Form Canonical Composition | Unicode normalization. Page CRDT `run` values MUST NOT be NFC-normalized before splitting into scalars. | [Data model](./06-data-model.md) |
 | NIP | Nostr Implementation Possibility | Nostr extension documents. Cited where Tangled maps kinds. | [Interoperability](./16-interoperability.md) |
 | OpenAPI | OpenAPI Specification | Machine-readable HTTP API in `spec/http/openapi.yaml`. | [HTTP API](./12-http-api.md) |
+| OR-Set | Observed-Remove Set | Set CRDT in which a remove observes specific adds. Not used as a collection merge class in v1 (album `items` stay Last-ts-wins). | [Data model](./06-data-model.md) |
 | PDS | Personal Data Server | AT Protocol name for a user host. A Tangled knot is the analogous unit, not a PDS. | [Comparison](./19-comparison.md) |
 | PLC | Public Ledger of Credentials | AT Protocol DID method (`did:plc`) and its directory. Tangled does not use PLC. | [Identifiers](./04-identifiers.md) |
 | RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420. | [Conformance](./02-conformance.md) |
+| RGA | Replicated Growable Array | List CRDT used for `pub.tangled.page` text. Insert after an atom id; concurrent siblings order by atom-id descending. A compact snapshot keeps original atom ids so concurrent ops still parent. | [Data model](./06-data-model.md) |
 | RPC | Remote Procedure Call | Knot methods are HTTP RPCs in the `tangled.*` namespace. | [HTTP API](./12-http-api.md) |
 | S2S | Server-to-Server | ActivityPub federation. A gateway MAY speak S2S. | [Interoperability](./16-interoperability.md) |
 | SHA-256 | Secure Hash Algorithm 256-bit | Used inside HKDF-SHA256 and MLS. Not the content hash (that is BLAKE3). | [Cryptography](./05-cryptography.md) |
@@ -73,7 +77,7 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | YAML | YAML Ain’t Markup Language | Translation tables in `spec/interop/`. | [Interoperability](./16-interoperability.md) |
 | BIP | Bitcoin Improvement Proposal | BIP-340 is the Schnorr signature used on Nostr bindings. | [Interoperability](./16-interoperability.md) |
 | CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open. Authorized methods MUST NOT use `*`. | [HTTP API](./12-http-api.md) |
-| GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. | [Data model](./06-data-model.md) |
+| GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. Page compact-GC MAY omit pre-compact op blocks once every live head descends from the compact. | [Data model](./06-data-model.md) |
 | QR | Quick Response code | Out-of-band way to learn a knot URL. | [Resolution](./13-resolution.md) |
 | UI | User Interface | Clients MUST NOT expose HPKE vs MLS in UI. | [Circles](./10-circles.md) |
 | WebCrypto | Web Cryptography API | Browsers MAY keep device keys non-extractable. | [Migration](./17-migration.md) |
@@ -98,6 +102,8 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Collection.** A named prefix in a repository, written as a reverse-DNS type such as `pub.tangled.post` or `sys/id`.
 
+**Compact.** A signed `pub.tangled.page` record whose body is a snapshot of the live Replicated Growable Array (RGA) and Last-Writer-Wins (LWW) registers plus a frontier of included op CIDs. Not a tombstone. Last-ts-wins collections do not compact in version 1.
+
 **Commit.** A signed snapshot of a repository: DID, MST root CID, revision, previous commit CID, Solana signature.
 
 **Device key.** A Solana keypair that is not the identity key, authorized by a capability to sign on behalf of the identity for a limited command set.
@@ -111,6 +117,8 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 **Fiber.** Informal name for a capability. Normative text says **capability**.
 
 **Foreign binding.** A `sys/binding` record that proves a Tangled identity controls (or is attested as) an identity on another network.
+
+**Frontier.** On a page compact, the set of same-key record CIDs that are the causal heads of the folded prefix. Envelope `prev` MUST be that set. Ops not in the prev-closure of the frontier are concurrent with the compact.
 
 **Gateway.** A knot that also speaks a foreign protocol and stores translations as `sys/foreign` envelopes.
 
@@ -130,11 +138,13 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Label.** A signed record asserting a classification of another record or DID. Clients compose labelers. Knots are not the moderation authority.
 
-**Last-ts-wins.** Version 1 merge rule: among same-key causal heads, later `ts` is live; CID tie-break. A merge record lists concurrent heads in `prev`. Not a CRDT.
+**Last-ts-wins.** Merge class for most collections: among same-key causal heads, later `ts` is the live record; CID tie-break. A merge record lists concurrent heads in `prev`. Distinct from the page CRDT, which applies every uncovered op in the apply set (and compact snapshots). Last-ts-wins collections do not compact in version 1.
 
 **Loom.** Optional indexer of public heads. Not in the Trusted Computing Base (TCB).
 
 **Membership grant.** A `circle/read` capability the circle owner issues to a member DID. Revoked on remove. Independent of knot URL.
+
+**Op-id.** Identifier of a CRDT operation. For `pub.tangled.page`, the op-id is the signed record’s CID. Atoms inside an insert are `(op-id, i)`. A compact does not mint new atom ids.
 
 **Record.** A typed, content-addressed object signed by a Solana key, stored in a repository.
 
@@ -144,7 +154,9 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Sealed.** Visibility class: the body is ciphertext. The knot stores opaque bytes.
 
-**Shared-repo pattern.** A dedicated circle DID owns an MST; members hold `repo/write` capabilities and sign as device keys (`author` is the circle DID). The hosting knot signs commits. Used for wikis and datasets.
+**Shared-repo pattern.** A dedicated circle DID owns an MST; members hold `repo/write` capabilities and sign as device keys (`author` is the circle DID). The hosting knot signs commits. Used for wikis and datasets. Any such writer MAY compact a page.
+
+**Snapshot.** In page compaction, the RGA atom table (original atom ids, parents, scalars, delete flags) and LWW register candidates (`ts`, CID, value) obtained by applying the included set. Distinct from a repository commit snapshot.
 
 **Strand.** Informal name for a repository. Normative text says **repo**.
 

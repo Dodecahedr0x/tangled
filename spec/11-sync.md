@@ -42,9 +42,9 @@ Knots advertising `knot.public` MUST implement this method for publicly referenc
 
 `GET /xrpc/tangled.sync.getRepo?did=&since=`
 
-Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`.
+Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, once a compact is a Garbage Collection (GC) root ([Data model](./06-data-model.md#compaction)), the CAR MAY omit pre-compact op blocks in that compact’s included set. It MUST still include the compact record. If `since` already contains the compact and head descends from it, the diff is only later records. Clients MUST NOT treat dangling compact `prev` CIDs as a broken export after compact-GC.
 
-Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections.
+Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. Compact-GC omissions follow the same rule as `getRepo`.
 
 ## Notify (optional)
 

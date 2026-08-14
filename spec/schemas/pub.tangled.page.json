@@ -2,12 +2,169 @@
   "$id": "https://tangled.protocol/schemas/pub.tangled.page.json",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "pub.tangled.page",
-  "description": "Wiki page body. Envelope rkey is the slug: segments [A-Za-z0-9_~:!-]+ joined by '.' as the path separator. Clients MUST display a.b as a/b. No percent-encoding; '/' is forbidden in rkey.",
-  "type": "object",
-  "required": ["title"],
-  "properties": {
-    "title": { "type": "string", "maxLength": 512 },
-    "text": { "type": "string" },
-    "blob": { "type": "string", "description": "Canonical page body CID when the text does not fit in the record" }
+  "description": "Wiki page CRDT body. Envelope rkey is the slug: segments [A-Za-z0-9_~:!-]+ joined by '.' as the path separator. Clients MUST display a.b as a/b. No percent-encoding; '/' is forbidden in rkey. Live title/text are computed from incremental ops (LWW registers + RGA) or from a compact snapshot plus uncovered ops. Op-id is the signed record CID.",
+  "oneOf": [
+    { "$ref": "#/$defs/opsBody" },
+    { "$ref": "#/$defs/compactBody" }
+  ],
+  "$defs": {
+    "atomId": {
+      "type": "object",
+      "required": ["i"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Record CID that created the atom. Omit to mean this record."
+        },
+        "i": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "0-based Unicode scalar index among atoms created by that record"
+        }
+      }
+    },
+    "snapshotAtomId": {
+      "type": "object",
+      "required": ["op", "i"],
+      "additionalProperties": false,
+      "properties": {
+        "op": {
+          "type": "string",
+          "description": "Creating record CID. Required in snapshots; never means this compact."
+        },
+        "i": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "pageOp": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["op", "after", "run"],
+          "additionalProperties": false,
+          "properties": {
+            "op": { "const": "ins" },
+            "after": {
+              "anyOf": [{ "$ref": "#/$defs/atomId" }, { "type": "null" }]
+            },
+            "run": {
+              "type": "string",
+              "minLength": 1,
+              "description": "UTF-8; split into Unicode scalars. MUST NOT NFC-normalize."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["op", "ids"],
+          "additionalProperties": false,
+          "properties": {
+            "op": { "const": "del" },
+            "ids": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/atomId" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["op", "path", "value"],
+          "additionalProperties": false,
+          "properties": {
+            "op": { "const": "lww" },
+            "path": { "enum": ["title", "blob"] },
+            "value": {
+              "type": ["string", "null"],
+              "description": "title: text (empty allowed, not null). blob: CID string or null to clear."
+            }
+          }
+        }
+      ]
+    },
+    "opsBody": {
+      "type": "object",
+      "required": ["ops"],
+      "additionalProperties": false,
+      "properties": {
+        "ops": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pageOp" }
+        }
+      }
+    },
+    "lwwSnap": {
+      "type": "object",
+      "required": ["value", "ts", "cid"],
+      "additionalProperties": false,
+      "properties": {
+        "value": {
+          "type": ["string", "null"],
+          "description": "title: text, not null. blob: CID string or null to clear."
+        },
+        "ts": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Winning record ts, not the compact’s ts."
+        },
+        "cid": {
+          "type": "string",
+          "description": "Winning record CID."
+        }
+      }
+    },
+    "snapshotAtom": {
+      "type": "object",
+      "required": ["id", "parent", "ch", "del"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/snapshotAtomId" },
+        "parent": {
+          "anyOf": [{ "$ref": "#/$defs/snapshotAtomId" }, { "type": "null" }]
+        },
+        "ch": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exactly one Unicode scalar."
+        },
+        "del": { "type": "boolean" }
+      }
+    },
+    "pageSnapshot": {
+      "type": "object",
+      "required": ["atoms", "title", "blob"],
+      "additionalProperties": false,
+      "properties": {
+        "atoms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/snapshotAtom" }
+        },
+        "title": { "$ref": "#/$defs/lwwSnap" },
+        "blob": {
+          "anyOf": [{ "$ref": "#/$defs/lwwSnap" }, { "type": "null" }]
+        }
+      }
+    },
+    "compactBody": {
+      "type": "object",
+      "required": ["compact", "frontier", "snapshot"],
+      "additionalProperties": false,
+      "properties": {
+        "compact": {
+          "const": 1,
+          "description": "Compact body version."
+        },
+        "frontier": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" },
+          "description": "Causal heads of the folded prefix; same set as envelope prev. Sorted lexicographically as multibase base32 CID text."
+        },
+        "snapshot": { "$ref": "#/$defs/pageSnapshot" }
+      }
+    }
   }
 }

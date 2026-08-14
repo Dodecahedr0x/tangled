@@ -65,6 +65,21 @@ Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Atta
 | Knot downtime | Replicas, CAR export, client cache | If nobody replicated and the operator has no CAR, data is gone |
 | Blob withholding | CID mismatch detected; replica | Same as knot downtime for those bytes |
 
+## CRDT operations
+
+A Conflict-free Replicated Data Type (CRDT) op is a signed record. There is no unsigned op gossip.
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Concurrent wiki writes silently drop a head | Page CRDT applies every signed op in the apply set (and compact snapshots); `ConcurrentHeads` on `putRecord` if the new record would orphan the Merkle Search Tree (MST) tip | Two disconnected replicas of the same Decentralized Identifier (DID) can each accept a different tip until a client pulls both and writes a merge `prev` |
+| Malicious collaborator inflates the op log (tiny inserts, spam tombstones) | `PAGE_TEXT_MAX_SCALARS` (1 048 576) and `PAGE_RGA_MAX_ATOMS` (4 194 304); refuse to materialize over-bound pages; knot `RateLimited` | Live Replicated Growable Array (RGA) still holds tombstoned atoms; compaction shrinks the record apply set, not the atom cap |
+| Compact omits a concurrent op | Snapshot MUST equal Apply of the included set; extra ops concurrent with the frontier are merged on top; reader detects stale vs invalid as in [Data model](./06-data-model.md#compaction) | A replica that never sees the extra op materializes without it until it pulls the replica that has it |
+| Compact spam (tiny or empty folds) | `PAGE_COMPACT_MIN_OPS` (32) and `PAGE_COMPACT_MIN_INTERVAL_MS` (300 000); knot `RateLimited`; `repo/write` required | 32 new ops plus interval still let a writer publish large snapshots |
+| Knot GC of pre-compact blocks too early | Compact-GC only when every local causal head descends from the compact; the compact record stays in the MST `prev`-closure | A replica that has not merged still needs another pull for concurrent heads; dangling `prev` after a valid GC-root is required |
+| Forged op | Each op is a signed Tangled record; unsigned gossip is not a transport; a compact is the same | Stolen `repo/write` on the shared-repo DID can compact a lie if verifiers have dropped `I(C)` |
+| Client displays a writer buffer instead of apply set `S` | Page bodies are incremental ops or a compact snapshot; clients MUST apply the CRDT (RGA text, Last-Writer-Wins (LWW) title/blob, compact union) | Non-conforming clients diverge |
+| Tombstone used to hide a concurrent edit | CRDT delete is live only when every causal head is a tombstone; compact MUST NOT be emitted when every head is a tombstone | A writer who omits a head from `prev` does not delete that head’s ops |
+
 ## Out of scope
 
 - Traffic analysis of who pulls which DID (use Tor or equivalent if needed)

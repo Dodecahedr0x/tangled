@@ -1,0 +1,64 @@
+; pub.tangled.page body. Op-id is the enclosing record CID (not in this map).
+; Incremental ops-body or a compact snapshot at a frontier.
+
+cid-text = tstr   ; multibase base32 in JSON; tag(42) CID on the wire
+
+atom-id = {
+  ? op: cid-text,
+  i: uint
+}
+
+ins-op = {
+  op: "ins",
+  after: atom-id / null,
+  run: tstr
+}
+
+del-op = {
+  op: "del",
+  ids: [+ atom-id]
+}
+
+lww-op = {
+  op: "lww",
+  path: "title" / "blob",
+  value: tstr / null
+}
+
+page-op = ins-op / del-op / lww-op
+
+ops-body = {
+  ops: [* page-op]
+}
+
+snapshot-atom-id = {
+  op: cid-text,
+  i: uint
+}
+
+snapshot-atom = {
+  id: snapshot-atom-id,
+  parent: snapshot-atom-id / null,
+  ch: tstr,
+  del: bool
+}
+
+lww-snap = {
+  value: tstr / null,
+  ts: uint,
+  cid: cid-text
+}
+
+page-snapshot = {
+  atoms: [* snapshot-atom],
+  title: lww-snap,
+  blob: lww-snap / null
+}
+
+compact-body = {
+  compact: 1,
+  frontier: [+ cid-text],
+  snapshot: page-snapshot
+}
+
+page-body = ops-body / compact-body

@@ -56,15 +56,15 @@ Actors are named. Identifiers are abbreviated (`did:sol:A…`). There is no live
 
 **Actors.** Owner O creates circle DID `did:sol:W…` (dedicated key) hosted on O’s knot. Collaborators C1, C2.
 
-**Records.** Circle definition as in use case 2. Wiki pages: `pub.tangled.page` in **W’s** Merkle Search Tree (MST), rkey = slug (`Home`, `rfc.draft` displayed as `rfc/draft`). Dataset rows: application collection plus blobs. Concurrent edits: **Last-ts-wins among causal heads**; a record whose `prev` lists both concurrent heads is a merge record ([Data model](./06-data-model.md#merge-rule-last-ts-wins)). Slugs MUST NOT contain `/`; `.` is the nested-page separator ([Data model](./06-data-model.md#page-slugs)).
+**Records.** Circle definition as in use case 2. Wiki pages: `pub.tangled.page` in **W’s** Merkle Search Tree (MST), rkey = slug (`Home`, `rfc.draft` displayed as `rfc/draft`). Dataset rows: application collection plus blobs. Concurrent page edits: Conflict-free Replicated Data Type (CRDT) — Replicated Growable Array (RGA) on `text`, Last-Writer-Wins (LWW) registers on `title` and `blob`. Two writers who have not seen each other both keep their inserts; apply order does not pick a whole-page winner. A later compact is a signed snapshot of that apply at a frontier of included op CIDs; a late op concurrent with the compact still applies on top ([Data model](./06-data-model.md#page-crdt), [Compaction](./06-data-model.md#compaction)). Posts and annotations stay Last-ts-wins and do not compact. Slugs MUST NOT contain `/`; `.` is the nested-page separator ([Data model](./06-data-model.md#page-slugs)).
 
 **Vis / caps.** Typical wiki: `vis: cap` (host may search). Confidential wiki: `vis: sealed` + envelope `circle` + epoch Authenticated Encryption with Associated Data (AEAD). O issues to each collaborator: `repo/read` + `repo/write` + `blob/*` attenuated to `tangled://did:sol:W…/pub.tangled.page` (and blob prefix), plus `circle/read` if sealed. Writers sign records with their device key; `author` is `did:sol:W…`; `signedBy` + `proof` required. The knot signs **commits** with a device key of W ([Circles](./10-circles.md#shared-repo-pattern)).
 
 **Sync.** One `subscribe` on W. Not N member pulls.
 
-**Failure / threat.** `vis: cap` means O’s knot operator can read plaintext — that is the point of this class. Stolen collaborator cap: revoke, epoch-advance if sealed. The circle identity key is another secret O must hold; collaborators cannot rotate W.
+**Failure / threat.** `vis: cap` means O’s knot operator can read plaintext — that is the point of this class. Stolen collaborator cap: revoke, epoch-advance if sealed. The circle identity key is another secret O must hold; collaborators cannot rotate W. Compact spam is knot-rate-limited. A compact that missed a concurrent edit is stale: clients that have the extra op merge it; they do not drop it.
 
-**Coverage.** Shared-repo pattern, commit signing, `author`/`signedBy`, page schema, Last-ts-wins, nested slugs. No Conflict-free Replicated Data Type (CRDT).
+**Coverage.** Shared-repo pattern, commit signing, `author`/`signedBy`, page CRDT, compaction, nested slugs. Last-ts-wins remains for posts, annotations, and graph keys.
 
 ## 5. Cross-network import, export, dual-publish
 

@@ -83,7 +83,7 @@ Knots advertising `knot.public` MUST implement `tangled.sync.getRecord` returnin
 
 A repository export is a Content Addressable aRchive (CAR) v1 whose roots are `[commit CID]` and whose blocks are: the commit, every MST node, every record, and optionally blobs. The header `roots` MUST be the commit CID.
 
-Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed).
+Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed). A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), except that for `pub.tangled.page` a knot MAY omit records in the included set of a Garbage Collection (GC) root compact as specified in [Compaction](./06-data-model.md#compaction). The compact record itself MUST remain so the pull still proves its inclusion.
 
 ## Sealed collections in the MST
 

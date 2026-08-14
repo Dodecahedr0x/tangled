@@ -34,8 +34,9 @@ JSON/CBOR map:
 | `MethodNotImplemented` | 404 | Unknown `tangled.*` method on a Tangled knot |
 | `ProfileRequired` | 501 | Method needs a profile the knot omitted |
 | `BlobTooLarge` | 413 | |
-| `RateLimited` | 429 | |
+| `RateLimited` | 429 | Including page compact admission (`PAGE_COMPACT_MIN_OPS`, `PAGE_COMPACT_MIN_INTERVAL_MS`) |
 | `Unavailable` | 503 | |
+| `ConcurrentHeads` | 409 | Conflict-free Replicated Data Type (CRDT) `putRecord` would orphan the current Merkle Search Tree (MST) value; body includes `head` |
 
 ## Methods
 
@@ -81,7 +82,7 @@ JSON/CBOR map:
 
 ### tangled.repo.putRecord
 
-`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for.
+`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for. For CRDT collections, a write that would orphan the current MST value MUST return `ConcurrentHeads` ([Data model](./06-data-model.md#page-crdt)). A page compact that fails `PAGE_COMPACT_MIN_OPS` or `PAGE_COMPACT_MIN_INTERVAL_MS` MUST return `RateLimited` ([Data model](./06-data-model.md#compaction)).
 
 ### tangled.repo.putBlob
 

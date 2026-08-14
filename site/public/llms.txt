@@ -108,7 +108,7 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | CBOR | Concise Binary Object Representation | Binary encoding. Tangled uses DAG-CBOR, the canonical IPLD profile of CBOR. | [Data model](./06-data-model.md) |
 | CDDL | Concise Data Definition Language | Schema language for CBOR types in `spec/cddl/`. | [Data model](./06-data-model.md) |
 | CID | Content Identifier | CIDv1 naming a DAG-CBOR block hashed with BLAKE3-256. | [Data model](./06-data-model.md) |
-| CRDT | Conflict-free Replicated Data Type | Not used in version 1. Concurrent same-key writes use Last-ts-wins among causal heads, with optional merge records. | [Data model](./06-data-model.md) |
+| CRDT | Conflict-free Replicated Data Type | Version 1 uses a specified CRDT for `pub.tangled.page` (Replicated Growable Array (RGA) text, Last-Writer-Wins (LWW) register title and blob, plus signed compaction). Other core collections use Last-ts-wins among causal heads. | [Data model](./06-data-model.md) |
 | DAG | Directed Acyclic Graph | IPLD linking: blocks point at other blocks by CID. Repositories are DAGs. | [Repositories](./07-repositories.md) |
 | DAG-CBOR | DAG profile of CBOR | Canonical CBOR used on the wire and as the input to BLAKE3. | [Cryptography](./05-cryptography.md) |
 | DHKEM | Diffie–Hellman Key Encapsulation Mechanism | HPKE KEM. Tangled uses DHKEM(X25519, HKDF-SHA256). | [Cryptography](./05-cryptography.md) |
@@ -127,14 +127,18 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | IRI | Internationalized Resource Identifier | RFC 3987. ActivityPub object `id` values are IRIs; the canonical `foreign_id` for `activitypub` is that `id`. | [Interoperability](./16-interoperability.md) |
 | JSON | JavaScript Object Notation | Debug and HTTP mapping of DAG-CBOR. Not canonical for hashing. | [Data model](./06-data-model.md) |
 | JWT | JSON Web Token | Not used. Capabilities are DAG-CBOR UCAN-profile certificates, not JWTs. | [Capabilities](./09-capabilities.md) |
+| LWW | Last-Writer-Wins | Per-path register in the page CRDT (`title`, `blob`): later record `ts` wins; CID tie-break. Distinct from Last-ts-wins, which picks a whole record. | [Data model](./06-data-model.md) |
 | KEM | Key Encapsulation Mechanism | HPKE primitive. See DHKEM. | [Cryptography](./05-cryptography.md) |
 | MLS | Messaging Layer Security | RFC 9420. Large-group distributor of the circle epoch secret. Version 1 required for group-capable implementations. | [Circles](./10-circles.md) |
 | MST | Merkle Search Tree | Ordered Merkle tree keyed by `collection/rkey`. Repository data structure. | [Repositories](./07-repositories.md) |
+| NFC | Normalization Form Canonical Composition | Unicode normalization. Page CRDT `run` values MUST NOT be NFC-normalized before splitting into scalars. | [Data model](./06-data-model.md) |
 | NIP | Nostr Implementation Possibility | Nostr extension documents. Cited where Tangled maps kinds. | [Interoperability](./16-interoperability.md) |
 | OpenAPI | OpenAPI Specification | Machine-readable HTTP API in `spec/http/openapi.yaml`. | [HTTP API](./12-http-api.md) |
+| OR-Set | Observed-Remove Set | Set CRDT in which a remove observes specific adds. Not used as a collection merge class in v1 (album `items` stay Last-ts-wins). | [Data model](./06-data-model.md) |
 | PDS | Personal Data Server | AT Protocol name for a user host. A Tangled knot is the analogous unit, not a PDS. | [Comparison](./19-comparison.md) |
 | PLC | Public Ledger of Credentials | AT Protocol DID method (`did:plc`) and its directory. Tangled does not use PLC. | [Identifiers](./04-identifiers.md) |
 | RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420. | [Conformance](./02-conformance.md) |
+| RGA | Replicated Growable Array | List CRDT used for `pub.tangled.page` text. Insert after an atom id; concurrent siblings order by atom-id descending. A compact snapshot keeps original atom ids so concurrent ops still parent. | [Data model](./06-data-model.md) |
 | RPC | Remote Procedure Call | Knot methods are HTTP RPCs in the `tangled.*` namespace. | [HTTP API](./12-http-api.md) |
 | S2S | Server-to-Server | ActivityPub federation. A gateway MAY speak S2S. | [Interoperability](./16-interoperability.md) |
 | SHA-256 | Secure Hash Algorithm 256-bit | Used inside HKDF-SHA256 and MLS. Not the content hash (that is BLAKE3). | [Cryptography](./05-cryptography.md) |
@@ -155,7 +159,7 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | YAML | YAML Ain’t Markup Language | Translation tables in `spec/interop/`. | [Interoperability](./16-interoperability.md) |
 | BIP | Bitcoin Improvement Proposal | BIP-340 is the Schnorr signature used on Nostr bindings. | [Interoperability](./16-interoperability.md) |
 | CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open. Authorized methods MUST NOT use `*`. | [HTTP API](./12-http-api.md) |
-| GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. | [Data model](./06-data-model.md) |
+| GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. Page compact-GC MAY omit pre-compact op blocks once every live head descends from the compact. | [Data model](./06-data-model.md) |
 | QR | Quick Response code | Out-of-band way to learn a knot URL. | [Resolution](./13-resolution.md) |
 | UI | User Interface | Clients MUST NOT expose HPKE vs MLS in UI. | [Circles](./10-circles.md) |
 | WebCrypto | Web Cryptography API | Browsers MAY keep device keys non-extractable. | [Migration](./17-migration.md) |
@@ -180,6 +184,8 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Collection.** A named prefix in a repository, written as a reverse-DNS type such as `pub.tangled.post` or `sys/id`.
 
+**Compact.** A signed `pub.tangled.page` record whose body is a snapshot of the live Replicated Growable Array (RGA) and Last-Writer-Wins (LWW) registers plus a frontier of included op CIDs. Not a tombstone. Last-ts-wins collections do not compact in version 1.
+
 **Commit.** A signed snapshot of a repository: DID, MST root CID, revision, previous commit CID, Solana signature.
 
 **Device key.** A Solana keypair that is not the identity key, authorized by a capability to sign on behalf of the identity for a limited command set.
@@ -193,6 +199,8 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 **Fiber.** Informal name for a capability. Normative text says **capability**.
 
 **Foreign binding.** A `sys/binding` record that proves a Tangled identity controls (or is attested as) an identity on another network.
+
+**Frontier.** On a page compact, the set of same-key record CIDs that are the causal heads of the folded prefix. Envelope `prev` MUST be that set. Ops not in the prev-closure of the frontier are concurrent with the compact.
 
 **Gateway.** A knot that also speaks a foreign protocol and stores translations as `sys/foreign` envelopes.
 
@@ -212,11 +220,13 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Label.** A signed record asserting a classification of another record or DID. Clients compose labelers. Knots are not the moderation authority.
 
-**Last-ts-wins.** Version 1 merge rule: among same-key causal heads, later `ts` is live; CID tie-break. A merge record lists concurrent heads in `prev`. Not a CRDT.
+**Last-ts-wins.** Merge class for most collections: among same-key causal heads, later `ts` is the live record; CID tie-break. A merge record lists concurrent heads in `prev`. Distinct from the page CRDT, which applies every uncovered op in the apply set (and compact snapshots). Last-ts-wins collections do not compact in version 1.
 
 **Loom.** Optional indexer of public heads. Not in the Trusted Computing Base (TCB).
 
 **Membership grant.** A `circle/read` capability the circle owner issues to a member DID. Revoked on remove. Independent of knot URL.
+
+**Op-id.** Identifier of a CRDT operation. For `pub.tangled.page`, the op-id is the signed record’s CID. Atoms inside an insert are `(op-id, i)`. A compact does not mint new atom ids.
 
 **Record.** A typed, content-addressed object signed by a Solana key, stored in a repository.
 
@@ -226,7 +236,9 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Sealed.** Visibility class: the body is ciphertext. The knot stores opaque bytes.
 
-**Shared-repo pattern.** A dedicated circle DID owns an MST; members hold `repo/write` capabilities and sign as device keys (`author` is the circle DID). The hosting knot signs commits. Used for wikis and datasets.
+**Shared-repo pattern.** A dedicated circle DID owns an MST; members hold `repo/write` capabilities and sign as device keys (`author` is the circle DID). The hosting knot signs commits. Used for wikis and datasets. Any such writer MAY compact a page.
+
+**Snapshot.** In page compaction, the RGA atom table (original atom ids, parents, scalars, delete flags) and LWW register candidates (`ts`, CID, value) obtained by applying the included set. Distinct from a repository commit snapshot.
 
 **Strand.** Informal name for a repository. Normative text says **repo**.
 
@@ -314,8 +326,10 @@ An implementation claiming a profile MUST pass the vectors in `spec/vectors/` th
 | `binding-nostr.json` | `gateway.nostr` or any client that consumes bindings |
 | `circle-read-auth.json` | `knot.group`, `knot.sealed`, `client.verify` |
 | `getblob-auth.json` | `knot.public`, `knot.cap`, `knot.sealed` |
+| `page-crdt-concurrent.json` | `client.verify`; any client that materializes `pub.tangled.page` |
+| `page-crdt-compact.json` | `client.verify`; any client that materializes `pub.tangled.page` |
 
-Passing means: given the inputs, the implementation produces the stated digests, accepts the stated signatures, and rejects the stated negative cases.
+Passing means: given the inputs, the implementation produces the stated digests, accepts the stated signatures, and rejects the stated negative cases. For `page-crdt-concurrent.json`, it also means both listed apply orders produce the stated `live` value. For `page-crdt-compact.json`, it also means Apply(compact) equals Apply(history), the late op is concurrent with the compact, and Apply(compact, late) equals Apply(history, late) in both listed orders.
 
 ## Extensibility
 
@@ -741,7 +755,7 @@ Record v1 = {
 
 `rkey` MUST match `[A-Za-z0-9._~:!-]{1,256}`. A timestamp identifier (TID) is RECOMMENDED: 13-character Crockford base32 of `(unix_micros << 10) | entropy10`. Nested wiki slugs for `pub.tangled.page` are specified in [Page slugs](#page-slugs).
 
-`prev` lists CIDs of **same-key** causal parents: records that share this record’s `(author, collection, rkey)`. Empty means a root. Cross-record replies and annotations MUST use envelope `ref` (and MAY repeat the target in the application body as `reply`); they MUST NOT use `prev` for a different rkey. Concurrent writes are resolved by **Last-ts-wins among causal heads** ([Merge rule](#merge-rule-last-ts-wins)).
+`prev` lists CIDs of **same-key** causal parents: records that share this record’s `(author, collection, rkey)`. Empty means a root. Cross-record replies and annotations MUST use envelope `ref` (and MAY repeat the target in the application body as `reply`); they MUST NOT use `prev` for a different rkey. Same-key concurrent writes use the collection’s merge class ([Merge rules](#merge-rules)). For Conflict-free Replicated Data Type (CRDT) collections, the record Content Identifier (CID) is the operation id.
 
 `signedBy` and `proof` are REQUIRED when the signer is a device key. They MUST be absent when the identity key signs.
 
@@ -833,23 +847,168 @@ Informative, fully specified in `spec/schemas/`:
 | `pub.tangled.annotation` | `text`, optional `quote` span, optional `media`; envelope `ref` MUST be the target record CID |
 | `pub.tangled.media` | `blob`, `alt`, `mime` |
 | `pub.tangled.album` | `title`, `items` (CIDs of `pub.tangled.media` records) |
-| `pub.tangled.page` | wiki page: `title`, `text` and/or `blob`; rkey is the slug encoded as in [Page slugs](#page-slugs) |
+| `pub.tangled.page` | wiki page CRDT: incremental `ops` (Last-Writer-Wins (LWW) `title`/`blob`, Replicated Growable Array (RGA) `text`) or a signed **compact** (snapshot + frontier); rkey is the slug encoded as in [Page slugs](#page-slugs) |
 | `pub.tangled.chat` | sealed circle message: `text` or blob; body `circle` MUST equal envelope `circle` |
 
 These exist so a substrate is not a secret microblog. Conforming knots MUST sync them like any collection. Conforming clients need not implement their UI. When `pub.tangled.article.blob` is set, clients MUST treat that blob as the canonical body; `text` is a preview.
 
-## Merge rule (Last-ts-wins)
+## Merge rules
 
-Version 1 does **not** specify a Conflict-free Replicated Data Type (CRDT). The merge rule for records that share `(author, collection, rkey)` is **Last-ts-wins among causal heads**:
+Records that share `(author, collection, rkey)` form a causal DAG via `prev`. A replica’s **apply set** `S` for that key is every such record the replica has verified (signature, CID, schema). Two replicas that have the same `S` MUST produce the same **live value**, independent of the order they first received the records. For `pub.tangled.page`, after a valid compact `C`, `S` MAY omit records in `I(C)`; materialization uses `C`’s snapshot plus records not in `I(C)` ([Compaction](#compaction)).
+
+The Merkle Search Tree (MST) key `collection/rkey` holds **one** CID (the writer’s tip). That tip is not always the live value. A repository Content Addressable aRchive (CAR) MUST include every record block in the `prev`-closure of each MST value so a pull of one head includes that writer’s DAG, except that **compact-GC** MAY omit folded page-op blocks as specified in [Compaction](#compaction). Concurrent heads that exist only on another replica are learned by pulling that replica, or by a later record whose `prev` lists both heads.
+
+### Collection merge classes
+
+| Collection | Merge class | Notes |
+| --- | --- | --- |
+| `pub.tangled.page` | CRDT | RGA on `text`; LWW-register on `title` and `blob`. Compaction is specified below. |
+| `pub.tangled.post` | Last-ts-wins | Whole-body. Concurrent edits do not field-merge. |
+| `pub.tangled.article` | Last-ts-wins | Same. `blob`, when set, is the canonical body. |
+| `pub.tangled.annotation` | Last-ts-wins | New rkey per annotation is typical. |
+| `pub.tangled.chat` | Last-ts-wins | New rkey per message is typical. |
+| `pub.tangled.media` | Last-ts-wins | |
+| `pub.tangled.album` | Last-ts-wins | `items` is not an Observed-Remove Set (OR-Set) in v1. |
+| `tangled.graph.follow` | Last-ts-wins | rkey is the subject; set membership is the key. |
+| `tangled.graph.block` | Last-ts-wins | Same. |
+| `tangled.label` | Last-ts-wins | New rkey per label is typical. |
+| `sys.*` | Last-ts-wins | |
+
+Applications that add a collaborative body (shared document, shared dataset row edited in place) MUST declare a CRDT in their `sys.schema` and MUST specify ops as this chapter does for pages. Other application collections default to Last-ts-wins.
+
+Clients MUST NOT substitute an unspecified CRDT (including Automerge or Yjs as a black box) for a Last-ts-wins collection. They MUST NOT substitute Last-ts-wins for `pub.tangled.page`.
+
+### Causal heads
+
+These definitions apply to every merge class:
 
 1. Record B **supersedes** record A when they share `(author, collection, rkey)` and A’s CID appears in B’s `prev`, or in the `prev` of a same-key ancestor of B.
-2. A **causal head** is a same-key record that is not superseded.
-3. The **live** record is the causal head with the greatest `ts`. If `ts` is equal, the lexicographically greatest record CID wins (CID compared as multibase base32 text).
-4. A **merge record** is a same-key record whose `prev` lists two or more causal heads. Writing one is OPTIONAL. A client that merges concurrent edits MUST include every concurrent head it considered in `prev`. The body is the author’s merged value. There is no automatic field-wise merge.
-5. If no merge record exists, step 3 picks one concurrent head. The loser remains in the Merkle Search Tree (MST) until a delete tombstone or a later merge record `prev`s it.
-6. A delete (`body` `null`) is an ordinary record under this rule: its `prev` SHOULD list every causal head being deleted.
+2. A **causal head** is a same-key record in `S` that is not superseded.
+3. A **merge record** is a same-key record whose `prev` lists two or more causal heads. A client that has seen concurrent heads and writes again MUST include every such head it considered in `prev`.
 
-Implementations MUST apply this rule for `pub.tangled.page` and for any other same-key edit. Clients MUST NOT invent a CRDT for v1.
+### Last-ts-wins among causal heads
+
+For Last-ts-wins collections:
+
+1. The **live** record is the causal head with the greatest `ts`. If `ts` is equal, the lexicographically greatest record CID wins (CID compared as multibase base32 text).
+2. If no merge record exists, step 1 picks one concurrent head. The loser’s bytes remain as a block if some other CID still links them; they are not the live value.
+3. A delete (`body` `null`) is an ordinary record under this rule: its `prev` SHOULD list every causal head being deleted. The live value is `null` when the winning head is a tombstone.
+
+### Page CRDT
+
+`pub.tangled.page` is a CRDT. Each non-tombstone same-key record is either one signed incremental operation or one signed **compact**. **Op-id** is that record’s CID. Ops are not gossiped unsigned.
+
+CDDL: `PageBody` in `spec/cddl/page.cddl`. JSON Schema: `spec/schemas/pub.tangled.page.json`. Concurrent-edit vector: `spec/vectors/page-crdt-concurrent.json`. Compaction vector: `spec/vectors/page-crdt-compact.json`.
+
+An incremental body is a list of ops. There is no parallel authoritative `title` / `text` field on an incremental record. A compact carries a **snapshot** of the live RGA and LWW registers at a **frontier**; that snapshot is not a second document format. Clients still materialize.
+
+```
+PageBody = ops-body / compact-body
+
+ops-body = { ops: [* page-op] }
+
+atom-id = { op: cid, i: uint } / { i: uint }
+
+page-op = {
+  op: "ins",
+  after: atom-id / null,
+  run: tstr
+} / {
+  op: "del",
+  ids: [+ atom-id]
+} / {
+  op: "lww",
+  path: "title" / "blob",
+  value: tstr / null
+}
+```
+
+`atom-id` with only `i` means atom `(this-record-CID, i)`. `after` `null` means the virtual root. `run` MUST be well-formed UTF-8 and MUST contain at least one Unicode scalar value. `lww` `path` `"title"`: `value` is text (empty allowed, `null` MUST NOT). `lww` `path` `"blob"`: `value` is a CID string, or `null` to clear.
+
+**Atom ids.** For record CID `C`, walk `ops` in array order. Each `ins` consumes the next indices: the `k`-th Unicode scalar (code point) in `run` is atom `{op: C, i: n+k}` where `n` is the number of scalars already created by earlier `ins` ops in this record. `del`, `lww`, and compact bodies do not consume indices. Combining marks are separate scalars. Implementations MUST NOT apply Unicode Normalization Form Canonical Composition (NFC) to `run` before splitting.
+
+**`after`.** MUST be `null`, or an atom that exists in the RGA implied by this record’s `prev`-closure (including atoms listed in a compact snapshot in that closure), or an earlier atom index of this same record (`i` strictly less than the first new index of this `ins`). Invalid `ins` ops MUST be ignored (the run is not created). Invalid `del` ids MUST be ignored.
+
+**Apply (`S`).** If every causal head in `S` has `body` `null`, the live value is `null` (page deleted). Otherwise let `R` be the non-tombstone records in `S`. Partition `R` into compact records and incremental records. For each compact `C` in `R`, the **included set** `I(C)` is the `prev`-closure of `C` excluding `C` itself. An incremental record `X` is **covered** by `C` when `X`’s CID is in `I(C)`.
+
+1. Start from an empty RGA and LWW registers `title = ""`, `blob = null` with no candidates.
+2. For every compact `C` in `R` (any order): **union** `C`’s snapshot. Each snapshot atom is identified by its original atom-id. If the atom is new, insert it with the listed parent, scalar, and `del` flag. If it already exists, `del` becomes the logical OR of the two flags; parent and scalar MUST match or `C` is invalid. Each snapshot LWW register that is present is a candidate `(ts, cid, value)` as stored in the snapshot (the compact record’s own `ts` MUST NOT replace those).
+3. Let `U` be incremental records in `R` that are not covered by any compact in `R`. Create every atom from every `ins` in `U` (any record order). An `ins` after `A` makes the first new atom a child of `A` (or of the virtual root). Each later scalar in that `run` is a child of the previous scalar in the run, so a run stays contiguous. If an atom-id already exists, the `ins` is a no-op for that scalar.
+4. Then apply every `del` in `U`: set `del = true` on each listed atom that exists. Deleted atoms remain in the tree (they still parent later inserts).
+5. Each `lww` op in `U` is a candidate `(ts, cid, value)` using the **record** `ts` and CID. The winning candidate for a path is the greatest `ts`; if `ts` is equal, the lexicographically greatest record CID (multibase base32 text). Several `lww` ops for one path in one record: the last in `ops` is that record’s candidate. Snapshot candidates from step 2 compete in the same order.
+6. **Materialize `text`:** depth-first from the virtual root. Children of a parent are ordered by **atom-id descending**: compare `op` as multibase base32 text, then `i` as an integer. Emit a scalar if `del` is false, then visit that atom’s children. Tombstoned atoms emit nothing but are still visited.
+
+Steps 3 then 4 then 5 are required so create and delete commute. Union of snapshots is commutative. Clients MUST NOT take the MST tip’s body as the page text. Clients that materialize pages MUST implement compact bodies. They MUST NOT treat a compact body as an empty `ops` list. On an incremental body, clients MUST ignore ops whose `op` is not `"ins"`, `"del"`, or `"lww"`.
+
+**Bounds.** Visible `text` MUST NOT exceed `PAGE_TEXT_MAX_SCALARS` (1 048 576) Unicode scalars. The RGA, including tombstoned atoms, MUST NOT exceed `PAGE_RGA_MAX_ATOMS` (4 194 304). `title` MUST NOT exceed 512 Unicode scalars. If `S` would exceed a bound, clients MUST refuse to materialize and MUST treat the page as invalid. They MUST NOT apply a prefix of `S`. After a valid compact, materialization MAY use that compact plus records not in `I(C)` rather than the entire history. The atom caps remain a Denial of Service (DoS) bound on the live structure (compaction does not drop tombstoned atoms).
+
+**Knot write.** For a CRDT collection, `tangled.repo.putRecord` MUST fail with `ConcurrentHeads` when the key already has an MST value `H`, the new record’s `prev`-closure does not include `H`, and `H`’s `prev`-closure does not include the new record. The error body MUST include `head` (the CID of `H`). The writer then fetches `H`, includes it in `prev`, and retries. Knots MUST NOT drop `H` to accept the new record.
+
+When `blob` is the winning LWW value and is not `null`, it is an optional attached blob, not a second canonical body. Live wiki text is the RGA. Collaborative body belongs in `ins`/`del` ops, not in a blob.
+
+### Compaction
+
+A **compact** is a signed same-key `pub.tangled.page` record whose body is `compact-body`. It folds a prefix of the op DAG into a snapshot so replicas MAY materialize from a smaller apply set. Last-ts-wins collections do not compact in version 1.
+
+A **frontier** is the set of same-key record CIDs that the compact claims as the causal heads of that prefix. The **included set** `I(C)` is every record in the `prev`-closure of those CIDs (equivalently, the `prev`-closure of `C` excluding `C`, when `prev` equals the frontier). A **snapshot** is the RGA atom table and LWW register candidates obtained by applying `I(C)` under [Apply (`S`)](#page-crdt).
+
+```
+compact-body = {
+  compact: 1,
+  frontier: [+ cid],
+  snapshot: page-snapshot
+}
+
+page-snapshot = {
+  atoms: [* snapshot-atom],
+  title: lww-snap,
+  blob: lww-snap / null
+}
+
+lww-snap = {
+  value: tstr / null,
+  ts: uint,
+  cid: cid
+}
+
+snapshot-atom = {
+  id: { op: cid, i: uint },
+  parent: { op: cid, i: uint } / null,
+  ch: tstr,
+  del: bool
+}
+```
+
+**Shape.** `compact` MUST be the integer `1`. `frontier` MUST be non-empty and MUST be sorted lexicographically as multibase base32 CID text. Envelope `prev` MUST be the same set as `frontier` (order in `prev` MAY differ). Snapshot `atoms` MUST be sorted by atom-id ascending (`op` as multibase base32 text, then `i`). Each `id.op` MUST be the creating record’s CID (never omitted). `parent` `null` means the virtual root. `ch` MUST be exactly one Unicode scalar. `title.value` MUST be text, not `null`. `blob` `null` means no `lww` on `blob` was in `I(C)`. A compact MUST NOT create new atom ids. `compact` values other than `1` make the page invalid to materialize.
+
+**Who MAY compact.** Any principal that MAY `putRecord` that key: the identity key, or a device key with `repo/write` covering the page (including a shared-repo collaborator). There is no separate compact capability. Circle `policy` has no compact field. Compaction MUST NOT be presented as a Hybrid Public Key Encryption (HPKE) versus Messaging Layer Security (MLS) choice.
+
+**When.** A writer SHOULD compact only when it can fold at least `PAGE_COMPACT_MIN_OPS` (32) incremental records that are not in `I(K)` for any compact `K` already in the writer’s `prev`-closure. Knots MUST reject a compact with `RateLimited` unless both hold:
+
+- at least `PAGE_COMPACT_MIN_OPS` incremental records in `I(C)` are not in `I(K)` for the nearest compact ancestor `K` of `C` (all of `I(C)` counts when there is no such `K`)
+- `C.ts - K.ts >= PAGE_COMPACT_MIN_INTERVAL_MS` (300 000) when such a `K` exists in the knot’s apply set
+
+Those constants are admission control. They are not CRDT validity: a compact that folds fewer ops is algorithmically valid if a replica already has it. If the knot cannot compute `I(C)` because folded blocks were already compact-GC’d, it MUST still enforce the interval against the latest compact it stored for that key and MAY skip the min-ops count.
+
+A writer MUST NOT emit a compact when every causal head in its apply set is a tombstone (that would resurrect a deleted page). A writer SHOULD set `frontier` to every causal head in its apply set so the compact is not immediately stale.
+
+**Visibility.** `vis`, `circle`, and sealed `epoch` on a compact MUST match the records in `I(C)` when those records are present. Mixed `vis` in `I(C)` makes the compact invalid. A sealed or circle-scoped page stays sealed or circle-scoped: the compact body is the plaintext inside the same `Ciphertext` envelope class. Compaction MUST NOT change visibility class.
+
+**Safety (omit / stale / invalid).** A compact MUST NOT drop ops that are in `I(C)`: the snapshot MUST equal Apply(`I(C)`). A compact is **invalid** when `compact ≠ 1`, `frontier` is empty or unsorted, `prev` and `frontier` differ as sets, snapshot atoms are unsorted or duplicate, an atom’s `ch` is not one scalar, a parent is missing or cyclic, `vis`/`circle`/`epoch` mismatch folded records, or the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`). An invalid compact MUST NOT contribute a snapshot or an included set. If it is a causal head, clients MUST refuse to materialize the page.
+
+A compact that omits an op **concurrent** with its frontier (not in `I(C)`, and `C` not in that op’s `prev`-closure) is **stale** relative to that op, not automatically invalid. A reader that still has extra ops MUST merge them on top of the snapshot by the apply algorithm (`U` includes those ops). Detection:
+
+- Extra op `X` is in `I(C)`: `X` is folded. If the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`), the compact is **invalid** (above).
+- `C` is in `X`’s `prev`-closure: `X` is after the compact; apply `X` on top.
+- Otherwise `X` is concurrent with `C`: the compact is **stale** vs `X`; apply `X` on top. The writer who omitted `X` from the frontier did not include it; readers who have `X` keep it.
+
+Clients that no longer hold `I(C)` MUST accept a signature-valid, schema-valid compact as the snapshot. They cannot re-check snapshot equality.
+
+**Convergence.** Two replicas that have seen the same set of incremental ops and compact records MUST produce the same live value, independent of compact times and apply order. Union of snapshots plus uncovered incremental ops is deterministic. A replica that compacted early (`C1`) and a replica that compacted later (`C2` with `I(C1) ⊆ I(C2)`) converge once both have `C2` or once both have `C1` plus the extra ops in `I(C2) \ I(C1)`. Concurrent incomparable compacts union by atom-id as in step 2.
+
+**Garbage collection (compact-GC).** Compacted-away record blocks (records in `I(C)` except compact records still in a live `prev`-closure) MAY be dropped from knot storage and from `getRepo` / CAR diffs when `C` is a **GC-root**: every causal head in that knot’s apply set for the key has `C` in its `prev`-closure. Until then, knots MUST keep blocks needed to serve concurrent heads. The compact record `C` MUST remain while it is in the `prev`-closure of any causal head or MST value; sync proves inclusion of `C` by that closure and by the MST inclusion proof of the page key. After compact-GC, `C.prev` MAY dangle (frontier CIDs absent). Clients MUST NOT reject a CAR as incomplete solely because those prev blocks are missing. Knots MUST NOT GC `C` itself in order to drop pre-compact blocks.
+
+**Knot write (compact).** A compact is an ordinary `putRecord`. `ConcurrentHeads` still applies: the compact’s `prev` MUST not orphan the current MST value. Last-ts-wins collections share none of this mechanism in version 1.
 
 ## Page slugs
 
@@ -867,9 +1026,11 @@ Implementations MUST apply this rule for `pub.tangled.page` and for any other sa
 
 ## Deletes
 
-A delete is a record with the same `collection` and `rkey`, `body` `null`, `prev` listing the CIDs being deleted, and a new `sig`. Public deletes are tombstones in the MST. Sealed deletes MUST be indistinguishable from other sealed records at the knot (same size class); the body ciphertext decrypts to `null`.
+A delete is a record with the same `collection` and `rkey`, `body` `null`, `prev` listing the CIDs being deleted, and a new `sig`. Public deletes are tombstones in the MST. Sealed deletes MUST be indistinguishable from other sealed records at the knot (same size class); the body ciphertext decrypts to `null`. Visibility class does not change this shape.
 
-Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges.
+For Last-ts-wins collections, the tombstone is live when it wins among causal heads. For CRDT collections, the live value is `null` only when **every** causal head in `S` is a tombstone. A tombstone concurrent with an edit does not drop that edit: the page stays, and apply uses every non-tombstone record in `S`. A writer that means to delete the page MUST list every causal head it knows in `prev`.
+
+Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges. They MUST NOT garbage-collect CRDT op records that remain in some replica’s `prev`-closure, except **compact-GC** of folded page ops as specified in [Compaction](#compaction).
 
 
 ---
@@ -961,7 +1122,7 @@ Knots advertising `knot.public` MUST implement `tangled.sync.getRecord` returnin
 
 A repository export is a Content Addressable aRchive (CAR) v1 whose roots are `[commit CID]` and whose blocks are: the commit, every MST node, every record, and optionally blobs. The header `roots` MUST be the commit CID.
 
-Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed).
+Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed). A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), except that for `pub.tangled.page` a knot MAY omit records in the included set of a Garbage Collection (GC) root compact as specified in [Compaction](./06-data-model.md#compaction). The compact record itself MUST remain so the pull still proves its inclusion.
 
 ## Sealed collections in the MST
 
@@ -1424,9 +1585,9 @@ Knots advertising `knot.public` MUST implement this method for publicly referenc
 
 `GET /xrpc/tangled.sync.getRepo?did=&since=`
 
-Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`.
+Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, once a compact is a Garbage Collection (GC) root ([Data model](./06-data-model.md#compaction)), the CAR MAY omit pre-compact op blocks in that compact’s included set. It MUST still include the compact record. If `since` already contains the compact and head descends from it, the diff is only later records. Clients MUST NOT treat dangling compact `prev` CIDs as a broken export after compact-GC.
 
-Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections.
+Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. Compact-GC omissions follow the same rule as `getRepo`.
 
 ## Notify (optional)
 
@@ -1522,8 +1683,9 @@ JSON/CBOR map:
 | `MethodNotImplemented` | 404 | Unknown `tangled.*` method on a Tangled knot |
 | `ProfileRequired` | 501 | Method needs a profile the knot omitted |
 | `BlobTooLarge` | 413 | |
-| `RateLimited` | 429 | |
+| `RateLimited` | 429 | Including page compact admission (`PAGE_COMPACT_MIN_OPS`, `PAGE_COMPACT_MIN_INTERVAL_MS`) |
 | `Unavailable` | 503 | |
+| `ConcurrentHeads` | 409 | Conflict-free Replicated Data Type (CRDT) `putRecord` would orphan the current Merkle Search Tree (MST) value; body includes `head` |
 
 ## Methods
 
@@ -1569,7 +1731,7 @@ JSON/CBOR map:
 
 ### tangled.repo.putRecord
 
-`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for.
+`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for. For CRDT collections, a write that would orphan the current MST value MUST return `ConcurrentHeads` ([Data model](./06-data-model.md#page-crdt)). A page compact that fails `PAGE_COMPACT_MIN_OPS` or `PAGE_COMPACT_MIN_INTERVAL_MS` MUST return `RateLimited` ([Data model](./06-data-model.md#compaction)).
 
 ### tangled.repo.putBlob
 
@@ -2089,6 +2251,21 @@ Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Atta
 | Knot downtime | Replicas, CAR export, client cache | If nobody replicated and the operator has no CAR, data is gone |
 | Blob withholding | CID mismatch detected; replica | Same as knot downtime for those bytes |
 
+## CRDT operations
+
+A Conflict-free Replicated Data Type (CRDT) op is a signed record. There is no unsigned op gossip.
+
+| Attack | Control | Residual |
+| --- | --- | --- |
+| Concurrent wiki writes silently drop a head | Page CRDT applies every signed op in the apply set (and compact snapshots); `ConcurrentHeads` on `putRecord` if the new record would orphan the Merkle Search Tree (MST) tip | Two disconnected replicas of the same Decentralized Identifier (DID) can each accept a different tip until a client pulls both and writes a merge `prev` |
+| Malicious collaborator inflates the op log (tiny inserts, spam tombstones) | `PAGE_TEXT_MAX_SCALARS` (1 048 576) and `PAGE_RGA_MAX_ATOMS` (4 194 304); refuse to materialize over-bound pages; knot `RateLimited` | Live Replicated Growable Array (RGA) still holds tombstoned atoms; compaction shrinks the record apply set, not the atom cap |
+| Compact omits a concurrent op | Snapshot MUST equal Apply of the included set; extra ops concurrent with the frontier are merged on top; reader detects stale vs invalid as in [Data model](./06-data-model.md#compaction) | A replica that never sees the extra op materializes without it until it pulls the replica that has it |
+| Compact spam (tiny or empty folds) | `PAGE_COMPACT_MIN_OPS` (32) and `PAGE_COMPACT_MIN_INTERVAL_MS` (300 000); knot `RateLimited`; `repo/write` required | 32 new ops plus interval still let a writer publish large snapshots |
+| Knot GC of pre-compact blocks too early | Compact-GC only when every local causal head descends from the compact; the compact record stays in the MST `prev`-closure | A replica that has not merged still needs another pull for concurrent heads; dangling `prev` after a valid GC-root is required |
+| Forged op | Each op is a signed Tangled record; unsigned gossip is not a transport; a compact is the same | Stolen `repo/write` on the shared-repo DID can compact a lie if verifiers have dropped `I(C)` |
+| Client displays a writer buffer instead of apply set `S` | Page bodies are incremental ops or a compact snapshot; clients MUST apply the CRDT (RGA text, Last-Writer-Wins (LWW) title/blob, compact union) | Non-conforming clients diverge |
+| Tombstone used to hide a concurrent edit | CRDT delete is live only when every causal head is a tombstone; compact MUST NOT be emitted when every head is a tombstone | A writer who omits a head from `prev` does not delete that head’s ops |
+
 ## Out of scope
 
 - Traffic analysis of who pulls which DID (use Tor or equivalent if needed)
@@ -2230,15 +2407,15 @@ Actors are named. Identifiers are abbreviated (`did:sol:A…`). There is no live
 
 **Actors.** Owner O creates circle DID `did:sol:W…` (dedicated key) hosted on O’s knot. Collaborators C1, C2.
 
-**Records.** Circle definition as in use case 2. Wiki pages: `pub.tangled.page` in **W’s** Merkle Search Tree (MST), rkey = slug (`Home`, `rfc.draft` displayed as `rfc/draft`). Dataset rows: application collection plus blobs. Concurrent edits: **Last-ts-wins among causal heads**; a record whose `prev` lists both concurrent heads is a merge record ([Data model](./06-data-model.md#merge-rule-last-ts-wins)). Slugs MUST NOT contain `/`; `.` is the nested-page separator ([Data model](./06-data-model.md#page-slugs)).
+**Records.** Circle definition as in use case 2. Wiki pages: `pub.tangled.page` in **W’s** Merkle Search Tree (MST), rkey = slug (`Home`, `rfc.draft` displayed as `rfc/draft`). Dataset rows: application collection plus blobs. Concurrent page edits: Conflict-free Replicated Data Type (CRDT) — Replicated Growable Array (RGA) on `text`, Last-Writer-Wins (LWW) registers on `title` and `blob`. Two writers who have not seen each other both keep their inserts; apply order does not pick a whole-page winner. A later compact is a signed snapshot of that apply at a frontier of included op CIDs; a late op concurrent with the compact still applies on top ([Data model](./06-data-model.md#page-crdt), [Compaction](./06-data-model.md#compaction)). Posts and annotations stay Last-ts-wins and do not compact. Slugs MUST NOT contain `/`; `.` is the nested-page separator ([Data model](./06-data-model.md#page-slugs)).
 
 **Vis / caps.** Typical wiki: `vis: cap` (host may search). Confidential wiki: `vis: sealed` + envelope `circle` + epoch Authenticated Encryption with Associated Data (AEAD). O issues to each collaborator: `repo/read` + `repo/write` + `blob/*` attenuated to `tangled://did:sol:W…/pub.tangled.page` (and blob prefix), plus `circle/read` if sealed. Writers sign records with their device key; `author` is `did:sol:W…`; `signedBy` + `proof` required. The knot signs **commits** with a device key of W ([Circles](./10-circles.md#shared-repo-pattern)).
 
 **Sync.** One `subscribe` on W. Not N member pulls.
 
-**Failure / threat.** `vis: cap` means O’s knot operator can read plaintext — that is the point of this class. Stolen collaborator cap: revoke, epoch-advance if sealed. The circle identity key is another secret O must hold; collaborators cannot rotate W.
+**Failure / threat.** `vis: cap` means O’s knot operator can read plaintext — that is the point of this class. Stolen collaborator cap: revoke, epoch-advance if sealed. The circle identity key is another secret O must hold; collaborators cannot rotate W. Compact spam is knot-rate-limited. A compact that missed a concurrent edit is stale: clients that have the extra op merge it; they do not drop it.
 
-**Coverage.** Shared-repo pattern, commit signing, `author`/`signedBy`, page schema, Last-ts-wins, nested slugs. No Conflict-free Replicated Data Type (CRDT).
+**Coverage.** Shared-repo pattern, commit signing, `author`/`signedBy`, page CRDT, compaction, nested slugs. Last-ts-wins remains for posts, annotations, and graph keys.
 
 ## 5. Cross-network import, export, dual-publish
 

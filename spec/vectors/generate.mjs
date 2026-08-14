@@ -559,6 +559,381 @@ writeFileSync(
   ) + "\n",
 );
 
+function atomKey(id) {
+  return `${id.op}:${id.i}`;
+}
+
+function cmpAtomIdDesc(a, b) {
+  if (a.op !== b.op) return a.op < b.op ? 1 : -1;
+  return b.i - a.i;
+}
+
+function cmpAtomIdAsc(a, b) {
+  if (a.op !== b.op) return a.op < b.op ? -1 : 1;
+  return a.i - b.i;
+}
+
+const PAGE_ROOT = { op: "", i: 0 };
+
+function recordPrev(rec) {
+  return rec.prev ?? rec.unsigned?.prev ?? [];
+}
+
+function includedCids(records, compactCid) {
+  const byCid = new Map(records.map((r) => [r.cid, r]));
+  const seen = new Set();
+  function walk(cid) {
+    if (seen.has(cid)) return;
+    seen.add(cid);
+    const rec = byCid.get(cid);
+    if (!rec) return;
+    for (const p of recordPrev(rec)) walk(p);
+  }
+  walk(compactCid);
+  seen.delete(compactCid);
+  return seen;
+}
+
+function considerLww(lww, path, ts, cid, value) {
+  const cur = lww[path];
+  if (ts > cur.ts || (ts === cur.ts && cid >= cur.cid)) {
+    lww[path] = { value, ts, cid };
+  }
+}
+
+function applyPage(records) {
+  const atoms = new Map();
+  const lww = {
+    title: { value: "", ts: -1, cid: "" },
+    blob: { value: null, ts: -1, cid: "" },
+  };
+
+  const covered = new Set();
+  for (const rec of records) {
+    if (rec.body?.compact === 1) {
+      for (const cid of includedCids(records, rec.cid)) covered.add(cid);
+    }
+  }
+
+  for (const rec of records) {
+    if (rec.body?.compact !== 1) continue;
+    const snap = rec.body.snapshot;
+    for (const atom of snap.atoms) {
+      const parentKey =
+        atom.parent == null ? atomKey(PAGE_ROOT) : atomKey(atom.parent);
+      atoms.set(atomKey(atom.id), {
+        id: { op: atom.id.op, i: atom.id.i },
+        parentKey,
+        parent: atom.parent == null ? null : { op: atom.parent.op, i: atom.parent.i },
+        ch: atom.ch,
+        del: atom.del,
+      });
+    }
+    considerLww(lww, "title", snap.title.ts, snap.title.cid, snap.title.value);
+    if (snap.blob != null) {
+      considerLww(lww, "blob", snap.blob.ts, snap.blob.cid, snap.blob.value);
+    }
+  }
+
+  const incremental = records.filter(
+    (rec) => rec.body != null && rec.body.compact !== 1 && !covered.has(rec.cid),
+  );
+
+  for (const rec of incremental) {
+    const cid = rec.cid;
+    let i = 0;
+    for (const op of rec.body.ops || []) {
+      if (op.op !== "ins") continue;
+      let parentKey;
+      if (op.after == null) parentKey = atomKey(PAGE_ROOT);
+      else if (op.after.op == null) parentKey = atomKey({ op: cid, i: op.after.i });
+      else parentKey = atomKey(op.after);
+      let parentId =
+        op.after == null
+          ? null
+          : op.after.op == null
+            ? { op: cid, i: op.after.i }
+            : { op: op.after.op, i: op.after.i };
+      for (const ch of [...op.run]) {
+        const id = { op: cid, i };
+        const key = atomKey(id);
+        if (!atoms.has(key)) {
+          atoms.set(key, { id, parentKey, parent: parentId, ch, del: false });
+        }
+        parentId = id;
+        parentKey = key;
+        i += 1;
+      }
+    }
+  }
+
+  for (const rec of incremental) {
+    for (const op of rec.body.ops || []) {
+      if (op.op === "del") {
+        for (const id of op.ids) {
+          const a = atoms.get(atomKey(id.op == null ? { op: rec.cid, i: id.i } : id));
+          if (a) a.del = true;
+        }
+      } else if (op.op === "lww") {
+        considerLww(lww, op.path, rec.ts, rec.cid, op.value);
+      }
+    }
+  }
+
+  const children = new Map();
+  for (const a of atoms.values()) {
+    if (!children.has(a.parentKey)) children.set(a.parentKey, []);
+    children.get(a.parentKey).push(a);
+  }
+  for (const arr of children.values()) {
+    arr.sort((x, y) => cmpAtomIdDesc(x.id, y.id));
+  }
+
+  let text = "";
+  function walk(parentKey) {
+    for (const a of children.get(parentKey) || []) {
+      if (!a.del) text += a.ch;
+      walk(atomKey(a.id));
+    }
+  }
+  walk(atomKey(PAGE_ROOT));
+  return {
+    title: lww.title.value,
+    text,
+    blob: lww.blob.value,
+    atoms,
+    lww,
+  };
+}
+
+function liveOf(state) {
+  return { title: state.title, text: state.text, blob: state.blob };
+}
+
+function snapshotFromState(state) {
+  const atoms = [...state.atoms.values()].sort((a, b) => cmpAtomIdAsc(a.id, b.id));
+  return {
+    atoms: atoms.map((a) => ({
+      id: { op: a.id.op, i: a.id.i },
+      parent: a.parent,
+      ch: a.ch,
+      del: a.del,
+    })),
+    title: {
+      value: state.lww.title.value,
+      ts: state.lww.title.ts,
+      cid: state.lww.title.cid,
+    },
+    blob:
+      state.lww.blob.ts < 0
+        ? null
+        : {
+            value: state.lww.blob.value,
+            ts: state.lww.blob.ts,
+            cid: state.lww.blob.cid,
+          },
+  };
+}
+
+const pageSchemaBody = {
+  v: 1,
+  name: "pub.tangled.page",
+  fields: { ops: { type: "array" } },
+};
+const pageSchemaCid = cidV1DagCbor(dagCbor(pageSchemaBody));
+
+function signPage(label, ts, prev, ops) {
+  const unsigned = {
+    v: 1,
+    type: pageSchemaCid,
+    collection: "pub.tangled.page",
+    rkey: "Home",
+    author: alice.did,
+    ts,
+    prev,
+    vis: "public",
+    body: { ops },
+  };
+  const signedRec = signUnsigned(alice.sk, unsigned);
+  const bytes = dagCbor({ ...unsigned, sig: signedRec.sig });
+  return {
+    label,
+    cid: cidV1DagCbor(bytes),
+    ts,
+    prev,
+    body: unsigned.body,
+    unsigned,
+    signature_hex: signedRec.hexSig,
+    unsigned_cbor_hex: bytesToHex(signedRec.bytes),
+  };
+}
+
+const pageR0 = signPage("R0", 1700000000000, [], [
+  { op: "lww", path: "title", value: "Home" },
+  { op: "ins", after: null, run: "Hello" },
+]);
+const afterO = { op: pageR0.cid, i: 4 };
+const pageA = signPage("A", 1700000001000, [pageR0.cid], [
+  { op: "ins", after: afterO, run: " Alice" },
+]);
+const pageB = signPage("B", 1700000002000, [pageR0.cid], [
+  { op: "ins", after: afterO, run: " Bob" },
+]);
+
+const applyAB = applyPage([pageR0, pageA, pageB]);
+const applyBA = applyPage([pageR0, pageB, pageA]);
+if (applyAB.title !== applyBA.title || applyAB.text !== applyBA.text) {
+  throw new Error(`page CRDT orders diverged: ${JSON.stringify(liveOf(applyAB))} vs ${JSON.stringify(liveOf(applyBA))}`);
+}
+
+const winnerFirst = pageA.cid > pageB.cid ? " Alice Bob" : " Bob Alice";
+const expectedText = "Hello" + winnerFirst;
+if (applyAB.text !== expectedText) {
+  throw new Error(`page CRDT text ${JSON.stringify(applyAB.text)} != ${JSON.stringify(expectedText)}`);
+}
+
+function pageRecordJson(id, rec) {
+  return {
+    id,
+    cid: rec.cid,
+    unsigned: rec.unsigned,
+    signature_hex: rec.signature_hex,
+    unsigned_cbor_hex: rec.unsigned_cbor_hex,
+  };
+}
+
+writeFileSync(
+  new URL("./page-crdt-concurrent.json", import.meta.url),
+  JSON.stringify(
+    {
+      comment: "Two concurrent ins ops on pub.tangled.page after the same atom, neither in the other's prev. Apply(R0,A,B) MUST equal Apply(R0,B,A). Sibling order is atom-id descending (CID text, then i). Each op is a signed record; op-id is the record CID.",
+      algorithm: "rga-text + lww-register title/blob",
+      collection: "pub.tangled.page",
+      rkey: "Home",
+      author: alice.did,
+      schema_cid: pageSchemaCid,
+      records: [
+        pageRecordJson("R0", pageR0),
+        pageRecordJson("A", pageA),
+        pageRecordJson("B", pageB),
+      ],
+      apply_set: ["R0", "A", "B"],
+      orders: [
+        { order: ["R0", "A", "B"], live: liveOf(applyAB) },
+        { order: ["R0", "B", "A"], live: liveOf(applyBA) },
+      ],
+      live: liveOf(applyAB),
+      orders_equal: true,
+      sibling_rule: "atom-id descending (multibase base32 CID text, then i)",
+      greater_cid: pageA.cid > pageB.cid ? "A" : "B",
+    },
+    null,
+    2,
+  ) + "\n",
+);
+
+const frontier = [pageA.cid, pageB.cid].sort();
+const compactSnapshot = snapshotFromState(applyAB);
+function signPageBody(label, ts, prev, body) {
+  const unsigned = {
+    v: 1,
+    type: pageSchemaCid,
+    collection: "pub.tangled.page",
+    rkey: "Home",
+    author: alice.did,
+    ts,
+    prev,
+    vis: "public",
+    body,
+  };
+  const signedRec = signUnsigned(alice.sk, unsigned);
+  const bytes = dagCbor({ ...unsigned, sig: signedRec.sig });
+  return {
+    label,
+    cid: cidV1DagCbor(bytes),
+    ts,
+    prev,
+    body: unsigned.body,
+    unsigned,
+    signature_hex: signedRec.hexSig,
+    unsigned_cbor_hex: bytesToHex(signedRec.bytes),
+  };
+}
+
+const pageK = signPageBody("K", 1700000003000, frontier, {
+  compact: 1,
+  frontier,
+  snapshot: compactSnapshot,
+});
+const pageL = signPage("L", 1700000004000, frontier, [
+  { op: "ins", after: afterO, run: "!" },
+]);
+
+const applyK = applyPage([pageK]);
+const applyKL = applyPage([pageK, pageL]);
+const applyLK = applyPage([pageL, pageK]);
+const applyFullL = applyPage([pageR0, pageA, pageB, pageL]);
+const applyAll = applyPage([pageR0, pageA, pageB, pageK, pageL]);
+
+function sameLive(a, b) {
+  return a.title === b.title && a.text === b.text && a.blob === b.blob;
+}
+if (!sameLive(applyK, applyAB)) {
+  throw new Error(`compact snapshot diverged from R0,A,B: ${JSON.stringify(liveOf(applyK))} vs ${JSON.stringify(liveOf(applyAB))}`);
+}
+if (!sameLive(applyKL, applyFullL) || !sameLive(applyLK, applyFullL) || !sameLive(applyAll, applyFullL)) {
+  throw new Error(
+    `compact+late did not converge: K+L=${JSON.stringify(liveOf(applyKL))} L+K=${JSON.stringify(liveOf(applyLK))} hist+L=${JSON.stringify(liveOf(applyFullL))} all=${JSON.stringify(liveOf(applyAll))}`,
+  );
+}
+
+const lateConcurrent =
+  !frontier.includes(pageL.cid) &&
+  !pageL.prev.includes(pageK.cid) &&
+  !pageK.prev.includes(pageL.cid);
+
+writeFileSync(
+  new URL("./page-crdt-compact.json", import.meta.url),
+  JSON.stringify(
+    {
+      comment: "Concurrent ins A and B, then compact K whose frontier includes both. Late op L has the same prev as K (not K itself), so L is concurrent with K. Apply(K) MUST equal Apply(R0,A,B). Apply(K,L) MUST equal Apply(R0,A,B,L) and Apply(L,K). A reader that has L MUST merge L on top of K’s snapshot; K is stale relative to L, not invalid.",
+      algorithm: "page compact snapshot + rga-text + lww-register",
+      collection: "pub.tangled.page",
+      rkey: "Home",
+      author: alice.did,
+      schema_cid: pageSchemaCid,
+      records: [
+        pageRecordJson("R0", pageR0),
+        pageRecordJson("A", pageA),
+        pageRecordJson("B", pageB),
+        pageRecordJson("K", pageK),
+        pageRecordJson("L", pageL),
+      ],
+      compact_id: "K",
+      frontier_ids: ["A", "B"],
+      late_id: "L",
+      concurrent_with_compact: lateConcurrent,
+      stale_vs_extra_ops: ["L"],
+      apply_compact_only: liveOf(applyK),
+      apply_history: liveOf(applyAB),
+      apply_compact_plus_late: liveOf(applyKL),
+      apply_late_plus_compact: liveOf(applyLK),
+      apply_full_history_plus_late: liveOf(applyFullL),
+      orders: [
+        { order: ["K"], live: liveOf(applyK) },
+        { order: ["K", "L"], live: liveOf(applyKL) },
+        { order: ["L", "K"], live: liveOf(applyLK) },
+        { order: ["R0", "A", "B", "L"], live: liveOf(applyFullL) },
+      ],
+      live: liveOf(applyKL),
+      converges: true,
+      sibling_rule: "atom-id descending (multibase base32 CID text, then i)",
+    },
+    null,
+    2,
+  ) + "\n",
+);
+
 writeFileSync(
   new URL("./README.md", import.meta.url),
   `# Test vectors
@@ -578,6 +953,8 @@ Generated by \`node generate.mjs\` (deterministic seed \`BLAKE3("tangled-vector-
 | binding-nostr.json | Binding message bytes for BIP-340 |
 | circle-read-auth.json | circle/read accept/reject (wrong issuer, non-circle URI, sibling leak) |
 | getblob-auth.json | getBlob serve-without-cap vs require-cap |
+| page-crdt-concurrent.json | Concurrent page ins ops; both apply orders equal |
+| page-crdt-compact.json | Compact includes concurrent A+B; late op concurrent with the compact still applies |
 
 MLS Welcome/Commit \`payload_hex\` values are synthetic stand-ins for RFC 9420 messages. A conforming MLS stack MUST produce payloads that export \`epoch_secret_1_hex\` with label \`tangled.epoch\` and 8-byte big-endian epoch context. The Tangled record wrapping around those payloads is normative.
 `,
