@@ -1,0 +1,45 @@
+[package]
+name = "tangled-knot"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Tangled knot HTTP server: signed MST repo host with vis, caps, blobs, sync, and WebSocket subscribe"
+readme = "README.md"
+keywords = ["tangled", "pds", "ipld"]
+categories = ["network-programming"]
+
+[lib]
+name = "tangled_knot"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tangled-knot"
+path = "src/main.rs"
+
+[features]
+default = ["activitypub"]
+activitypub = ["dep:tangled-ap", "dep:rsa", "dep:rand", "dep:reqwest"]
+
+[dependencies]
+axum = { version = "0.8", features = ["ws"] }
+hex = "0.4"
+rand = { version = "0.8", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+rsa = { version = "0.9", features = ["pem"], optional = true }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tangled = { path = "../tangled" }
+tangled-ap = { path = "../tangled-ap", optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
+
+[dev-dependencies]
+blake3 = "1"
+futures-util = "0.3"
+hex = "0.4"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+rsa = { version = "0.9", features = ["pem"] }
+tangled-ap = { path = "../tangled-ap", features = ["demo"] }
+tempfile = "3"
+tokio-tungstenite = "0.26"

@@ -1,0 +1,23 @@
+[package]
+name = "loomed-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Loomed messenger domain: identity, replica, chat, receipts, search"
+publish = false
+
+[[bin]]
+name = "loomed-seed"
+path = "src/bin/loomed-seed.rs"
+
+[dependencies]
+hex = "0.4"
+rand = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tangled = { path = "../../../crates/tangled" }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[dev-dependencies]
+tempfile = "3"

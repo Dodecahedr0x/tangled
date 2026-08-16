@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = ["crates/tangled", "crates/tangled-ap", "crates/tangled-knot", "apps/loomed", "apps/loomed/core", "apps/reed", "apps/reed/core", "apps/weft", "apps/weft/core"]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/tangled-protocol/tangled"

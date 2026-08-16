@@ -1,0 +1,27 @@
+[package]
+name = "reed-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Reed social domain: identity, replica, posts, graph, search"
+publish = false
+
+[[bin]]
+name = "reed-seed"
+path = "src/bin/reed-seed.rs"
+
+[[bin]]
+name = "reed-ap-seed"
+path = "src/bin/reed-ap-seed.rs"
+
+[dependencies]
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tangled = { path = "../../../crates/tangled" }
+tangled-ap = { path = "../../../crates/tangled-ap", features = ["demo"] }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[dev-dependencies]
+tempfile = "3"

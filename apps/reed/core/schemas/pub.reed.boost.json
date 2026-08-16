@@ -1,0 +1,13 @@
+{
+  "$id": "https://reed.app/schemas/pub.reed.boost.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.reed.boost",
+  "type": "object",
+  "required": ["target"],
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "CID of the pub.tangled.post this boost targets"
+    }
+  }
+}

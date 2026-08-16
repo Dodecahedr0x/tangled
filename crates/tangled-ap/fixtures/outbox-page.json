@@ -1,0 +1,34 @@
+{
+  "@context": "https://www.w3.org/ns/activitystreams",
+  "id": "https://ex.example/users/alice/outbox?page=true",
+  "type": "OrderedCollectionPage",
+  "partOf": "https://ex.example/users/alice/outbox",
+  "next": "https://ex.example/users/alice/outbox?max_id=2",
+  "prev": "https://ex.example/users/alice/outbox?min_id=3",
+  "orderedItems": [
+    {
+      "id": "https://ex.example/users/alice/statuses/3/activity",
+      "type": "Create",
+      "actor": "https://ex.example/users/alice",
+      "object": {
+        "id": "https://ex.example/users/alice/statuses/3",
+        "type": "Note",
+        "attributedTo": "https://ex.example/users/alice",
+        "content": "third toot"
+      }
+    },
+    {
+      "id": "https://ex.example/users/alice/statuses/2",
+      "type": "Note",
+      "attributedTo": "https://ex.example/users/alice",
+      "content": "bare note on the page"
+    },
+    {
+      "id": "https://ex.example/users/alice/boosts/1",
+      "type": "Announce",
+      "actor": "https://ex.example/users/alice",
+      "object": "https://ex.example/users/bob/statuses/9"
+    },
+    "https://ex.example/users/alice/statuses/1"
+  ]
+}

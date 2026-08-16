@@ -5,7 +5,10 @@ command = "repo/read" / "repo/write" / "blob/get" / "blob/put"
         / "circle/invite" / "circle/remove" / "circle/read"
         / "knot/replicate" / "cap/issue" / "*"
 
-caveat = [ tstr, any ]
+caveat = ["eq", tstr, any]
+       / ["lt", tstr, number]
+       / ["valid_until", uint]
+       / ["max_uses", uint]
 
 unsigned-capability = {
   v: 1,

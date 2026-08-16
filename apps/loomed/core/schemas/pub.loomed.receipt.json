@@ -1,0 +1,17 @@
+{
+  "$id": "https://loomed.app/schemas/pub.loomed.receipt.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.loomed.receipt",
+  "type": "object",
+  "required": ["circle", "target"],
+  "properties": {
+    "circle": {
+      "type": "string",
+      "description": "did:sol:<owner>#<circle-rkey>"
+    },
+    "target": {
+      "type": "string",
+      "description": "CID of the pub.tangled.chat record this receipt acknowledges"
+    }
+  }
+}

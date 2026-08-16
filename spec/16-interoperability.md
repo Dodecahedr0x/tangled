@@ -47,7 +47,13 @@ Alternatively, `foreignProof` MAY be a NIP-01 event of kind `30078` (arbitrary a
 ActivityPub actors do not have a user key in the ratified specification. `attested` MUST be `true`. `foreign` is the actor URI. `foreignProof` is either:
 
 - An HTTP Message Signature over `GET {actorURI}` that includes header `Tangled-Binding: did:sol:…`, or
-- `https://{actor-host}/.well-known/tangled-binding.json` listing `{ "did": "did:sol:…", "actor": "https://…" }` served on the actor host.
+- Well-known JSON `https://{actor-host}/.well-known/tangled-binding.json` listing `{ "did": "did:sol:…", "actor": "https://…" }` served on the actor host.
+
+When `foreignProof` is an inline JSON object (the well-known body), it MUST contain `did` and `actor` matching the binding’s Tangled DID and actor URI. Knots that ingest `sys.foreign` / `sys.binding` for `activitypub` MUST reject `attested: false`, and MUST reject an inline JSON `foreignProof` whose `did` or `actor` does not match.
+
+**HTTP Message Signatures (RFC 9421).** Knots that ingest `sys.foreign` / `sys.binding` for `activitypub` MUST verify HTTP Message Signatures in addition to `attested: true` and matching `{did, actor}` when those fields apply. Signature fields are HTTP headers on import, or the same fields stored on `foreignProof` as `signatureInput` / `signature` / `contentDigest`. Attested JSON without a verifiable signature MUST be rejected. The algorithm MUST be `ed25519`. **Content-Digest** (RFC 9530) MUST be `sha-256` of the payload body. A mutated body MUST fail.
+
+Implementations MUST implement this covered-component set: `@method`, `@path`, `content-digest` (required on every signature), plus `@authority` (or `host`) and `content-type` when those names appear in `Signature-Input` (they MUST verify if listed). Other RFC 9421 features MAY be ignored.
 
 Clients MUST display AP-bound identities as **host-attested**, never as key-equals-person.
 

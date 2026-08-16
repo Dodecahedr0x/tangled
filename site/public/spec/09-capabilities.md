@@ -95,7 +95,7 @@ Verification steps 1–2 and 4–7 of [Invocation](#invocation) apply. Step 3 is
 | `["eq", json-pointer, value]` | Invocation args must equal |
 | `["lt", json-pointer, number]` | Less than |
 | `["valid_until", seconds]` | Additional cap on `exp` |
-| `["max_uses", n]` | Knots that track invocations SHOULD enforce; offline verifiers MAY ignore |
+| `["max_uses", n]` | A knot that verifies invocations MUST count successful uses per leaf capability CID and MUST reject with `CapabilityInvalid` when the count is `>= n`. `tangled.cap.verify` MUST NOT increment the counter. Offline verifiers MAY ignore `max_uses`. An online knot MUST persist the counter in the same snapshot as records. Restart MUST NOT reset counts. |
 
 Unknown caveats MUST cause rejection (fail closed).
 
@@ -118,7 +118,7 @@ Invocation = {
 }
 ```
 
-HTTP: `Authorization: Cap <base64url(DAG-CBOR(Invocation))>`.
+HTTP: `Authorization: Cap <base64url(DAG-CBOR(Invocation))>`. Clients MUST send unpadded base64url (RFC 4648 §5, no padding). Knots SHOULD accept the padded form. Knots MUST reject a decoded payload whose first byte is `{` or `[` (JSON). JSON-in-header is not a valid invocation.
 
 Verification:
 
@@ -126,7 +126,7 @@ Verification:
 2. Each certificate’s `aud` matches the next certificate’s `iss` (or the invocation signer for the leaf).
 3. Root `iss` matches the resource DID’s identity (or a `cap/issue` delegate recorded in `sys/id`). For `circle/read`, the resource DID is the circle **owner**, as specified in [Circle/read verification](#circleread-verification).
 4. Commands and resources attenuate monotonically.
-5. `nbf <= now <= exp` for every certificate.
+5. `now + CAPABILITY_CLOCK_SKEW_SECONDS >= nbf` and `now <= exp + CAPABILITY_CLOCK_SKEW_SECONDS` for every certificate (`CAPABILITY_CLOCK_SKEW_SECONDS` is 60). A `valid_until` caveat MUST fail only when `now > until + CAPABILITY_CLOCK_SKEW_SECONDS`.
 6. No CID in the chain is present in the issuer’s `sys.revocation` (online) OR every certificate has `exp` within the client’s accepted offline TTL (offline).
 7. Signatures verify.
 

@@ -43,18 +43,18 @@ Commit = {
   v: 1,
   did: did,
   data: cid,              ; MST root
-  rev: text,              ; TID, monotonically increasing
+  rev: text,              ; 13-char Crockford base32 TID, monotonically increasing
   prev: cid / null,
   sig: bstr .size 64,
   ? sigRotation: bstr .size 64
 }
 ```
 
-`rev` MUST be greater (TID order) than `prev`’s commit `rev` when `prev` is not null.
+`rev` MUST be a 13-character Crockford base32 timestamp identifier (TID): the same encoding as record-key TIDs in [Data model](./06-data-model.md) (`(unix_micros << 10) | entropy10`, alphabet `0123456789abcdefghjkmnpqrstvwxyz`). `rev` MUST be greater (TID order: equal-length lexicographic compare, otherwise numeric) than `prev`’s commit `rev` when `prev` is not null.
 
 The commit CID is BLAKE3 of the complete DAG-CBOR including signatures. The signing envelope hashes the unsigned commit ([Cryptography](./05-cryptography.md#commit-signatures)).
 
-A knot advertises **head** = latest commit CID for a DID.
+A knot advertises **head** = latest commit CID for a DID. `tangled.repo.putRecord` that advances the repo MUST write a new Commit whose `data` is the new MST root and whose `prev` is the previous Commit CID (or null at genesis). A supplied `prev` that does not equal the current head MUST be rejected (`ConcurrentHeads`). `getHead.commit` MUST be that Commit CID. `getRepo` / import CAR MUST include Commit blocks; import MUST verify signatures and the `prev` chain back to genesis or to `since`.
 
 ## Rotation commits
 
@@ -83,7 +83,7 @@ Knots advertising `knot.public` MUST implement `tangled.sync.getRecord` returnin
 
 A repository export is a Content Addressable aRchive (CAR) v1 whose roots are `[commit CID]` and whose blocks are: the commit, every MST node, every record, and optionally blobs. The header `roots` MUST be the commit CID.
 
-Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed). A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), except that for `pub.tangled.page` a knot MAY omit records in the included set of a Garbage Collection (GC) root compact as specified in [Compaction](./06-data-model.md#compaction). The compact record itself MUST remain so the pull still proves its inclusion.
+Partial CAR: the commit chain after `since` (exclusive) through head, plus the `since` commit block, plus the MST nodes and records needed to reconstruct each of those commits. A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), including `I(C)` blocks of a page compact ([Compaction](./06-data-model.md#compaction)). The compact record itself MUST remain so the pull still proves its inclusion. Import MUST verify each commit signature and the `prev` chain back to genesis or to `since`.
 
 ## Sealed collections in the MST
 

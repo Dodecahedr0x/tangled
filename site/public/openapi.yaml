@@ -3,8 +3,12 @@ info:
   title: Tangled Knot HTTP API
   version: "1"
   description: |
-    Knot methods under `/xrpc/tangled.*`. DAG-CBOR is canonical; JSON is the IPLD mapping.
-    See spec/12-http-api.md.
+    Knot methods under `/xrpc/tangled.*`. DAG-CBOR is canonical. Clients MUST send
+    `Accept: application/cbor, application/json`. When Accept prefers
+    `application/cbor`, knots MUST serve DAG-CBOR; JSON is the IPLD mapping.
+    `Authorization: Cap <base64url(DAG-CBOR(Invocation))>` — JSON-in-header MUST
+    be rejected. SIWS cookie is `tangled_session`. There is no `listRecords`
+    method; clients use `getRepo`. See spec/12-http-api.md.
 servers:
   - url: https://knot.example
     description: Example knot
@@ -14,13 +18,14 @@ tags:
   - name: repo
   - name: identity
   - name: cap
+  - name: session
   - name: loom
 paths:
   /xrpc/tangled.node.describe:
     get:
       tags: [node]
       operationId: tangled.node.describe
-      summary: Advertise profiles, foreign protocols, and blob limits
+      summary: Advertise profiles, foreign protocols, blob limits, and public peers
       responses:
         "200":
           description: Node description
@@ -35,6 +40,41 @@ paths:
                 protocols: []
                 maxBlob: 134217728
                 custodialSign: false
+                peers: []
+  /xrpc/tangled.node.stats:
+    get:
+      tags: [node]
+      operationId: tangled.node.stats
+      summary: Public-only knot-local counts and advertised-peer topology
+      responses:
+        "200":
+          description: Node statistics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NodeStats"
+              example:
+                v: 1
+                did: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx
+                asOf: 1700000000
+                counts:
+                  identities: 1
+                  repos: 1
+                  records: 2
+                  blobs: 0
+                  peers: 0
+                  circles: 0
+                  foreign: 0
+                  commits: 2
+                rates:
+                  publicCommits: 2
+                  retained: 256
+                topology:
+                  peers: []
+                  hosted:
+                    - did: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx
+                      records: 2
+                  truncated: false
   /xrpc/tangled.sync.getHead:
     get:
       tags: [sync]
@@ -54,14 +94,16 @@ paths:
                 required: [did, commit, rev, knot]
                 properties:
                   did: { type: string }
-                  commit: { type: string }
+                  commit: { type: string, description: Signed Commit CID }
                   rev: { type: string }
                   knot: { type: string, format: uri }
+                  data: { type: string, description: MST root CID (Commit.data) }
               example:
                 did: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx
                 commit: bafkr4igh2k3n4example
                 rev: "3jzfcijpjiz2u"
                 knot: https://knot.example
+                data: bafyr4idmstrootexample
   /xrpc/tangled.sync.getRecord:
     get:
       tags: [sync]
@@ -96,6 +138,13 @@ paths:
       responses:
         "200":
           description: Raw blob bytes (codec raw 0x55, BLAKE3-256)
+          headers:
+            Content-Length:
+              schema: { type: integer }
+              description: Byte length of the blob
+            X-Tangled-Media-Type:
+              schema: { type: string }
+              description: Stored MIME type from putBlob mediaType or X-Tangled-Media-Type
           content:
             application/octet-stream:
               schema: { type: string, format: binary }
@@ -151,6 +200,9 @@ paths:
       tags: [sync]
       operationId: tangled.sync.getRepoAuth
       security: [{ cap: [] }]
+      parameters:
+        - { in: query, name: since, required: false, schema: { type: string }, description: "Commit CID; also accepted in the JSON body" }
+        - { in: query, name: blobs, required: false, schema: { type: boolean } }
       requestBody:
         content:
           application/json:
@@ -175,6 +227,7 @@ paths:
       description: |
         Returns public records this knot already stores whose envelope ref
         (or body reply) equals cid. MUST NOT crawl. count is an untrusted overlay.
+        Empty hits MUST NOT be treated as proof the network has zero comments.
       parameters:
         - { in: query, name: cid, required: true, schema: { type: string }, description: "Target record CID" }
         - { in: query, name: collection, required: false, schema: { type: string } }
@@ -223,12 +276,18 @@ paths:
       parameters:
         - { in: query, name: did, required: true, schema: { type: string } }
         - { in: query, name: collection, required: false, schema: { type: string } }
+        - { in: query, name: since, required: false, schema: { type: string }, description: "Commit CID; replay later events then continue live" }
       responses:
         "101": { description: WebSocket upgrade }
   /xrpc/tangled.repo.putRecord:
     post:
       tags: [repo]
       operationId: tangled.repo.putRecord
+      security: [{ cap: [] }, { siws: [] }]
+      description: |
+        Insert a signed record. Knot verifies the Solana off-chain envelope.
+        Auth is SIWS cookie, repo/write Cap, or hosted identity-key write
+        (no signedBy, author is a DID this knot hosts).
       requestBody:
         content:
           application/json:
@@ -237,6 +296,7 @@ paths:
               required: [record]
               properties:
                 record: { type: object }
+                prev: { type: string, description: Current head Commit CID; ConcurrentHeads if it does not match }
             example:
               record:
                 v: 1
@@ -254,10 +314,18 @@ paths:
                 properties:
                   cid: { type: string }
                   commit: { type: string }
+        "429":
+          description: RateLimited (page compact admission)
+          headers:
+            Retry-After:
+              schema: { type: integer }
+              description: Delta-seconds; at least PAGE_COMPACT_MIN_INTERVAL_MS / 1000 (300)
   /xrpc/tangled.repo.putBlob:
     post:
       tags: [repo]
       operationId: tangled.repo.putBlob
+      parameters:
+        - { in: query, name: mediaType, required: false, schema: { type: string }, description: "MIME type stored with the blob; also accepted as X-Tangled-Media-Type" }
       requestBody:
         content:
           application/octet-stream:
@@ -277,6 +345,8 @@ paths:
     post:
       tags: [repo]
       operationId: tangled.repo.import
+      security: [{ cap: [] }, { siws: [] }]
+      description: Import a CAR. Requires SIWS session for the DID or repo/write.
       parameters:
         - in: query
           name: force
@@ -315,10 +385,78 @@ paths:
                   endpoints:
                     type: array
                     items: { type: string }
+                  document: { type: object, description: Generative or operational did:sol document }
               example:
                 did: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx
                 idCid: bafkr4idexample
                 endpoints: ["https://knot.example"]
+            application/cbor:
+              schema: { type: string, format: binary }
+  /xrpc/tangled.session.challenge:
+    get:
+      tags: [session]
+      operationId: tangled.session.challenge
+      summary: Issue a Sign-In With Solana (SIWS) challenge
+      description: |
+        Returns the canonical SIWS message (domain, DID, nonce, issuedAt).
+        The caller MUST Ed25519-sign the UTF-8 `message` bytes (not the
+        Solana off-chain envelope). Challenges expire (RECOMMENDED 300s).
+      parameters:
+        - { in: query, name: did, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Challenge
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [domain, did, nonce, issuedAt, message]
+                properties:
+                  domain: { type: string }
+                  did: { type: string }
+                  nonce: { type: string, description: "32 hex characters (16 bytes)" }
+                  issuedAt: { type: integer }
+                  message: { type: string }
+              example:
+                domain: knot.example
+                did: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx
+                nonce: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+                issuedAt: 1700000000
+                message: "tangled.siws.v1\ndomain: knot.example\ndid: did:sol:8YLTgCeE4M8XZgiJBoQBFdEJkK2K1S56cH5G1sF8QdYx\nnonce: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nissuedAt: 1700000000"
+  /xrpc/tangled.session.verify:
+    post:
+      tags: [session]
+      operationId: tangled.session.verify
+      summary: Verify SIWS signature and set tangled_session cookie
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [did, nonce, signature]
+              properties:
+                did: { type: string }
+                nonce: { type: string }
+                signature: { type: string, description: "64-byte Ed25519 signature, hex" }
+      responses:
+        "200":
+          description: Session created. Set-Cookie tangled_session (HttpOnly; Path=/; Max-Age=86400; SameSite=Lax; Secure when public URL is HTTPS).
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+              example: tangled_session=ab; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, did, exp]
+                properties:
+                  ok: { type: boolean }
+                  did: { type: string }
+                  exp: { type: integer }
+        "400":
+          description: InvalidRequest or InvalidSignature
   /xrpc/tangled.cap.verify:
     post:
       tags: [cap]
@@ -366,11 +504,16 @@ components:
       type: apiKey
       in: header
       name: Authorization
-      description: "Cap <base64url(invocation)>"
+      description: |
+        Cap <unpadded-base64url(DAG-CBOR(Invocation))>. JSON-in-header MUST be
+        rejected (decoded payload must not start with { or [).
     siws:
       type: apiKey
       in: cookie
       name: tangled_session
+      description: |
+        HttpOnly; Path=/; Max-Age=86400; SameSite=Lax; Secure when the knot
+        public URL is HTTPS. Knot-local login; not a record signature.
   responses:
     CapabilityRequired:
       description: Missing capability
@@ -410,6 +553,58 @@ components:
           items: { type: string }
         maxBlob: { type: integer }
         custodialSign: { type: boolean }
+        peers:
+          type: array
+          items: { type: string, format: uri }
+          description: Operator-marked public knot base URLs. Empty when none. Never learned URLs.
+    NodeStats:
+      type: object
+      required: [v, did, asOf, counts, rates, topology]
+      properties:
+        v: { const: 1 }
+        did: { type: string }
+        asOf: { type: integer, description: Knot clock, unix seconds }
+        counts: { $ref: "#/components/schemas/NodeCounts" }
+        rates: { $ref: "#/components/schemas/NodeRates" }
+        topology: { $ref: "#/components/schemas/NodeTopology" }
+    NodeCounts:
+      type: object
+      required: [identities, repos, records, blobs, peers, circles, foreign, commits]
+      properties:
+        identities: { type: integer, description: DIDs with at least one live public tip }
+        repos: { type: integer, description: Those DIDs that also have a public head }
+        records: { type: integer, description: Live vis public tips }
+        blobs: { type: integer, description: Distinct blob CIDs referenced by those tips }
+        peers: { type: integer, description: Operator-marked public peer URLs }
+        circles: { type: integer, description: Live public sys.circle tips }
+        foreign: { type: integer, description: Live public sys.foreign tips }
+        commits: { type: integer, description: Retained public subscribe events }
+    NodeRates:
+      type: object
+      required: [publicCommits, retained]
+      properties:
+        publicCommits: { type: integer, description: Length of the retained public commit log }
+        retained: { type: integer, description: Cap of that log (256 in the reference knot) }
+    NodeTopology:
+      type: object
+      required: [peers, hosted, truncated]
+      properties:
+        peers:
+          type: array
+          items: { type: string, format: uri }
+          description: Same operator-marked set as node.describe peers. Never learned URLs.
+        hosted:
+          type: array
+          items: { $ref: "#/components/schemas/HostedIdentity" }
+        truncated: { type: boolean }
+    HostedIdentity:
+      type: object
+      required: [did, records]
+      properties:
+        did: { type: string }
+        handle: { type: string }
+        rev: { type: string }
+        records: { type: integer }
     BacklinkHit:
       type: object
       required: [did, collection, rkey, cid, commit]

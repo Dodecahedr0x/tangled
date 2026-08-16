@@ -23,7 +23,7 @@ mls-log-body = {
   type: "welcome" / "commit" / "receipt",
   epoch: uint,
   ? member: did,
-  payload: bstr
+  payload: bstr              ; RFC 9420 TLS-serialized Welcome/Commit; Welcome sealed to init_key ≠ leaf/agreement
 }
 
 epoch-wrap-body = {
@@ -31,4 +31,10 @@ epoch-wrap-body = {
   member: did,
   enc: bstr,
   ct: bstr
+}
+
+keypackage-body = {
+  type: "keypackage",
+  exp: uint,
+  payload: bstr              ; RFC 9420 TLS-serialized KeyPackage; init_key ≠ leaf/agreement
 }

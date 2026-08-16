@@ -1,0 +1,13 @@
+{
+  "$id": "https://reed.app/schemas/pub.reed.like.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.reed.like",
+  "type": "object",
+  "required": ["target"],
+  "properties": {
+    "target": {
+      "type": "string",
+      "description": "CID of the pub.tangled.post this like targets"
+    }
+  }
+}

@@ -18,7 +18,7 @@ An implementation advertises a profile. Profiles are additive. Advertising a pro
 
 | Profile | Who | MUST implement |
 | --- | --- | --- |
-| `knot.public` | Any knot | Identity, public records, MST, pull sync, HTTP API for public methods including `tangled.sync.getBlob` for publicly referenced blobs, handle resolution. SHOULD implement `tangled.sync.queryBacklinks` from locally stored public records |
+| `knot.public` | Any knot | Identity, public records, MST, pull sync, HTTP API for public methods including `tangled.sync.getBlob` for publicly referenced blobs, handle resolution (DNS TXT `_tangled.h`, well-known HTTPS, SNS via Solana JSON-RPC). SHOULD implement `tangled.sync.queryBacklinks` from locally stored public records. Knots that accept browser identity writes MUST implement SIWS `tangled.session.challenge` / `tangled.session.verify` |
 | `knot.cap` | Knots that serve `vis: cap` | Capability verification, revocation fetch or TTL, authorized sync, authorized `getBlob` |
 | `knot.sealed` | Knots that store sealed records | Opaque blob storage, encrypted rkeys, no plaintext logging of bodies, `circle/read` for circle-scoped records they store |
 | `knot.group` | Knots that host circles | Both Hybrid Public Key Encryption (HPKE) small-group and Messaging Layer Security (MLS) large-group distributors, seamless migration, membership grants, honor `circle/read` |
@@ -42,11 +42,14 @@ A `client.group` implementation MUST NOT expose Hybrid Public Key Encryption (HP
   "did": "did:sol:…",
   "profiles": ["knot.public", "knot.cap"],
   "protocols": [],
-  "maxBlob": 134217728
+  "maxBlob": 134217728,
+  "peers": []
 }
 ```
 
-`protocols` lists foreign facades this knot speaks (`activitypub`, `nostr`, `atproto`). Empty means none. `maxBlob` is bytes.
+`protocols` lists foreign facades this knot speaks (`activitypub`, `nostr`, `atproto`). Empty means none. `maxBlob` is bytes. `peers` is the operator-configured public knot URL list ([HTTP API](./12-http-api.md#tangled-node-describe)); omit or `[]` when none.
+
+`GET /xrpc/tangled.node.stats` is the public aggregate for explorers ([HTTP API](./12-http-api.md#tangled-node-stats)). A `knot.public` implementation MUST serve it. Counts are live public tips only.
 
 ## Conformance tests
 
@@ -83,6 +86,9 @@ Implementations MUST follow the profiles of:
 - RFC 8949 (CBOR) as constrained by the DAG-CBOR canonicalization in [Cryptography](./05-cryptography.md)
 - RFC 9180 (HPKE) with the ciphersuite in that chapter
 - RFC 9420 (MLS) with ciphersuite `0x0001` for `knot.group` / `client.group`
+- RFC 9421 (HTTP Message Signatures) `ed25519` subset and RFC 9530 Content-Digest `sha-256` on every ActivityPub `sys.foreign` / `sys.binding` ingest (`@method` `@path` `content-digest`; `@authority` / `host` and `content-type` if listed)
 - [did:sol method](https://identity-com.github.io/sol-did/did-method-spec.html) generative profile
 - [Solana off-chain message format](https://docs.anza.xyz/cli/examples/sign-offchain-message)
 - UCAN delegation semantics as profiled in [Capabilities](./09-capabilities.md)
+
+Normative additions after the first complete v1 draft are listed in [Changelog](./21-changelog.md). `v` remains `1`.

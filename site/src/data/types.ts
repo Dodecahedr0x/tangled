@@ -68,12 +68,15 @@ export const types: TypeDoc[] = [
     fields: [
       { name: "did", type: "Did", note: "Repository identity." },
       { name: "data", type: "Cid", note: "MST root." },
-      { name: "rev", type: "Tid", note: "Must increase." },
+      { name: "rev", type: "Tid", note: "13-char Crockford base32 TID. Must increase." },
       { name: "prev", type: "Cid | null", note: "Previous commit." },
       { name: "sig", type: "[u8; 64]", note: "Identity or new key on rotation." },
       { name: "sigRotation", type: "[u8; 64]?", note: "Required when pubkey changes." },
     ],
-    impl: ["Head is the latest commit CID advertised by a knot."],
+    impl: [
+      "Head is the latest commit CID advertised by a knot (not the raw MST root).",
+      "putRecord writes a new Commit; prev is the previous Commit CID or null at genesis.",
+    ],
     see: "/spec/repositories",
   },
   {
@@ -120,6 +123,7 @@ export const types: TypeDoc[] = [
     ],
     impl: [
       "Children MUST NOT amplify command, resource, or time.",
+      "Caveats: eq, lt, valid_until, max_uses (knots MUST count successful uses per leaf CID; cap.verify MUST NOT increment).",
       "Revocation is sys.revocation.",
       "circle/read is issued by the circle owner; it authorizes fetch of circle-scoped records on any knot that stores them.",
     ],
@@ -129,7 +133,7 @@ export const types: TypeDoc[] = [
     name: "Invocation",
     module: "spec::auth",
     signature: "pub struct Invocation { cap, prf, cmd, res, args, ts, aud, nonce, sig }",
-    summary: "Request signed by the leaf capability audience. HTTP Authorization: Cap <base64url>.",
+    summary: "Request signed by the leaf capability audience. HTTP Authorization: Cap <base64url(DAG-CBOR)>. JSON-in-header MUST be rejected.",
     href: "/reference/types/invocation",
     fields: [
       { name: "cap", type: "Cid", note: "Leaf capability." },
@@ -154,6 +158,7 @@ export const types: TypeDoc[] = [
     ],
     impl: [
       "Grow across 16 is still add-member: same circle id, dual-stack epoch, offline Welcome in the log.",
+      "Leaf HPKE key is the Tangled X25519 agreement key. RFC 9420 Welcome is sealed to init_key, which MUST differ from the leaf.",
       "Never downgrade to HPKE after MLS has been used.",
       "Owner issues a circle/read membership grant on add; revokes it on remove.",
       "After agreement rotation the member’s client re-wraps epoch secrets; not a user-facing mode.",
@@ -223,5 +228,24 @@ export const types: TypeDoc[] = [
     ],
     impl: ["Clients compose labelers. Knots MUST NOT silently drop public records from getRepo because of a label."],
     see: "/spec/labels",
+  },
+  {
+    name: "NodeStats",
+    module: "spec::wire",
+    signature: "pub struct NodeStats { v, did, asOf, counts, rates, topology }",
+    summary: "Knot-local public aggregates and advertised-peer topology. Not a global directory.",
+    href: "/reference/types/nodestats",
+    fields: [
+      { name: "counts", type: "NodeCounts", note: "Live vis:public tips only. identities, repos, records, blobs, peers, circles, foreign, commits." },
+      { name: "rates.publicCommits", type: "u64", note: "Retained public subscribe log length, not a wall-clock hourly rate." },
+      { name: "topology.peers", type: "uri[]", note: "Same operator-marked set as node.describe peers. Never learned URLs." },
+      { name: "topology.hosted", type: "HostedIdentity[]", note: "DIDs with a live public tip. May be truncated." },
+    ],
+    impl: [
+      "GET /xrpc/tangled.node.stats, no auth.",
+      "MUST NOT count cap/sealed records, capability uses, or sessions.",
+      "Clients crawl advertised peers; the graph is incomplete by design.",
+    ],
+    see: "/spec/http-api",
   },
 ];

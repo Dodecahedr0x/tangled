@@ -58,6 +58,7 @@ page-snapshot = {
 compact-body = {
   compact: 1,
   frontier: [+ cid-text],
+  included: [* cid-text],
   snapshot: page-snapshot
 }
 

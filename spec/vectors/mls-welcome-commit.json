@@ -1,5 +1,5 @@
 {
-  "comment": "MLS ciphersuite 0x0001. Credentials are 32-byte Solana pubkeys. payload_hex is a stand-in for RFC 9420 Welcome/Commit bytes produced by a conforming MLS stack; Tangled wrapping is the record fields.",
+  "comment": "Wrapping-only. payload_hex is not RFC 9420 TLS bytes (not byte-stable across MLS stacks). Ciphersuite 0x0001, exporter label tangled.epoch, context uint64be(N). Leaf HPKE is Tangled agreement; Welcome sealed to init_key ≠ leaf. Live bytes: cargo test -p tangled --lib mls::",
   "ciphersuite": "0x0001",
   "application_id": "tangled.circle.v1",
   "exporter_label": "tangled.epoch",

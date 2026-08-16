@@ -1,0 +1,21 @@
+[package]
+name = "weft-core"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Weft explorer domain: knot stats, topology crawl, lookup"
+publish = false
+
+[[bin]]
+name = "weft-seed"
+path = "src/bin/weft-seed.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tangled = { path = "../../../crates/tangled" }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+
+[dev-dependencies]
+tempfile = "3"

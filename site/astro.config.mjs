@@ -3,6 +3,9 @@ import { fileURLToPath } from "node:url";
 
 function rewrite(url) {
   if (!url || typeof url !== "string") return url;
+  if (url === "./http/openapi.yaml" || url.endsWith("/http/openapi.yaml")) {
+    return "/openapi.yaml";
+  }
   const m = url.match(/^\.\/\d+-([a-z0-9-]+)\.md(.*)$/);
   if (!m) return url;
   const slug = m[1];

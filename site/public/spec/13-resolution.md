@@ -8,6 +8,8 @@ order: 13
 
 Resolution turns a handle or a DID into a knot URL and a DID document. It does not confer trust beyond what signatures later verify.
 
+A **generative document** is computed from the Ed25519 public key alone (`authentication` and `capabilityInvocation`; no `keyAgreement`). An **operational document** adds `keyAgreement` from `sys/id.agreement` as specified in [Identifiers](./04-identifiers.md#did). `tangled.identity.resolve` MUST return the operational document when the resolver has `sys/id` (or equivalent hosted identity) for that DID, and MUST return the generative document otherwise.
+
 ## DID → knot
 
 1. If the client has a cached `sys/id` for the DID, use `endpoints` whose `type` is `"knot"`, in list order, skipping endpoints that failed recently.
@@ -29,11 +31,19 @@ TXT and well-known MUST agree if both exist; if they disagree, abort.
 
 ## Handle → DID (SNS)
 
-Let `n` be an SNS domain.
+Let `n` be an SNS domain of the form `<label>.sol` (case-insensitive; no `/` or `:`).
 
-1. Resolve the SNS record per the Solana Name Service program for the cluster implied by the DID (mainnet default).
-2. The record MUST contain a field `tangled` or, if absent, the account owner MUST equal the identity public key.
-3. Fetch `sys/id`, verify `n` is in `alsoKnownAs`.
+SNS is resolved via Solana JSON-RPC (`getAccountInfo`) against the Bonfida SPL Name Service program. A local `solana-test-validator` is a test harness used by continuous integration; it is not a protocol requirement.
+
+1. Derive the name-registry Program Derived Address (PDA):
+   - Program: `namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX`
+   - Top-Level Domain (TLD) parent (`.sol` root): `58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx`
+   - Hashed name: `SHA-256("SPL Name Service" || label)` where `label` is `n` without the `.sol` suffix
+   - Seeds: hashed name, 32 zero bytes (class), TLD parent
+2. `getAccountInfo` on that PDA with encoding `base64`. Missing account MUST fail resolution.
+3. Parse the account: 96-byte header `parent (32) || owner (32) || class (32)`, then UTF-8 data. Data MAY be JSON `{"tangled":"did:sol:…","head":"b…"}` or lines `tangled=<did>`, `did:sol:…`, `head=<cid>` (semicolon- or newline-separated).
+4. The DID MUST be the `tangled` field if present; otherwise `did:sol:` plus Bitcoin-alphabet base58 of the 32-byte owner. The cluster prefix on that DID MUST match the RPC cluster the client is using (mainnet-beta default; `devnet` / `testnet` when the RPC URL names those clusters).
+5. Fetch `sys/id`, verify `n` is in `alsoKnownAs`.
 
 SNS seizure: whoever controls the SNS domain controls the handle, not the DID. Same as DNS.
 

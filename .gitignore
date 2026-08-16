@@ -5,4 +5,7 @@ site/dist/
 site/.astro/
 site/.impeccable/
 spec/vectors/node_modules/
+target/
+test-ledger/
+.data/
 .DS_Store

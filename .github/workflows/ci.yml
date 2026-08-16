@@ -1,0 +1,75 @@
+# Rust workspace tests plus live SNS JSON-RPC against solana-test-validator.
+#
+# Solana CLI: Agave v4.2.1 (2026-08-13). That release includes
+# `solana-test-validator`. Do not point SOLANA_RPC at mainnet-beta.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+  SOLANA_CLI_VERSION: v4.2.1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Workspace tests (no Solana RPC)
+        run: cargo test --workspace
+
+      - name: Cache Solana CLI
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/solana/install
+          key: solana-${{ env.SOLANA_CLI_VERSION }}-${{ runner.os }}
+
+      - name: Install Solana CLI (Agave ${{ env.SOLANA_CLI_VERSION }})
+        run: |
+          BIN="$HOME/.local/share/solana/install/active_release/bin"
+          if [[ ! -x "$BIN/solana-test-validator" ]]; then
+            sh -c "$(curl -sSfL https://release.anza.xyz/${SOLANA_CLI_VERSION}/install)"
+          fi
+          echo "$BIN" >> "$GITHUB_PATH"
+          "$BIN/solana" --version
+          "$BIN/solana-test-validator" --version
+
+      - name: Start solana-test-validator with SNS fixtures
+        run: scripts/sns-validator.sh --bg
+
+      - name: SNS live RPC tests
+        env:
+          SOLANA_RPC: http://127.0.0.1:8899
+        run: cargo test -p tangled --test sns_rpc -- --ignored --nocapture
+
+      - name: Upload validator logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solana-test-validator-logs
+          path: |
+            target/sns-test-ledger/validator.log
+            target/sns-test-ledger/validator-*.log
+            target/sns-test-ledger/stdout.log
+          if-no-files-found: warn

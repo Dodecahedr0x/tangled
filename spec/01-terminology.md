@@ -47,23 +47,26 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | JWT | JSON Web Token | Not used. Capabilities are DAG-CBOR UCAN-profile certificates, not JWTs. | [Capabilities](./09-capabilities.md) |
 | LWW | Last-Writer-Wins | Per-path register in the page CRDT (`title`, `blob`): later record `ts` wins; CID tie-break. Distinct from Last-ts-wins, which picks a whole record. | [Data model](./06-data-model.md) |
 | KEM | Key Encapsulation Mechanism | HPKE primitive. See DHKEM. | [Cryptography](./05-cryptography.md) |
+| MIME | Multipurpose Internet Mail Extensions | Media type string stored with a blob (`image/png`). `getBlob` `Content-Type` stays `application/octet-stream`; the stored type is `X-Tangled-Media-Type`. | [HTTP API](./12-http-api.md) |
 | MLS | Messaging Layer Security | RFC 9420. Large-group distributor of the circle epoch secret. Version 1 required for group-capable implementations. | [Circles](./10-circles.md) |
 | MST | Merkle Search Tree | Ordered Merkle tree keyed by `collection/rkey`. Repository data structure. | [Repositories](./07-repositories.md) |
 | NFC | Normalization Form Canonical Composition | Unicode normalization. Page CRDT `run` values MUST NOT be NFC-normalized before splitting into scalars. | [Data model](./06-data-model.md) |
 | NIP | Nostr Implementation Possibility | Nostr extension documents. Cited where Tangled maps kinds. | [Interoperability](./16-interoperability.md) |
 | OpenAPI | OpenAPI Specification | Machine-readable HTTP API in `spec/http/openapi.yaml`. | [HTTP API](./12-http-api.md) |
 | OR-Set | Observed-Remove Set | Set CRDT in which a remove observes specific adds. Not used as a collection merge class in v1 (album `items` stay Last-ts-wins). | [Data model](./06-data-model.md) |
+| PDA | Program Derived Address | Solana account address derived from seeds; used for the SNS `.sol` name registry. | [Resolution](./13-resolution.md) |
 | PDS | Personal Data Server | AT Protocol name for a user host. A Tangled knot is the analogous unit, not a PDS. | [Comparison](./19-comparison.md) |
 | PLC | Public Ledger of Credentials | AT Protocol DID method (`did:plc`) and its directory. Tangled does not use PLC. | [Identifiers](./04-identifiers.md) |
-| RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420. | [Conformance](./02-conformance.md) |
+| RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420, 9421, 9530. | [Conformance](./02-conformance.md) |
 | RGA | Replicated Growable Array | List CRDT used for `pub.tangled.page` text. Insert after an atom id; concurrent siblings order by atom-id descending. A compact snapshot keeps original atom ids so concurrent ops still parent. | [Data model](./06-data-model.md) |
 | RPC | Remote Procedure Call | Knot methods are HTTP RPCs in the `tangled.*` namespace. | [HTTP API](./12-http-api.md) |
 | S2S | Server-to-Server | ActivityPub federation. A gateway MAY speak S2S. | [Interoperability](./16-interoperability.md) |
 | SHA-256 | Secure Hash Algorithm 256-bit | Used inside HKDF-SHA256 and MLS. Not the content hash (that is BLAKE3). | [Cryptography](./05-cryptography.md) |
-| SIWS | Sign In With Solana | Human session login to a knot. Not used to sign records. | [Cryptography](./05-cryptography.md) |
-| SNS | Solana Name Service | On-chain name → pubkey mapping. An optional handle type. | [Resolution](./13-resolution.md) |
+| SIWS | Sign In With Solana | Human session login to a knot (`tangled.session.challenge` / `tangled.session.verify`, cookie `tangled_session`). Not used to sign records. | [HTTP API](./12-http-api.md#sessions-siws) |
+| SNS | Solana Name Service | On-chain `.sol` name → DID mapping via the Bonfida name program and Solana JSON-RPC. An optional handle type. | [Resolution](./13-resolution.md) |
 | SQLite | SQLite database | Recommended local store for a self-hosted knot. Not a wire requirement. | [Architecture](./03-architecture.md) |
 | TCB | Trusted Computing Base | Identity, signatures, and encryption are in the TCB. Looms and gateways are not. | [Architecture](./03-architecture.md) |
+| TLD | Top-Level Domain | SNS `.sol` parent account used as a PDA seed. | [Resolution](./13-resolution.md) |
 | TLS | Transport Layer Security | Required for production HTTPS. | [HTTP API](./12-http-api.md) |
 | TTL | Time To Live | Capability expiry and dual-stack max-skew. Offline capability checks rely on TTL. | [Capabilities](./09-capabilities.md) |
 | UCAN | User Controlled Authorization Network | Capability certificate family. Tangled profiles UCAN; it does not use JWT-UCAN as the wire format. | [Capabilities](./09-capabilities.md) |
@@ -72,11 +75,12 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | UTF-8 | Unicode Transformation Format, 8-bit | Text encoding for JSON mappings and UTF-8 off-chain messages. | [Cryptography](./05-cryptography.md) |
 | UUID | Universally Unique Identifier | Not required. Record keys (`rkey`) are TID-like or caller-chosen. | [Data model](./06-data-model.md) |
 | W3C | World Wide Web Consortium | Publisher of DID Core, ActivityPub, and HTTP Message Signatures. | [Identifiers](./04-identifiers.md) |
+| Content-Digest | RFC 9530 content digest | HTTP header naming a hash of the request body (`sha-256=:…:`). Required covered component when HTTP Message Signatures are present on an ActivityPub import. | [Interoperability](./16-interoperability.md) |
 | X25519 | X25519 Diffie–Hellman | Key-agreement curve. Listed separately in `sys/id`; not derived from the Ed25519 identity key for ECDH. | [Identifiers](./04-identifiers.md) |
 | XRPC | AT Protocol HTTP RPC style | Method names like `com.atproto.repo.getRecord`. Tangled uses `tangled.*`. Gateways MAY speak a subset of XRPC. | [Interoperability](./16-interoperability.md) |
 | YAML | YAML Ain’t Markup Language | Translation tables in `spec/interop/`. | [Interoperability](./16-interoperability.md) |
 | BIP | Bitcoin Improvement Proposal | BIP-340 is the Schnorr signature used on Nostr bindings. | [Interoperability](./16-interoperability.md) |
-| CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open. Authorized methods MUST NOT use `*`. | [HTTP API](./12-http-api.md) |
+| CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open (`*`). Requests with Cookie or Authorization MUST echo Origin and MUST send `Access-Control-Allow-Credentials: true`. | [HTTP API](./12-http-api.md) |
 | GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. Page compact-GC MAY omit pre-compact op blocks once every live head descends from the compact. | [Data model](./06-data-model.md) |
 | QR | Quick Response code | Out-of-band way to learn a knot URL. | [Resolution](./13-resolution.md) |
 | UI | User Interface | Clients MUST NOT expose HPKE vs MLS in UI. | [Circles](./10-circles.md) |
@@ -122,7 +126,11 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Gateway.** A knot that also speaks a foreign protocol and stores translations as `sys/foreign` envelopes.
 
-**Generative DID.** A `did:sol` that has no on-chain document. The identifier is the public key. Default.
+**Generative DID.** A `did:sol` that has no on-chain document. The identifier is the public key. Default. The **generative document** has only the Ed25519 verification method. The **operational document** adds `keyAgreement` from `sys/id`.
+
+**HTTP Message Signatures.** RFC 9421 signatures over HTTP components (`Signature-Input`, `Signature`). Tangled verifies the `ed25519` subset with Content-Digest on ActivityPub import. Covered set: `@method` `@path` `content-digest` (required); `@authority` / `host` and `content-type` MUST verify if listed.
+
+**Included set (`I(C)`).** On a page compact `C`, the CID set of folded ops. Listed on the compact as `included`. The authoring knot MUST retain those blocks.
 
 **Handle.** A human-readable name bidirectionally bound to a DID: a DNS name or an SNS name.
 
@@ -162,12 +170,12 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Threshold.** Spec constant `CIRCLE_MLS_THRESHOLD = 16`. The member count at which a circle that has never used MLS MUST migrate to MLS. Not a client setting.
 
-**TID.** Timestamp identifier. A sortable `rkey` derived from time plus entropy. Recommended, not required.
+**TID.** Timestamp identifier. 13-character Crockford base32 of `(unix_micros << 10) | entropy10`. Recommended for record keys; REQUIRED for commit `rev`.
 
 **Unsigned record.** The DAG-CBOR map of a record with the `sig` field omitted. Input to BLAKE3 for the signing envelope.
 
 **Visibility (`vis`).** Record field: `public`, `cap`, or `sealed`.
 
-**Welcome.** MLS message that introduces a member to a group. Published as a sealed record in the circle log.
+**Welcome.** MLS message that introduces a member to a group. Published as a sealed record in the circle log. RFC 9420 seals Welcome to KeyPackage `init_key`, which MUST differ from the leaf HPKE key (the Tangled X25519 `agreement` key).
 
 **Yarn.** Informal name for a schema document. Normative text says **schema**.

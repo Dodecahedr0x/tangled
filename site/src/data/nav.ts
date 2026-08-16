@@ -53,6 +53,7 @@ export const specNav = [
       { href: "/spec/use-cases", label: "Use cases" },
       { href: "/spec/threat-model", label: "Threat model" },
       { href: "/spec/comparison", label: "Comparison" },
+      { href: "/spec/changelog", label: "Changelog" },
     ],
   },
 ];
@@ -60,6 +61,7 @@ export const specNav = [
 export const toolNav = [
   { href: "/reference/types", label: "Type index" },
   { href: "/reference/http", label: "HTTP reference" },
+  { href: "/reference/openapi", label: "OpenAPI" },
   { href: "/compare", label: "Compare" },
   { href: "/interop", label: "Interop tables" },
   { href: "/playground", label: "Playground" },

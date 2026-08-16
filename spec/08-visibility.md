@@ -37,10 +37,10 @@ Visibility is a field on the record. It is not a second protocol. Fetch (authori
 Requests for `cap` and `sealed` MUST include:
 
 ```
-Authorization: Cap <base64url(capability-invocation-dag-cbor)>
+Authorization: Cap <base64url(DAG-CBOR(Invocation))>
 ```
 
-The invocation is specified in [Capabilities](./09-capabilities.md). Knots that do not advertise `knot.cap` MUST return `ProfileRequired`.
+The payload MUST be DAG-CBOR. Knots MUST reject an `Authorization` value whose decoded bytes look like JSON (first byte `{` or `[`). JSON-in-header MUST NOT be accepted. The invocation is specified in [Capabilities](./09-capabilities.md). Knots that do not advertise `knot.cap` MUST return `ProfileRequired`.
 
 ## What a knot is allowed to know
 

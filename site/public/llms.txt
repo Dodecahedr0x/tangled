@@ -72,6 +72,7 @@ Honest losses, stated here so the rest of the spec does not have to apologize fo
 | [Threat model](./18-threat-model.md) | Attackers, controls, residual risk |
 | [Comparison](./19-comparison.md) | ActivityPub, Nostr, AT Protocol, Farcaster |
 | [Use cases](./20-use-cases.md) | Worked examples (informative) |
+| [Changelog](./21-changelog.md) | Normative v1 additions after the first complete draft |
 
 Machine-readable companions: Concise Data Definition Language (CDDL) under `cddl/`, core schemas under `schemas/`, OpenAPI under `http/`, translation tables under `interop/`, test vectors under `vectors/`.
 
@@ -129,23 +130,26 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | JWT | JSON Web Token | Not used. Capabilities are DAG-CBOR UCAN-profile certificates, not JWTs. | [Capabilities](./09-capabilities.md) |
 | LWW | Last-Writer-Wins | Per-path register in the page CRDT (`title`, `blob`): later record `ts` wins; CID tie-break. Distinct from Last-ts-wins, which picks a whole record. | [Data model](./06-data-model.md) |
 | KEM | Key Encapsulation Mechanism | HPKE primitive. See DHKEM. | [Cryptography](./05-cryptography.md) |
+| MIME | Multipurpose Internet Mail Extensions | Media type string stored with a blob (`image/png`). `getBlob` `Content-Type` stays `application/octet-stream`; the stored type is `X-Tangled-Media-Type`. | [HTTP API](./12-http-api.md) |
 | MLS | Messaging Layer Security | RFC 9420. Large-group distributor of the circle epoch secret. Version 1 required for group-capable implementations. | [Circles](./10-circles.md) |
 | MST | Merkle Search Tree | Ordered Merkle tree keyed by `collection/rkey`. Repository data structure. | [Repositories](./07-repositories.md) |
 | NFC | Normalization Form Canonical Composition | Unicode normalization. Page CRDT `run` values MUST NOT be NFC-normalized before splitting into scalars. | [Data model](./06-data-model.md) |
 | NIP | Nostr Implementation Possibility | Nostr extension documents. Cited where Tangled maps kinds. | [Interoperability](./16-interoperability.md) |
 | OpenAPI | OpenAPI Specification | Machine-readable HTTP API in `spec/http/openapi.yaml`. | [HTTP API](./12-http-api.md) |
 | OR-Set | Observed-Remove Set | Set CRDT in which a remove observes specific adds. Not used as a collection merge class in v1 (album `items` stay Last-ts-wins). | [Data model](./06-data-model.md) |
+| PDA | Program Derived Address | Solana account address derived from seeds; used for the SNS `.sol` name registry. | [Resolution](./13-resolution.md) |
 | PDS | Personal Data Server | AT Protocol name for a user host. A Tangled knot is the analogous unit, not a PDS. | [Comparison](./19-comparison.md) |
 | PLC | Public Ledger of Credentials | AT Protocol DID method (`did:plc`) and its directory. Tangled does not use PLC. | [Identifiers](./04-identifiers.md) |
-| RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420. | [Conformance](./02-conformance.md) |
+| RFC | Request for Comments | IETF documents. Tangled profiles RFC 2119, 8174, 8949, 9180, 9420, 9421, 9530. | [Conformance](./02-conformance.md) |
 | RGA | Replicated Growable Array | List CRDT used for `pub.tangled.page` text. Insert after an atom id; concurrent siblings order by atom-id descending. A compact snapshot keeps original atom ids so concurrent ops still parent. | [Data model](./06-data-model.md) |
 | RPC | Remote Procedure Call | Knot methods are HTTP RPCs in the `tangled.*` namespace. | [HTTP API](./12-http-api.md) |
 | S2S | Server-to-Server | ActivityPub federation. A gateway MAY speak S2S. | [Interoperability](./16-interoperability.md) |
 | SHA-256 | Secure Hash Algorithm 256-bit | Used inside HKDF-SHA256 and MLS. Not the content hash (that is BLAKE3). | [Cryptography](./05-cryptography.md) |
-| SIWS | Sign In With Solana | Human session login to a knot. Not used to sign records. | [Cryptography](./05-cryptography.md) |
-| SNS | Solana Name Service | On-chain name → pubkey mapping. An optional handle type. | [Resolution](./13-resolution.md) |
+| SIWS | Sign In With Solana | Human session login to a knot (`tangled.session.challenge` / `tangled.session.verify`, cookie `tangled_session`). Not used to sign records. | [HTTP API](./12-http-api.md#sessions-siws) |
+| SNS | Solana Name Service | On-chain `.sol` name → DID mapping via the Bonfida name program and Solana JSON-RPC. An optional handle type. | [Resolution](./13-resolution.md) |
 | SQLite | SQLite database | Recommended local store for a self-hosted knot. Not a wire requirement. | [Architecture](./03-architecture.md) |
 | TCB | Trusted Computing Base | Identity, signatures, and encryption are in the TCB. Looms and gateways are not. | [Architecture](./03-architecture.md) |
+| TLD | Top-Level Domain | SNS `.sol` parent account used as a PDA seed. | [Resolution](./13-resolution.md) |
 | TLS | Transport Layer Security | Required for production HTTPS. | [HTTP API](./12-http-api.md) |
 | TTL | Time To Live | Capability expiry and dual-stack max-skew. Offline capability checks rely on TTL. | [Capabilities](./09-capabilities.md) |
 | UCAN | User Controlled Authorization Network | Capability certificate family. Tangled profiles UCAN; it does not use JWT-UCAN as the wire format. | [Capabilities](./09-capabilities.md) |
@@ -154,11 +158,12 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 | UTF-8 | Unicode Transformation Format, 8-bit | Text encoding for JSON mappings and UTF-8 off-chain messages. | [Cryptography](./05-cryptography.md) |
 | UUID | Universally Unique Identifier | Not required. Record keys (`rkey`) are TID-like or caller-chosen. | [Data model](./06-data-model.md) |
 | W3C | World Wide Web Consortium | Publisher of DID Core, ActivityPub, and HTTP Message Signatures. | [Identifiers](./04-identifiers.md) |
+| Content-Digest | RFC 9530 content digest | HTTP header naming a hash of the request body (`sha-256=:…:`). Required covered component when HTTP Message Signatures are present on an ActivityPub import. | [Interoperability](./16-interoperability.md) |
 | X25519 | X25519 Diffie–Hellman | Key-agreement curve. Listed separately in `sys/id`; not derived from the Ed25519 identity key for ECDH. | [Identifiers](./04-identifiers.md) |
 | XRPC | AT Protocol HTTP RPC style | Method names like `com.atproto.repo.getRecord`. Tangled uses `tangled.*`. Gateways MAY speak a subset of XRPC. | [Interoperability](./16-interoperability.md) |
 | YAML | YAML Ain’t Markup Language | Translation tables in `spec/interop/`. | [Interoperability](./16-interoperability.md) |
 | BIP | Bitcoin Improvement Proposal | BIP-340 is the Schnorr signature used on Nostr bindings. | [Interoperability](./16-interoperability.md) |
-| CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open. Authorized methods MUST NOT use `*`. | [HTTP API](./12-http-api.md) |
+| CORS | Cross-Origin Resource Sharing | Public knot reads MUST be CORS-open (`*`). Requests with Cookie or Authorization MUST echo Origin and MUST send `Access-Control-Allow-Credentials: true`. | [HTTP API](./12-http-api.md) |
 | GC | Garbage Collection | Knots MAY GC blob bytes after a delete; tombstones remain. Page compact-GC MAY omit pre-compact op blocks once every live head descends from the compact. | [Data model](./06-data-model.md) |
 | QR | Quick Response code | Out-of-band way to learn a knot URL. | [Resolution](./13-resolution.md) |
 | UI | User Interface | Clients MUST NOT expose HPKE vs MLS in UI. | [Circles](./10-circles.md) |
@@ -204,7 +209,11 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Gateway.** A knot that also speaks a foreign protocol and stores translations as `sys/foreign` envelopes.
 
-**Generative DID.** A `did:sol` that has no on-chain document. The identifier is the public key. Default.
+**Generative DID.** A `did:sol` that has no on-chain document. The identifier is the public key. Default. The **generative document** has only the Ed25519 verification method. The **operational document** adds `keyAgreement` from `sys/id`.
+
+**HTTP Message Signatures.** RFC 9421 signatures over HTTP components (`Signature-Input`, `Signature`). Tangled verifies the `ed25519` subset with Content-Digest on ActivityPub import. Covered set: `@method` `@path` `content-digest` (required); `@authority` / `host` and `content-type` MUST verify if listed.
+
+**Included set (`I(C)`).** On a page compact `C`, the CID set of folded ops. Listed on the compact as `included`. The authoring knot MUST retain those blocks.
 
 **Handle.** A human-readable name bidirectionally bound to a DID: a DNS name or an SNS name.
 
@@ -244,13 +253,13 @@ Protocol nouns (knot, repo, circle) are in [Glossary](#glossary). Acronyms are i
 
 **Threshold.** Spec constant `CIRCLE_MLS_THRESHOLD = 16`. The member count at which a circle that has never used MLS MUST migrate to MLS. Not a client setting.
 
-**TID.** Timestamp identifier. A sortable `rkey` derived from time plus entropy. Recommended, not required.
+**TID.** Timestamp identifier. 13-character Crockford base32 of `(unix_micros << 10) | entropy10`. Recommended for record keys; REQUIRED for commit `rev`.
 
 **Unsigned record.** The DAG-CBOR map of a record with the `sig` field omitted. Input to BLAKE3 for the signing envelope.
 
 **Visibility (`vis`).** Record field: `public`, `cap`, or `sealed`.
 
-**Welcome.** MLS message that introduces a member to a group. Published as a sealed record in the circle log.
+**Welcome.** MLS message that introduces a member to a group. Published as a sealed record in the circle log. RFC 9420 seals Welcome to KeyPackage `init_key`, which MUST differ from the leaf HPKE key (the Tangled X25519 `agreement` key).
 
 **Yarn.** Informal name for a schema document. Normative text says **schema**.
 
@@ -279,7 +288,7 @@ An implementation advertises a profile. Profiles are additive. Advertising a pro
 
 | Profile | Who | MUST implement |
 | --- | --- | --- |
-| `knot.public` | Any knot | Identity, public records, MST, pull sync, HTTP API for public methods including `tangled.sync.getBlob` for publicly referenced blobs, handle resolution. SHOULD implement `tangled.sync.queryBacklinks` from locally stored public records |
+| `knot.public` | Any knot | Identity, public records, MST, pull sync, HTTP API for public methods including `tangled.sync.getBlob` for publicly referenced blobs, handle resolution (DNS TXT `_tangled.h`, well-known HTTPS, SNS via Solana JSON-RPC). SHOULD implement `tangled.sync.queryBacklinks` from locally stored public records. Knots that accept browser identity writes MUST implement SIWS `tangled.session.challenge` / `tangled.session.verify` |
 | `knot.cap` | Knots that serve `vis: cap` | Capability verification, revocation fetch or TTL, authorized sync, authorized `getBlob` |
 | `knot.sealed` | Knots that store sealed records | Opaque blob storage, encrypted rkeys, no plaintext logging of bodies, `circle/read` for circle-scoped records they store |
 | `knot.group` | Knots that host circles | Both Hybrid Public Key Encryption (HPKE) small-group and Messaging Layer Security (MLS) large-group distributors, seamless migration, membership grants, honor `circle/read` |
@@ -303,11 +312,14 @@ A `client.group` implementation MUST NOT expose Hybrid Public Key Encryption (HP
   "did": "did:sol:…",
   "profiles": ["knot.public", "knot.cap"],
   "protocols": [],
-  "maxBlob": 134217728
+  "maxBlob": 134217728,
+  "peers": []
 }
 ```
 
-`protocols` lists foreign facades this knot speaks (`activitypub`, `nostr`, `atproto`). Empty means none. `maxBlob` is bytes.
+`protocols` lists foreign facades this knot speaks (`activitypub`, `nostr`, `atproto`). Empty means none. `maxBlob` is bytes. `peers` is the operator-configured public knot URL list ([HTTP API](./12-http-api.md#tangled-node-describe)); omit or `[]` when none.
+
+`GET /xrpc/tangled.node.stats` is the public aggregate for explorers ([HTTP API](./12-http-api.md#tangled-node-stats)). A `knot.public` implementation MUST serve it. Counts are live public tips only.
 
 ## Conformance tests
 
@@ -344,9 +356,12 @@ Implementations MUST follow the profiles of:
 - RFC 8949 (CBOR) as constrained by the DAG-CBOR canonicalization in [Cryptography](./05-cryptography.md)
 - RFC 9180 (HPKE) with the ciphersuite in that chapter
 - RFC 9420 (MLS) with ciphersuite `0x0001` for `knot.group` / `client.group`
+- RFC 9421 (HTTP Message Signatures) `ed25519` subset and RFC 9530 Content-Digest `sha-256` on every ActivityPub `sys.foreign` / `sys.binding` ingest (`@method` `@path` `content-digest`; `@authority` / `host` and `content-type` if listed)
 - [did:sol method](https://identity-com.github.io/sol-did/did-method-spec.html) generative profile
 - [Solana off-chain message format](https://docs.anza.xyz/cli/examples/sign-offchain-message)
 - UCAN delegation semantics as profiled in [Capabilities](./09-capabilities.md)
+
+Normative additions after the first complete v1 draft are listed in [Changelog](./21-changelog.md). `v` remains `1`.
 
 
 ---
@@ -475,9 +490,27 @@ Implementations MUST accept `did:sol:` on mainnet with no cluster prefix. Implem
 
 Tangled MUST NOT invent a `did:tangled` method.
 
-A generative DID has no on-chain document. Resolution of a generative DID MUST produce a DID document whose sole verification method is the public key itself, with `capabilityInvocation` and `authentication` granted to that key.
+A generative DID has no on-chain document. Resolution of a generative DID **without** a verified `sys/id` MUST produce a DID document whose sole verification method is the public key itself, with `capabilityInvocation` and `authentication` granted to that key. That **generative document** MUST NOT include `keyAgreement`. Implementations MUST NOT invent an X25519 key by converting the identity Ed25519 key.
+
+```json
+{
+  "id": "did:sol:<base58>",
+  "verificationMethod": [{
+    "id": "did:sol:<base58>#key",
+    "type": "Ed25519VerificationKey2020",
+    "controller": "did:sol:<base58>",
+    "publicKeyBase58": "<base58>"
+  }],
+  "authentication": ["did:sol:<base58>#key"],
+  "capabilityInvocation": ["did:sol:<base58>#key"]
+}
+```
 
 Persisting a DID document on-chain via the `did:sol` program is OPTIONAL. When present, it is a transparency log for rotation, not a gate on existence. A knot MUST serve `sys/id` even if no on-chain document exists.
+
+When a knot or client has a verified `sys/id` for the DID (or equivalent hosted identity), it MUST return the **operational document**: the generative methods plus `keyAgreement` for the X25519 `agreement` public key from `sys/id`. The agreement verification method id is `did:sol:<base58>#agreement`. Type is `X25519KeyAgreementKey2020`. The public key is `publicKeyBase58` (Bitcoin-alphabet base58 of the 32 raw bytes), matching the Ed25519 method encoding.
+
+`tangled.identity.resolve` MUST return that operational document in `document` when `sys/id` is available, and the generative document otherwise. Clients that only have the 32-byte Ed25519 key MUST emit the generative document.
 
 ## sys/id
 
@@ -510,7 +543,7 @@ A handle is a human-readable name bound to a DID. Two types:
 1. **DNS.** A hostname such as `alice.example.com`. Proof is either:
    - A DNS TXT record at `_tangled.<hostname>` whose value is the DID, or
    - `https://<hostname>/.well-known/tangled-did` serving `text/plain` with the DID as the sole line, or JSON `{"did":"did:sol:…"}`.
-2. **SNS.** A Solana Name Service domain. Proof is the SNS record whose owner or specified Tangled field is the identity public key. Resolution procedure is in [Resolution](./13-resolution.md).
+2. **SNS.** A Solana Name Service (SNS) `.sol` domain. Proof is the name-registry account on the Bonfida name program: a `tangled` field naming the DID, or, if that field is absent, the 32-byte account owner encoded as `did:sol:`. Resolution procedure (Program Derived Address (PDA), 96-byte header, JSON-RPC) is in [Resolution](./13-resolution.md).
 
 Bidirectional binding: `sys/id.alsoKnownAs` MUST list the handle, and the handle proof MUST name the DID. Clients MUST reject one-sided claims.
 
@@ -648,11 +681,15 @@ Verifiers MUST rebuild this exact byte string and call Ed25519 verify with the a
 
 Wallet-adapter `signMessage` is equivalent if and only if the client passes `message` (the full envelope bytes) to the wallet. Clients MUST NOT pass only the digest or only the CBOR.
 
-Sign In With Solana (SIWS) authenticates a human session to a knot’s HTTPS surface. SIWS MUST NOT be used as a record signature.
-
 ### Commit signatures
 
 A commit signs the same envelope construction, with `unsigned_record_dag_cbor` replaced by the unsigned commit map (`sig` and `sigRotation` omitted). Rotation commits carry a second signature `sigRotation` over the same message, verified against a key listed in the previous `sys/id.rotation`.
+
+## Sign In With Solana
+
+Sign In With Solana (SIWS) authenticates a human session to **this knot’s** HTTPS surface. It is knot-local login. SIWS MUST NOT be used as a record signature and MUST NOT replace the off-chain envelope on `putRecord`. HTTP methods, cookie attributes, and message fields are specified in [HTTP API](./12-http-api.md#sessions-siws).
+
+The SIWS signature is Ed25519 over the UTF-8 bytes of the canonical SIWS message. Implementations MUST NOT wrap that message in the Solana off-chain envelope used for records and commits.
 
 ## HPKE
 
@@ -665,13 +702,17 @@ Single-shot HPKE (base mode) MUST be used. The encapsulating key (`enc`) is stor
 
 ## MLS
 
-Ciphersuite MUST be `0x0001`. Credential type: basic credential whose identity is the 32-byte Solana public key (not the DID string). Application ID: `tangled.circle.v1`.
+Ciphersuite MUST be `0x0001` (`MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`). Credential type: basic credential whose identity is the 32-byte Solana public key (not the DID string). Application ID: `tangled.circle.v1`.
 
-The MLS **exporter secret** with label `tangled.epoch` and context `uint64be(N)` and length 32 is `epoch_secret[N]` when the distributor is MLS.
+Each member’s MLS **leaf HPKE public key** MUST be that member’s Tangled X25519 `agreement` key (the same key Hybrid Public Key Encryption (HPKE) wraps use). RFC 9420 **requires** KeyPackage `init_key` to differ from the leaf encryption key. Implementations MUST satisfy that: Welcome is sealed to `init_key`, not to `agreement`. Path secrets and HPKE wraps use `agreement`. Clients MUST NOT treat `init_key` as the wrap target.
 
-Welcome and Commit messages are stored as sealed records in the circle log (`sys.circle.mls`, rkey = TID). They are not user-visible.
+The MLS **exporter secret** with label `tangled.epoch` and context `uint64be(N)` (8-byte big-endian epoch) and length 32 is `epoch_secret[N]` when the distributor is MLS.
+
+Welcome and Commit messages are RFC 9420 TLS-serialized payloads stored as sealed records in the circle log (`sys.circle.mls`, rkey = TID). They are not user-visible. Hybrid Public Key Encryption (HPKE) versus MLS MUST NOT appear as a user-facing mode.
 
 Group-capable implementations MUST implement MLS. Knots that only advertise `knot.public` MAY omit it.
+
+`spec/vectors/mls-welcome-commit.json` is wrapping-only: `payload_hex` is a stand-in. A conforming stack MUST produce RFC 9420 Welcome/Commit bytes that export the stated `epoch_secret` with that label and context. Live bytes are not byte-stable across MLS libraries.
 
 ## Epoch application keys
 
@@ -701,6 +742,7 @@ Record AEAD nonce = `nonce_base` XOR first 12 bytes of BLAKE3(unsigned record wi
 | `AGREEMENT_ROTATION_MAX_SKEW_SECONDS` | 604800 (7 days) |
 | `RECOVERY_DELAY_SECONDS` | 259200 |
 | `CAPABILITY_MAX_TTL_SECONDS` | 31536000 (365 days) |
+| `CAPABILITY_CLOCK_SKEW_SECONDS` | 60 |
 
 Implementations MUST use these values. They MUST NOT expose them as interop-breaking settings.
 
@@ -709,8 +751,9 @@ Implementations MUST use these values. They MUST NOT expose them as interop-brea
 - MUST NOT use the identity Ed25519 key for X25519 Diffie–Hellman.
 - MUST NOT sign raw DAG-CBOR or a raw 32-byte digest without the off-chain envelope.
 - MUST NOT use JWT as the capability encoding.
-- MUST NOT treat SIWS as a record signature.
+- MUST NOT treat SIWS as a record signature, and MUST NOT sign the SIWS message with the Solana off-chain envelope.
 - MUST NOT re-encrypt history on HPKE→MLS migration.
+- MUST NOT seal MLS Welcome to the leaf/`agreement` key.
 
 
 ---
@@ -854,7 +897,7 @@ These exist so a substrate is not a secret microblog. Conforming knots MUST sync
 
 ## Merge rules
 
-Records that share `(author, collection, rkey)` form a causal DAG via `prev`. A replica’s **apply set** `S` for that key is every such record the replica has verified (signature, CID, schema). Two replicas that have the same `S` MUST produce the same **live value**, independent of the order they first received the records. For `pub.tangled.page`, after a valid compact `C`, `S` MAY omit records in `I(C)`; materialization uses `C`’s snapshot plus records not in `I(C)` ([Compaction](#compaction)).
+Records that share `(author, collection, rkey)` form a causal DAG via `prev`. A replica’s **apply set** `S` for that key is every such record the replica has verified (signature, CID, schema). Two replicas that have the same `S` MUST produce the same **live value**, independent of the order they first received the records. For `pub.tangled.page`, after a valid compact `C`, materialization MAY use `C`’s snapshot plus records not in `I(C)` ([Compaction](#compaction)) only after the client has fetched and verified every CID in `I(C)`.
 
 The Merkle Search Tree (MST) key `collection/rkey` holds **one** CID (the writer’s tip). That tip is not always the live value. A repository Content Addressable aRchive (CAR) MUST include every record block in the `prev`-closure of each MST value so a pull of one head includes that writer’s DAG, except that **compact-GC** MAY omit folded page-op blocks as specified in [Compaction](#compaction). Concurrent heads that exist only on another replica are learned by pulling that replica, or by a later record whose `prev` lists both heads.
 
@@ -929,7 +972,7 @@ page-op = {
 
 **`after`.** MUST be `null`, or an atom that exists in the RGA implied by this record’s `prev`-closure (including atoms listed in a compact snapshot in that closure), or an earlier atom index of this same record (`i` strictly less than the first new index of this `ins`). Invalid `ins` ops MUST be ignored (the run is not created). Invalid `del` ids MUST be ignored.
 
-**Apply (`S`).** If every causal head in `S` has `body` `null`, the live value is `null` (page deleted). Otherwise let `R` be the non-tombstone records in `S`. Partition `R` into compact records and incremental records. For each compact `C` in `R`, the **included set** `I(C)` is the `prev`-closure of `C` excluding `C` itself. An incremental record `X` is **covered** by `C` when `X`’s CID is in `I(C)`.
+**Apply (`S`).** If every causal head in `S` has `body` `null`, the live value is `null` (page deleted). Otherwise let `R` be the non-tombstone records in `S`. Partition `R` into compact records and incremental records. For each compact `C` in `R`, the **included set** `I(C)` is the `included` CID list on `C` (the `prev`-closure of the frontier, excluding `C`). An incremental record `X` is **covered** by `C` when `X`’s CID is in `I(C)`. A client MUST reject `C` if any CID in `I(C)` cannot be fetched and verified as a signed page op, or if Apply(`I(C)`) does not equal `C`’s snapshot (`text` / `title` / `blob` and the RGA atom table).
 
 1. Start from an empty RGA and LWW registers `title = ""`, `blob = null` with no candidates.
 2. For every compact `C` in `R` (any order): **union** `C`’s snapshot. Each snapshot atom is identified by its original atom-id. If the atom is new, insert it with the listed parent, scalar, and `del` flag. If it already exists, `del` becomes the logical OR of the two flags; parent and scalar MUST match or `C` is invalid. Each snapshot LWW register that is present is a candidate `(ts, cid, value)` as stored in the snapshot (the compact record’s own `ts` MUST NOT replace those).
@@ -950,12 +993,13 @@ When `blob` is the winning LWW value and is not `null`, it is an optional attach
 
 A **compact** is a signed same-key `pub.tangled.page` record whose body is `compact-body`. It folds a prefix of the op DAG into a snapshot so replicas MAY materialize from a smaller apply set. Last-ts-wins collections do not compact in version 1.
 
-A **frontier** is the set of same-key record CIDs that the compact claims as the causal heads of that prefix. The **included set** `I(C)` is every record in the `prev`-closure of those CIDs (equivalently, the `prev`-closure of `C` excluding `C`, when `prev` equals the frontier). A **snapshot** is the RGA atom table and LWW register candidates obtained by applying `I(C)` under [Apply (`S`)](#page-crdt).
+A **frontier** is the set of same-key record CIDs that the compact claims as the causal heads of that prefix. The **included set** `I(C)` is every record in the `prev`-closure of those CIDs (equivalently, the `prev`-closure of `C` excluding `C`, when `prev` equals the frontier). A compact record MUST permanently list `I(C)` as `included`. A **snapshot** is the RGA atom table and LWW register candidates obtained by applying `I(C)` under [Apply (`S`)](#page-crdt).
 
 ```
 compact-body = {
   compact: 1,
   frontier: [+ cid],
+  included: [* cid],
   snapshot: page-snapshot
 }
 
@@ -979,7 +1023,7 @@ snapshot-atom = {
 }
 ```
 
-**Shape.** `compact` MUST be the integer `1`. `frontier` MUST be non-empty and MUST be sorted lexicographically as multibase base32 CID text. Envelope `prev` MUST be the same set as `frontier` (order in `prev` MAY differ). Snapshot `atoms` MUST be sorted by atom-id ascending (`op` as multibase base32 text, then `i`). Each `id.op` MUST be the creating record’s CID (never omitted). `parent` `null` means the virtual root. `ch` MUST be exactly one Unicode scalar. `title.value` MUST be text, not `null`. `blob` `null` means no `lww` on `blob` was in `I(C)`. A compact MUST NOT create new atom ids. `compact` values other than `1` make the page invalid to materialize.
+**Shape.** `compact` MUST be the integer `1`. `frontier` MUST be non-empty and MUST be sorted lexicographically as multibase base32 CID text. `included` MUST be the CID set `I(C)`, sorted the same way. Envelope `prev` MUST be the same set as `frontier` (order in `prev` MAY differ). Snapshot `atoms` MUST be sorted by atom-id ascending (`op` as multibase base32 text, then `i`). Each `id.op` MUST be the creating record’s CID (never omitted). `parent` `null` means the virtual root. `ch` MUST be exactly one Unicode scalar. `title.value` MUST be text, not `null`. `blob` `null` means no `lww` on `blob` was in `I(C)`. A compact MUST NOT create new atom ids. `compact` values other than `1` make the page invalid to materialize.
 
 **Who MAY compact.** Any principal that MAY `putRecord` that key: the identity key, or a device key with `repo/write` covering the page (including a shared-repo collaborator). There is no separate compact capability. Circle `policy` has no compact field. Compaction MUST NOT be presented as a Hybrid Public Key Encryption (HPKE) versus Messaging Layer Security (MLS) choice.
 
@@ -988,25 +1032,23 @@ snapshot-atom = {
 - at least `PAGE_COMPACT_MIN_OPS` incremental records in `I(C)` are not in `I(K)` for the nearest compact ancestor `K` of `C` (all of `I(C)` counts when there is no such `K`)
 - `C.ts - K.ts >= PAGE_COMPACT_MIN_INTERVAL_MS` (300 000) when such a `K` exists in the knot’s apply set
 
-Those constants are admission control. They are not CRDT validity: a compact that folds fewer ops is algorithmically valid if a replica already has it. If the knot cannot compute `I(C)` because folded blocks were already compact-GC’d, it MUST still enforce the interval against the latest compact it stored for that key and MAY skip the min-ops count.
+Those constants are admission control. They are not CRDT validity: a compact that folds fewer ops is algorithmically valid if a replica already has it. The authoring knot MUST retain every block in `I(C)`, so it can always compute the min-ops count.
 
 A writer MUST NOT emit a compact when every causal head in its apply set is a tombstone (that would resurrect a deleted page). A writer SHOULD set `frontier` to every causal head in its apply set so the compact is not immediately stale.
 
 **Visibility.** `vis`, `circle`, and sealed `epoch` on a compact MUST match the records in `I(C)` when those records are present. Mixed `vis` in `I(C)` makes the compact invalid. A sealed or circle-scoped page stays sealed or circle-scoped: the compact body is the plaintext inside the same `Ciphertext` envelope class. Compaction MUST NOT change visibility class.
 
-**Safety (omit / stale / invalid).** A compact MUST NOT drop ops that are in `I(C)`: the snapshot MUST equal Apply(`I(C)`). A compact is **invalid** when `compact ≠ 1`, `frontier` is empty or unsorted, `prev` and `frontier` differ as sets, snapshot atoms are unsorted or duplicate, an atom’s `ch` is not one scalar, a parent is missing or cyclic, `vis`/`circle`/`epoch` mismatch folded records, or the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`). An invalid compact MUST NOT contribute a snapshot or an included set. If it is a causal head, clients MUST refuse to materialize the page.
+**Safety (omit / stale / invalid).** A compact MUST NOT drop ops that are in `I(C)`: the snapshot MUST equal Apply(`I(C)`). A client MUST fetch every CID in `I(C)` (`getRepo` / `getBlocks`) and MUST verify each as a signed page op that `C` claims to fold. It MUST replay those ops from the previous frontier (or empty) and MUST reject `C` if the live `text` / `title` / `blob` (and RGA atom table) do not equal the snapshot. A compact is **invalid** when `compact ≠ 1`, `frontier` is empty or unsorted, `included` is unsorted or disagrees with the `prev`-closure of the frontier, `prev` and `frontier` differ as sets, snapshot atoms are unsorted or duplicate, an atom’s `ch` is not one scalar, a parent is missing or cyclic, `vis`/`circle`/`epoch` mismatch folded records, any CID in `I(C)` cannot be fetched or verified, or the snapshot disagrees with Apply(`I(C)`). An invalid compact MUST NOT contribute a snapshot or an included set. If it is a causal head, clients MUST refuse to materialize the page.
 
 A compact that omits an op **concurrent** with its frontier (not in `I(C)`, and `C` not in that op’s `prev`-closure) is **stale** relative to that op, not automatically invalid. A reader that still has extra ops MUST merge them on top of the snapshot by the apply algorithm (`U` includes those ops). Detection:
 
-- Extra op `X` is in `I(C)`: `X` is folded. If the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`), the compact is **invalid** (above).
+- Extra op `X` is in `I(C)`: `X` is folded. If the snapshot disagrees with Apply(`I(C)`), the compact is **invalid** (above).
 - `C` is in `X`’s `prev`-closure: `X` is after the compact; apply `X` on top.
 - Otherwise `X` is concurrent with `C`: the compact is **stale** vs `X`; apply `X` on top. The writer who omitted `X` from the frontier did not include it; readers who have `X` keep it.
 
-Clients that no longer hold `I(C)` MUST accept a signature-valid, schema-valid compact as the snapshot. They cannot re-check snapshot equality.
-
 **Convergence.** Two replicas that have seen the same set of incremental ops and compact records MUST produce the same live value, independent of compact times and apply order. Union of snapshots plus uncovered incremental ops is deterministic. A replica that compacted early (`C1`) and a replica that compacted later (`C2` with `I(C1) ⊆ I(C2)`) converge once both have `C2` or once both have `C1` plus the extra ops in `I(C2) \ I(C1)`. Concurrent incomparable compacts union by atom-id as in step 2.
 
-**Garbage collection (compact-GC).** Compacted-away record blocks (records in `I(C)` except compact records still in a live `prev`-closure) MAY be dropped from knot storage and from `getRepo` / CAR diffs when `C` is a **GC-root**: every causal head in that knot’s apply set for the key has `C` in its `prev`-closure. Until then, knots MUST keep blocks needed to serve concurrent heads. The compact record `C` MUST remain while it is in the `prev`-closure of any causal head or MST value; sync proves inclusion of `C` by that closure and by the MST inclusion proof of the page key. After compact-GC, `C.prev` MAY dangle (frontier CIDs absent). Clients MUST NOT reject a CAR as incomplete solely because those prev blocks are missing. Knots MUST NOT GC `C` itself in order to drop pre-compact blocks.
+**Retention (`I(C)`).** The authoring knot MUST NOT drop blocks in `I(C)` from its store. `getRepo` and `getBlocks` MUST still serve them. Knots MUST keep blocks needed to serve concurrent heads. The compact record `C` MUST remain while it is in the `prev`-closure of any causal head or MST value; sync proves inclusion of `C` by that closure and by the MST inclusion proof of the page key. Knots MUST NOT GC `C` itself in order to drop pre-compact blocks. There is no compact-GC of `I(C)`.
 
 **Knot write (compact).** A compact is an ordinary `putRecord`. `ConcurrentHeads` still applies: the compact’s `prev` MUST not orphan the current MST value. Last-ts-wins collections share none of this mechanism in version 1.
 
@@ -1030,7 +1072,7 @@ A delete is a record with the same `collection` and `rkey`, `body` `null`, `prev
 
 For Last-ts-wins collections, the tombstone is live when it wins among causal heads. For CRDT collections, the live value is `null` only when **every** causal head in `S` is a tombstone. A tombstone concurrent with an edit does not drop that edit: the page stays, and apply uses every non-tombstone record in `S`. A writer that means to delete the page MUST list every causal head it knows in `prev`.
 
-Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges. They MUST NOT garbage-collect CRDT op records that remain in some replica’s `prev`-closure, except **compact-GC** of folded page ops as specified in [Compaction](#compaction).
+Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges. They MUST NOT garbage-collect CRDT op records that remain in some replica’s `prev`-closure, and they MUST NOT drop `I(C)` blocks of a page compact ([Compaction](#compaction)).
 
 
 ---
@@ -1082,18 +1124,18 @@ Commit = {
   v: 1,
   did: did,
   data: cid,              ; MST root
-  rev: text,              ; TID, monotonically increasing
+  rev: text,              ; 13-char Crockford base32 TID, monotonically increasing
   prev: cid / null,
   sig: bstr .size 64,
   ? sigRotation: bstr .size 64
 }
 ```
 
-`rev` MUST be greater (TID order) than `prev`’s commit `rev` when `prev` is not null.
+`rev` MUST be a 13-character Crockford base32 timestamp identifier (TID): the same encoding as record-key TIDs in [Data model](./06-data-model.md) (`(unix_micros << 10) | entropy10`, alphabet `0123456789abcdefghjkmnpqrstvwxyz`). `rev` MUST be greater (TID order: equal-length lexicographic compare, otherwise numeric) than `prev`’s commit `rev` when `prev` is not null.
 
 The commit CID is BLAKE3 of the complete DAG-CBOR including signatures. The signing envelope hashes the unsigned commit ([Cryptography](./05-cryptography.md#commit-signatures)).
 
-A knot advertises **head** = latest commit CID for a DID.
+A knot advertises **head** = latest commit CID for a DID. `tangled.repo.putRecord` that advances the repo MUST write a new Commit whose `data` is the new MST root and whose `prev` is the previous Commit CID (or null at genesis). A supplied `prev` that does not equal the current head MUST be rejected (`ConcurrentHeads`). `getHead.commit` MUST be that Commit CID. `getRepo` / import CAR MUST include Commit blocks; import MUST verify signatures and the `prev` chain back to genesis or to `since`.
 
 ## Rotation commits
 
@@ -1122,7 +1164,7 @@ Knots advertising `knot.public` MUST implement `tangled.sync.getRecord` returnin
 
 A repository export is a Content Addressable aRchive (CAR) v1 whose roots are `[commit CID]` and whose blocks are: the commit, every MST node, every record, and optionally blobs. The header `roots` MUST be the commit CID.
 
-Partial CAR: blocks needed for a `since` diff (commits from `since` exclusive to head inclusive, plus MST nodes and records that changed). A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), except that for `pub.tangled.page` a knot MAY omit records in the included set of a Garbage Collection (GC) root compact as specified in [Compaction](./06-data-model.md#compaction). The compact record itself MUST remain so the pull still proves its inclusion.
+Partial CAR: the commit chain after `since` (exclusive) through head, plus the `since` commit block, plus the MST nodes and records needed to reconstruct each of those commits. A CAR MUST include every record in the `prev`-closure of each MST value ([Data model](./06-data-model.md#merge-rules)), including `I(C)` blocks of a page compact ([Compaction](./06-data-model.md#compaction)). The compact record itself MUST remain so the pull still proves its inclusion. Import MUST verify each commit signature and the `prev` chain back to genesis or to `since`.
 
 ## Sealed collections in the MST
 
@@ -1178,10 +1220,10 @@ Visibility is a field on the record. It is not a second protocol. Fetch (authori
 Requests for `cap` and `sealed` MUST include:
 
 ```
-Authorization: Cap <base64url(capability-invocation-dag-cbor)>
+Authorization: Cap <base64url(DAG-CBOR(Invocation))>
 ```
 
-The invocation is specified in [Capabilities](./09-capabilities.md). Knots that do not advertise `knot.cap` MUST return `ProfileRequired`.
+The payload MUST be DAG-CBOR. Knots MUST reject an `Authorization` value whose decoded bytes look like JSON (first byte `{` or `[`). JSON-in-header MUST NOT be accepted. The invocation is specified in [Capabilities](./09-capabilities.md). Knots that do not advertise `knot.cap` MUST return `ProfileRequired`.
 
 ## What a knot is allowed to know
 
@@ -1319,7 +1361,7 @@ Verification steps 1–2 and 4–7 of [Invocation](#invocation) apply. Step 3 is
 | `["eq", json-pointer, value]` | Invocation args must equal |
 | `["lt", json-pointer, number]` | Less than |
 | `["valid_until", seconds]` | Additional cap on `exp` |
-| `["max_uses", n]` | Knots that track invocations SHOULD enforce; offline verifiers MAY ignore |
+| `["max_uses", n]` | A knot that verifies invocations MUST count successful uses per leaf capability CID and MUST reject with `CapabilityInvalid` when the count is `>= n`. `tangled.cap.verify` MUST NOT increment the counter. Offline verifiers MAY ignore `max_uses`. An online knot MUST persist the counter in the same snapshot as records. Restart MUST NOT reset counts. |
 
 Unknown caveats MUST cause rejection (fail closed).
 
@@ -1342,7 +1384,7 @@ Invocation = {
 }
 ```
 
-HTTP: `Authorization: Cap <base64url(DAG-CBOR(Invocation))>`.
+HTTP: `Authorization: Cap <base64url(DAG-CBOR(Invocation))>`. Clients MUST send unpadded base64url (RFC 4648 §5, no padding). Knots SHOULD accept the padded form. Knots MUST reject a decoded payload whose first byte is `{` or `[` (JSON). JSON-in-header is not a valid invocation.
 
 Verification:
 
@@ -1350,7 +1392,7 @@ Verification:
 2. Each certificate’s `aud` matches the next certificate’s `iss` (or the invocation signer for the leaf).
 3. Root `iss` matches the resource DID’s identity (or a `cap/issue` delegate recorded in `sys/id`). For `circle/read`, the resource DID is the circle **owner**, as specified in [Circle/read verification](#circleread-verification).
 4. Commands and resources attenuate monotonically.
-5. `nbf <= now <= exp` for every certificate.
+5. `now + CAPABILITY_CLOCK_SKEW_SECONDS >= nbf` and `now <= exp + CAPABILITY_CLOCK_SKEW_SECONDS` for every certificate (`CAPABILITY_CLOCK_SKEW_SECONDS` is 60). A `valid_until` caveat MUST fail only when `now > until + CAPABILITY_CLOCK_SKEW_SECONDS`.
 6. No CID in the chain is present in the issuer’s `sys.revocation` (online) OR every certificate has `exp` within the client’s accepted offline TTL (offline).
 7. Signatures verify.
 
@@ -1460,7 +1502,7 @@ Implementation:
 3. Issue (or refresh) the membership grant to the new member.
 4. If `distributor` is `hpke` and `len(members)+1 ≤ 16`: new epoch `N+1`, new random `epoch_secret[N+1]`, HPKE-wrap to every current member including the new one. Old wraps remain so history decrypts.
 5. If `distributor` is `hpke` and `len(members)+1 > 16`: perform **seamless grow** below. This is still “add member” to the user.
-6. If `distributor` is `mls` or `dual`: MLS Add + Commit, Welcome for the new member. If `dual`, also HPKE-wrap `epoch_secret[N+1]` to members who have not processed Welcome.
+6. If `distributor` is `mls` or `dual`: MLS Add + Commit, Welcome for the new member. If the new member is offline, the adder MUST use a current `sys.mls.keypackage` from that member’s repository ([KeyPackage records](#keypackage-records)). If `dual`, also HPKE-wrap `epoch_secret[N+1]` to members who have not processed Welcome.
 
 If `history_share` is true, the owner (or the adder, if they hold old secrets) additionally wraps epoch secrets `0..N` to the new member. If false, the new member cannot decrypt pre-join records. `history_share` is an explicit policy, not a side effect of size migration.
 
@@ -1468,8 +1510,8 @@ If `history_share` is true, the owner (or the adder, if they hold old secrets) a
 
 The `addMember` that first exceeds 16 members MUST:
 
-1. Create an MLS group whose members are exactly the current circle including the new member. Credential for each member is that member’s 32-byte Solana public key. Ciphersuite `0x0001`.
-2. Publish a Welcome for every current member as `sys.circle.mls` records, `vis: sealed` to that member (HPKE 1:1). Offline members pick them up on next sync. No accept dialog.
+1. Create an MLS group whose members are exactly the current circle including the new member. Credential for each member is that member’s 32-byte Solana public key. Ciphersuite `0x0001`. Each leaf HPKE public key MUST be that member’s Tangled X25519 `agreement` key. RFC 9420 requires KeyPackage `init_key` ≠ leaf; Welcome is sealed to `init_key`, not to `agreement`.
+2. Publish a Welcome for every current member as `sys.circle.mls` records, `vis: sealed` to that member (HPKE 1:1 of the Welcome bytes). Offline members pick them up on next sync. No accept dialog.
 3. Advance to epoch `N+1`. Set `epoch_secret[N+1]` to the MLS exporter secret (label `tangled.epoch`, context `uint64be(N+1)`, 32 bytes).
 4. Set `distributor: "dual"`. HPKE-wrap `epoch_secret[N+1]` to every member who has not been observed to process Welcome (initially: everyone). Application senders encrypt **once**, to the epoch AEAD key. Laggards decrypt via the wrap they already understand; caught-up members decrypt via MLS.
 5. Dual-stack ends when every member known at the transition has a Welcome receipt record (`sys.circle.mls` body `{type:"receipt", epoch, member}`) **or** `DUAL_STACK_MAX_SKEW_EPOCHS` epochs have passed **or** `DUAL_STACK_MAX_SKEW_SECONDS` have elapsed, whichever first. Then `distributor: "mls"`. Knots MUST stop writing new HPKE wraps for this circle except as required by `hideMembers` debugging flags (none in v1).
@@ -1524,9 +1566,20 @@ Encrypt the application body with the current epoch AEAD. Recipients decrypt wit
 
 Senders using the annotation pattern MUST set envelope `circle`. Clients SHOULD `subscribe` or poll each current member’s knot; they MAY `tangled.sync.notify` after send. There is no circle-wide inbox POST.
 
+## KeyPackage records
+
+Messaging Layer Security (MLS) Add needs a KeyPackage. A member who may be added while offline MUST publish one in **their** repository so an adder can Welcome without a round-trip. This is still “add member.” Clients MUST NOT expose KeyPackage publish, Hybrid Public Key Encryption (HPKE), or MLS as a user-facing mode.
+
+- collection `sys.mls.keypackage`
+- rkey = Timestamp Identifier (TID)
+- `vis`: `public` or `cap`
+- body `{ type: "keypackage", exp: uint, payload: bstr }`
+
+`payload` MUST be the RFC 9420 TLS-serialized KeyPackage. `init_key` MUST differ from the leaf / `agreement` key. `exp` MUST be Unix seconds. An adder MUST ignore a package whose `exp` is outside the capability clock-skew window ([Capabilities](./09-capabilities.md#invocation)). When adding an offline member, the adder MUST Welcome to a current unexpired package. The new member’s client processes Welcome on next sync. No accept dialog.
+
 ## Offline members
 
-Welcomes and wraps are records. Sync delivers them. An offline member who returns during dual-stack reads via HPKE wrap, processes Welcome, and continues on MLS. An offline member who returns after dual-stack MUST still have a Welcome in the log; if the Welcome was GC’d (MUST NOT before max-skew), the member is re-Welcomed by any current member — still not a user-facing re-invite: the client does it on sync.
+Welcomes, wraps, and KeyPackage records are records. Sync delivers them. An offline member who returns during dual-stack reads via HPKE wrap, processes Welcome, and continues on MLS. An offline member who returns after dual-stack MUST still have a Welcome in the log; if the Welcome was GC’d (MUST NOT before max-skew), the member is re-Welcomed by any current member — still not a user-facing re-invite: the client does it on sync. An adder who lacks a live KeyPackage MUST fetch `sys.mls.keypackage` from the new member’s repository.
 
 ## Forced-upgrade denial of service
 
@@ -1534,7 +1587,7 @@ Spam-adding members to trigger MLS is a policy problem, not a dialog. Circles SH
 
 ## Conformance
 
-`spec/vectors/circle-grow-dual-stack.json` MUST pass: 16 members on HPKE, 17th added, one member offline throughout, pre-migration records still decrypt, circle id unchanged, no client API flag. Shrink 20→5 stays MLS. Add and remove during dual-stack linearize. Agreement rotation MUST follow [Agreement rotation](#agreement-rotation); `spec/vectors/circle-read-auth.json` covers membership-grant authorization, not wrap ciphertext.
+`spec/vectors/circle-grow-dual-stack.json` MUST pass: 16 members on HPKE, 17th added, one member offline throughout, pre-migration records still decrypt, circle id unchanged, no client API flag. Shrink 20→5 stays MLS. Add and remove during dual-stack linearize. Agreement rotation MUST follow [Agreement rotation](#agreement-rotation); `spec/vectors/circle-read-auth.json` covers membership-grant authorization, not wrap ciphertext. `spec/vectors/mls-welcome-commit.json` covers wrapping fields and exporter parameters; RFC 9420 payload bytes are produced by a conforming MLS stack (Welcome `init_key` ≠ leaf/`agreement`).
 
 
 ---
@@ -1555,9 +1608,9 @@ Followers pull. Authors do not push into N inboxes. Relays are not the source of
 
 `GET /xrpc/tangled.sync.getHead?did=`
 
-Returns `{ did, commit, rev, knot }`. `commit` is the head CID. No capability for public repos. `repo/read` required if the knot hides the DID (unusual; default is to advertise heads).
+Returns `{ did, commit, rev, knot, data }`. `commit` is the head **Commit** CID (the signed Commit object, not the raw MST root). `data` is `Commit.data` (the MST root CID). No capability for public repos. `repo/read` required if the knot hides the DID (unusual; default is to advertise heads).
 
-Clients MUST cache `(did, commit)` and detect rollback: a head with `rev` less than a previously verified `rev` for the same DID is an attack or a recovery race. Recovery races are specified in [Identifiers](./04-identifiers.md#rotation).
+Clients MUST cache `(did, commit, rev)` and detect rollback: a head with `rev` less than a previously verified `rev` for the same DID is an attack or a recovery race. Clients MUST refuse to adopt that head except as specified for recovery in [Identifiers](./04-identifiers.md#rotation). Recovery races are specified there.
 
 ## Get record
 
@@ -1585,9 +1638,9 @@ Knots advertising `knot.public` MUST implement this method for publicly referenc
 
 `GET /xrpc/tangled.sync.getRepo?did=&since=`
 
-Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, once a compact is a Garbage Collection (GC) root ([Data model](./06-data-model.md#compaction)), the CAR MAY omit pre-compact op blocks in that compact’s included set. It MUST still include the compact record. If `since` already contains the compact and head descends from it, the diff is only later records. Clients MUST NOT treat dangling compact `prev` CIDs as a broken export after compact-GC.
+Returns a CAR. Without `since`, the full public repo (commits, public MST snapshots, public records). With `since` (a commit CID), the commit chain after `since` through head, the `since` commit block, and the MST nodes plus records needed to reconstruct those commits. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, the CAR MUST include `I(C)` blocks of each compact ([Data model](./06-data-model.md#compaction)). It MUST still include the compact record.
 
-Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. Compact-GC omissions follow the same rule as `getRepo`.
+Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. `I(C)` retention follows the same rule as `getRepo`. Import of that CAR MUST verify the `prev` chain.
 
 ## Notify (optional)
 
@@ -1595,9 +1648,11 @@ Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, retur
 
 ## Live
 
-`GET /xrpc/tangled.sync.subscribe?did=&collection=` Upgrade: WebSocket.
+`GET /xrpc/tangled.sync.subscribe?did=&collection=&since=` Upgrade: WebSocket.
 
 Messages: `{ t: "commit", commit: cid, ops: [{action, collection, rkey, cid}] }`.
+
+`since` is OPTIONAL and is a commit CID. When `since` is present and the knot still holds later commit events for that DID (and `collection` filter), it MUST send those events first, in store order, then continue live. When `since` is omitted, the knot MAY send the current head as a hello with empty `ops`. When the knot does not retain `since`, it MUST send that hello and MUST NOT invent a gap-free history. There is no byte-offset cursor. An online knot MUST persist the commit event log next to the filesystem snapshot. Restart MUST still replay `since` for retained events.
 
 Public collections: no cap. Others: cap on subscribe. Heartbeat every 30 seconds. The server MAY drop slow clients.
 
@@ -1620,9 +1675,15 @@ Returns public records **this knot already stores** whose envelope `ref` equals 
 
 Knots advertising `knot.public` SHOULD maintain the index from public records they ingest (hosted repositories, follows, replicas). They MUST NOT crawl other knots in order to answer this method. They MUST NOT include `vis: cap` or `vis: sealed` records. Tombstones MUST NOT appear in `hits`. `count` is `len(hits)` after those filters (or the untruncated count if `limit` clipped `hits`). `overlay` MUST be `true`. `complete` MUST be `false` unless the knot can prove it stores every public annotator (v1 knots cannot; they MUST send `false`).
 
-A knot that does not implement the index MUST return `MethodNotImplemented`. Clients treat that as zero observed remote annotations from this knot.
+A knot that does not implement the index MUST return `MethodNotImplemented`. An empty `hits` array and `MethodNotImplemented` MUST NOT be treated as proof that the network has zero comments or annotations. They mean this observer has no public overlay (or no index). Clients MUST union overlays as specified in [Looms](./14-looms.md#annotation-discovery).
 
 Discovery of annotations without knowing every annotator DID is specified in [Looms](./14-looms.md#annotation-discovery).
+
+## Peer discovery
+
+Knots do not run a DHT. A knot MAY advertise other public knot base URLs in `tangled.node.describe` → `peers` ([HTTP API](./12-http-api.md#tangled-node-describe)). When knot A first successfully describes knot B, A MAY store B’s `peers` and try those URLs for further `describe`, `getHead`, `identity.resolve`, or `node.stats`. Only the operator-configured public set is advertised. Learned URLs stay local so a peer cannot trick a knot into advertising an attacker URL.
+
+`tangled.node.stats` is the public aggregate of this knot’s live public tips plus that same advertised peer set ([HTTP API](./12-http-api.md#tangled-node-stats)). Clients MAY crawl `peers` to assemble a network view. The crawl is incomplete by design.
 
 ## Follow
 
@@ -1661,7 +1722,7 @@ Machine-readable: [`spec/http/openapi.yaml`](./http/openapi.yaml).
 
 ## Content negotiation
 
-Clients MUST send `Accept: application/cbor, application/json`. Knots MUST serve `application/cbor` (DAG-CBOR) when requested, and MAY serve `application/json` using the IPLD JSON mapping. `Content-Type` on POST MUST be one of those two.
+Clients MUST send `Accept: application/cbor, application/json` (cbor first). Knots MUST serve `application/cbor` (DAG-CBOR) when `Accept` prefers `application/cbor`, and MAY serve `application/json` using the IPLD JSON mapping. `Content-Type` on POST MUST be one of those two except `putBlob` (`application/octet-stream`) and `import` (`application/vnd.ipld.car`).
 
 CIDs in query strings are multibase base32 (`b…`).
 
@@ -1683,7 +1744,7 @@ JSON/CBOR map:
 | `MethodNotImplemented` | 404 | Unknown `tangled.*` method on a Tangled knot |
 | `ProfileRequired` | 501 | Method needs a profile the knot omitted |
 | `BlobTooLarge` | 413 | |
-| `RateLimited` | 429 | Including page compact admission (`PAGE_COMPACT_MIN_OPS`, `PAGE_COMPACT_MIN_INTERVAL_MS`) |
+| `RateLimited` | 429 | Including page compact admission (`PAGE_COMPACT_MIN_OPS`, `PAGE_COMPACT_MIN_INTERVAL_MS`). MUST include `Retry-After` as delta-seconds (RFC 9110). For compact admission the value MUST be at least `PAGE_COMPACT_MIN_INTERVAL_MS / 1000` (300). |
 | `Unavailable` | 503 | |
 | `ConcurrentHeads` | 409 | Conflict-free Replicated Data Type (CRDT) `putRecord` would orphan the current Merkle Search Tree (MST) value; body includes `head` |
 
@@ -1691,19 +1752,58 @@ JSON/CBOR map:
 
 ### tangled.node.describe
 
-`GET`. No auth. Returns profiles, protocols, maxBlob, knot DID.
+`GET`. No auth. Returns profiles, protocols, maxBlob, knot DID, and `peers`.
+
+`peers` is an array of absolute knot base URLs this operator marked public (`https://knot.example`). Empty when the operator listed none. A knot MUST advertise only that configured public set. It MUST NOT re-advertise URLs it learned from other knots. Connecting knots and clients MAY remember `peers` for their own `describe` / `getHead` / `identity.resolve`; they MUST NOT treat the list as trusted topology. Private or internal knots MUST NOT appear in `peers`.
+
+### tangled.node.stats
+
+`GET`. No auth. Returns knot-local **public** aggregates and advertised-peer topology.
+
+```json
+{
+  "v": 1,
+  "did": "did:sol:…",
+  "asOf": 1700000000,
+  "counts": {
+    "identities": 1,
+    "repos": 1,
+    "records": 2,
+    "blobs": 0,
+    "peers": 1,
+    "circles": 0,
+    "foreign": 0,
+    "commits": 2
+  },
+  "rates": {
+    "publicCommits": 2,
+    "retained": 256
+  },
+  "topology": {
+    "peers": ["https://b.example"],
+    "hosted": [{ "did": "did:sol:…", "handle": "alice.sol", "rev": "3jzfcijpjiz2u", "records": 2 }],
+    "truncated": false
+  }
+}
+```
+
+Counts MUST include only live `vis: public` record tips (`body` not a tombstone). They MUST NOT include `vis: cap` or `vis: sealed` records, capability-use counters, SIWS sessions, or any other private activity. `blobs` is the number of distinct blob CIDs referenced by those public tips. `commits` and `rates.publicCommits` are the length of the retained public subscribe log (this knot’s recent public commits, capped at `rates.retained`). They are not a wall-clock hourly rate.
+
+`topology.peers` MUST be the same operator-configured public set as `node.describe` `peers`. A knot MUST NOT list learned peer URLs. `topology.hosted` lists Decentralized Identifiers (DIDs) that have at least one live public tip on this knot (the same DIDs `getHead` / `getRepo` already expose). The list MAY be truncated; when it is, `truncated` MUST be `true`. `handle` is the first non-DID `alsoKnownAs` from `sys.id` when present.
+
+There is no global directory. Clients assemble a network view by calling `node.stats` (and `node.describe`) on a configured knot, then on that knot’s advertised `peers`. They MUST NOT treat the graph as complete or trusted.
 
 ### tangled.sync.getHead
 
-`GET ?did=`. See [Synchronization](./11-sync.md).
+`GET ?did=`. Returns `{ did, commit, rev, knot, data }`. `commit` is the signed [Commit](./07-repositories.md#commit) CID. `data` is that commit’s MST root CID. See [Synchronization](./11-sync.md).
 
 ### tangled.sync.getRecord
 
-`GET ?did=&collection=&rkey=`. Optional `Authorization: Cap`.
+`GET ?did=&collection=&rkey=`. Optional `Authorization: Cap <base64url(DAG-CBOR)>`. JSON-in-header MUST be rejected.
 
 ### tangled.sync.getBlob
 
-`GET ?did=&cid=`. Raw blob bytes. No capability when a live public record references `cid`; otherwise `Authorization: Cap` (`blob/get`, `repo/read`, or `circle/read`). See [Synchronization](./11-sync.md#get-blob).
+`GET ?did=&cid=`. Raw blob bytes. `Content-Type` MUST be `application/octet-stream`. The response MUST include `Content-Length` equal to the byte length. When the writer stored a media type (`putBlob` `mediaType` query or `X-Tangled-Media-Type`), the knot MUST also send `X-Tangled-Media-Type`. No capability when a live public record references `cid`; otherwise `Authorization: Cap` (`blob/get`, `repo/read`, or `circle/read`). See [Synchronization](./11-sync.md#get-blob).
 
 ### tangled.sync.getBlocks
 
@@ -1711,11 +1811,13 @@ JSON/CBOR map:
 
 ### tangled.sync.getRepo
 
-`GET ?did=&since=&blobs=`.
+`GET ?did=&since=&blobs=`. Returns a CAR of the **public** repository. There is no `tangled.sync.listRecords` method on the wire; clients MUST use `getRepo` (or `getRecord`) to enumerate. An in-process engine MAY offer `listRecords` as a test convenience; a knot MUST NOT require clients to call it.
+
+Without `since`, the full public repo (commits, public MST snapshots, public records). With `since` (a commit CID), the commit chain after `since` through head, the `since` commit block, and the MST nodes plus records needed to reconstruct those commits. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, the CAR MUST include `I(C)` blocks of each compact ([Data model](./06-data-model.md#compaction)). It MUST still include the compact record. Import MUST verify the `prev` chain.
 
 ### tangled.sync.getRepoAuth
 
-`POST` invocation + `{ did, since, blobs }`. For `circle/read`, the CAR is only circle-scoped records (and the circle log on the owner).
+`POST` with `Authorization: Cap <base64url(DAG-CBOR(Invocation))>` and JSON/CBOR body `{ did, since, blobs }`. `since` MUST be honored as a query parameter and, when the query omits it, from the body. If both are present and differ, the query parameter MUST win. For `circle/read`, the CAR is only circle-scoped records (and the circle log on the owner). Sibling collections MUST NOT be included.
 
 ### tangled.sync.queryBacklinks
 
@@ -1727,27 +1829,41 @@ JSON/CBOR map:
 
 ### tangled.sync.subscribe
 
-`GET` WebSocket.
+`GET` WebSocket. Optional `since` (commit CID) resumes after that commit; see [Synchronization](./11-sync.md#live).
 
 ### tangled.repo.putRecord
 
-`POST` `{ record }` plus either identity session (SIWS cookie, knot-local) or `repo/write` capability. The knot MUST verify the record signature and MUST NOT accept a record whose `author` the caller cannot speak for. For CRDT collections, a write that would orphan the current MST value MUST return `ConcurrentHeads` ([Data model](./06-data-model.md#page-crdt)). A page compact that fails `PAGE_COMPACT_MIN_OPS` or `PAGE_COMPACT_MIN_INTERVAL_MS` MUST return `RateLimited` ([Data model](./06-data-model.md#compaction)).
+`POST` `{ record }` plus one of: a Sign In With Solana (SIWS) session cookie for `author`, a `repo/write` capability, or a hosted identity-key write. The knot MUST verify the record’s identity-key (or device-key) signature and MUST NOT accept a record whose `author` the caller cannot speak for. SIWS MUST NOT replace that signature.
+
+A **hosted identity-key write** is a `putRecord` whose `author` is a DID this knot hosts, the record has no `signedBy`, and the signature verifies with that DID’s identity key. The knot MAY accept it without a SIWS cookie (CLI / self-hosted). Device-key writes (`signedBy` present) MUST present `repo/write` or a SIWS session for `author`. After `sys.revocation` of a device capability, subsequent writes that present that capability MUST fail `CapabilityInvalid`.
+
+A `putRecord` that advances the repository MUST produce a new signed Commit whose `data` is the new MST root and whose `prev` is the previous Commit CID (absent at genesis). The request MAY include `prev` (a Commit CID). When the DID already has a head, a supplied `prev` that does not equal the current head Commit CID MUST return `ConcurrentHeads` (HTTP 409) with `head` set to that Commit CID. When there is no head, a supplied `prev` MUST return `InvalidRequest`. Omitted `prev` means the current head (or genesis). `rev` MUST increase; a rollback MUST be refused.
+
+For CRDT collections, a write that would orphan the current MST value MUST return `ConcurrentHeads` ([Data model](./06-data-model.md#page-crdt)). A page compact that fails `PAGE_COMPACT_MIN_OPS` or `PAGE_COMPACT_MIN_INTERVAL_MS` MUST return `RateLimited` ([Data model](./06-data-model.md#compaction)).
 
 ### tangled.repo.putBlob
 
-`POST` raw bytes, `Content-Type: application/octet-stream`. Returns `{ cid }`.
+`POST` raw bytes, `Content-Type: application/octet-stream`. Optional `mediaType` query parameter or `X-Tangled-Media-Type` request header (a Multipurpose Internet Mail Extensions (MIME) type). The knot MUST store that type with the blob when present. Returns `{ cid }`.
 
 ### tangled.repo.import
 
-`POST` a CAR (`Content-Type: application/vnd.ipld.car`) plus identity session or `repo/write` on the DID. The knot MUST verify every commit signature in the CAR and MUST refuse a DID it already hosts unless `force` is true (recovery).
+`POST` a CAR (`Content-Type: application/vnd.ipld.car`) plus a SIWS session for the imported DID **or** a `repo/write` capability on that DID. The knot MUST verify every commit signature in the CAR and MUST verify the `prev` chain from the CAR root back to genesis (or to `since` when the export was a diff). It MUST refuse a DID it already hosts unless `force` is true (recovery).
 
 ### tangled.identity.resolve
 
-`GET ?handle=` or `?did=`. Returns DID, `sys/id` CID, knot endpoints. The knot MAY resolve handles it does not host by performing DNS/SNS lookup.
+`GET ?handle=` or `?did=`. Returns DID, `sys/id` CID, knot endpoints, and `document` (the generative or operational DID document; see [Identifiers](./04-identifiers.md#did)). The knot MAY resolve handles it does not host by performing DNS/SNS lookup as specified in [Resolution](./13-resolution.md).
+
+### tangled.session.challenge
+
+`GET ?did=`. No cookie required. Returns the canonical SIWS message the caller MUST sign. See [Sessions (SIWS)](#sessions-siws).
+
+### tangled.session.verify
+
+`POST` `{ did, nonce, signature }`. `signature` is hex-encoded Ed25519 over the UTF-8 SIWS message. On success the knot MUST set cookie `tangled_session`. See [Sessions (SIWS)](#sessions-siws).
 
 ### tangled.cap.verify
 
-`POST` an Invocation. Returns `{ ok: true, cmd, res }` or `CapabilityInvalid`. Useful for gateways.
+`POST` a DAG-CBOR Invocation (same encoding as the Cap header). JSON MUST be rejected. Returns `{ ok: true, cmd, res }` or `CapabilityInvalid`. Useful for gateways.
 
 ### tangled.loom.query
 
@@ -1759,11 +1875,49 @@ JSON/CBOR map:
 
 ## Sessions (SIWS)
 
-Sign In With Solana authenticates a browser to **this knot** for `putRecord` as the identity. The SIWS message MUST include the knot domain, the DID, a nonce, and `issuedAt`. Sessions MUST expire (RECOMMENDED 24 hours). SIWS MUST NOT replace record signatures: the record is still signed with the off-chain envelope. A knot MAY hold a delegated device key and sign on behalf of a web client only if the user issued a `repo/write` capability to that device key; that is an implementation choice and MUST be disclosed in `node.describe` as `custodialSign: true`. Default is `false`.
+Sign In With Solana authenticates a browser to **this knot** for writes as the identity. It is knot-local. SIWS MUST NOT replace record signatures: `putRecord` is still signed with the off-chain envelope.
+
+### Message
+
+The knot advertises a **domain** equal to the host of its public URL (no scheme, no path, no port; `localhost` when the URL is unset). The canonical message MUST be exactly these five UTF-8 lines (`\n` separators, no trailing blank line):
+
+```
+tangled.siws.v1
+domain: <domain>
+did: <did>
+nonce: <nonce>
+issuedAt: <unix-seconds>
+```
+
+`nonce` MUST be 16 cryptographically random bytes, hex-encoded (32 hex characters). `issuedAt` MUST be Unix seconds. Challenges MUST expire; 300 seconds is RECOMMENDED.
+
+The signature MUST be Ed25519 over the UTF-8 bytes of that message, using the identity key of `did`. Implementations MUST NOT wrap the SIWS message in the Solana off-chain envelope ([Cryptography](./05-cryptography.md#sign-in-with-solana)).
+
+### Cookie
+
+Successful `tangled.session.verify` MUST set:
+
+```
+Set-Cookie: tangled_session=<token>; HttpOnly; Path=/; Max-Age=86400; SameSite=Lax
+```
+
+The cookie MUST also include `Secure` when the knot’s advertised public URL is `https://`. Token MUST be 32 cryptographically random bytes, hex-encoded. Sessions MUST expire after 86400 seconds (`Max-Age`). Cookie name MUST be `tangled_session`.
+
+### Who may write without a cookie
+
+Hosted identity-key writes (no `signedBy`) MAY succeed without this cookie, as specified under `putRecord`. Import MAY use SIWS **or** `repo/write`.
+
+A knot MAY hold a delegated device key and sign on behalf of a web client only if the user issued a `repo/write` capability to that device key; that is an implementation choice and MUST be disclosed in `node.describe` as `custodialSign: true`. Default is `false`.
 
 ## CORS
 
-Public reads MUST be CORS-available (`Access-Control-Allow-Origin: *`). Authorized methods MUST NOT use `*`; they MUST echo a specific origin or use a non-browser client.
+Public unauthenticated reads MUST send `Access-Control-Allow-Origin: *`.
+
+When the request includes `Cookie` or `Authorization`, the response MUST NOT use `*`. It MUST echo the request `Origin`, MUST set `Access-Control-Allow-Credentials: true`, and SHOULD set `Vary: Origin`.
+
+`OPTIONS` preflight MUST use the same credentialed rule, keyed off `Access-Control-Request-Headers`. When that header lists `Cookie` or `Authorization` (comma-separated, case-insensitive), the preflight MUST NOT use `*`. It MUST echo `Origin`, MUST set `Access-Control-Allow-Credentials: true`, and SHOULD set `Vary: Origin`. If that preflight has no `Origin`, the knot MUST omit `Access-Control-Allow-Origin`. Otherwise `OPTIONS` MUST send `Access-Control-Allow-Origin: *`.
+
+Knots MUST allow request headers `Authorization`, `Content-Type`, `Accept`, and `Cookie`, and methods `GET`, `POST`, `OPTIONS`.
 
 ## Transport
 
@@ -1783,6 +1937,8 @@ order: 13
 # Resolution
 
 Resolution turns a handle or a DID into a knot URL and a DID document. It does not confer trust beyond what signatures later verify.
+
+A **generative document** is computed from the Ed25519 public key alone (`authentication` and `capabilityInvocation`; no `keyAgreement`). An **operational document** adds `keyAgreement` from `sys/id.agreement` as specified in [Identifiers](./04-identifiers.md#did). `tangled.identity.resolve` MUST return the operational document when the resolver has `sys/id` (or equivalent hosted identity) for that DID, and MUST return the generative document otherwise.
 
 ## DID → knot
 
@@ -1805,11 +1961,19 @@ TXT and well-known MUST agree if both exist; if they disagree, abort.
 
 ## Handle → DID (SNS)
 
-Let `n` be an SNS domain.
+Let `n` be an SNS domain of the form `<label>.sol` (case-insensitive; no `/` or `:`).
 
-1. Resolve the SNS record per the Solana Name Service program for the cluster implied by the DID (mainnet default).
-2. The record MUST contain a field `tangled` or, if absent, the account owner MUST equal the identity public key.
-3. Fetch `sys/id`, verify `n` is in `alsoKnownAs`.
+SNS is resolved via Solana JSON-RPC (`getAccountInfo`) against the Bonfida SPL Name Service program. A local `solana-test-validator` is a test harness used by continuous integration; it is not a protocol requirement.
+
+1. Derive the name-registry Program Derived Address (PDA):
+   - Program: `namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX`
+   - Top-Level Domain (TLD) parent (`.sol` root): `58PwtjSDuFHuUkYjH9BYnnQKHfwo9reZhC2zMJv9JPkx`
+   - Hashed name: `SHA-256("SPL Name Service" || label)` where `label` is `n` without the `.sol` suffix
+   - Seeds: hashed name, 32 zero bytes (class), TLD parent
+2. `getAccountInfo` on that PDA with encoding `base64`. Missing account MUST fail resolution.
+3. Parse the account: 96-byte header `parent (32) || owner (32) || class (32)`, then UTF-8 data. Data MAY be JSON `{"tangled":"did:sol:…","head":"b…"}` or lines `tangled=<did>`, `did:sol:…`, `head=<cid>` (semicolon- or newline-separated).
+4. The DID MUST be the `tangled` field if present; otherwise `did:sol:` plus Bitcoin-alphabet base58 of the 32-byte owner. The cluster prefix on that DID MUST match the RPC cluster the client is using (mainnet-beta default; `devnet` / `testnet` when the RPC URL names those clusters).
+5. Fetch `sys/id`, verify `n` is in `alsoKnownAs`.
 
 SNS seizure: whoever controls the SNS domain controls the handle, not the DID. Same as DNS.
 
@@ -2019,7 +2183,13 @@ Alternatively, `foreignProof` MAY be a NIP-01 event of kind `30078` (arbitrary a
 ActivityPub actors do not have a user key in the ratified specification. `attested` MUST be `true`. `foreign` is the actor URI. `foreignProof` is either:
 
 - An HTTP Message Signature over `GET {actorURI}` that includes header `Tangled-Binding: did:sol:…`, or
-- `https://{actor-host}/.well-known/tangled-binding.json` listing `{ "did": "did:sol:…", "actor": "https://…" }` served on the actor host.
+- Well-known JSON `https://{actor-host}/.well-known/tangled-binding.json` listing `{ "did": "did:sol:…", "actor": "https://…" }` served on the actor host.
+
+When `foreignProof` is an inline JSON object (the well-known body), it MUST contain `did` and `actor` matching the binding’s Tangled DID and actor URI. Knots that ingest `sys.foreign` / `sys.binding` for `activitypub` MUST reject `attested: false`, and MUST reject an inline JSON `foreignProof` whose `did` or `actor` does not match.
+
+**HTTP Message Signatures (RFC 9421).** Knots that ingest `sys.foreign` / `sys.binding` for `activitypub` MUST verify HTTP Message Signatures in addition to `attested: true` and matching `{did, actor}` when those fields apply. Signature fields are HTTP headers on import, or the same fields stored on `foreignProof` as `signatureInput` / `signature` / `contentDigest`. Attested JSON without a verifiable signature MUST be rejected. The algorithm MUST be `ed25519`. **Content-Digest** (RFC 9530) MUST be `sha-256` of the payload body. A mutated body MUST fail.
+
+Implementations MUST implement this covered-component set: `@method`, `@path`, `content-digest` (required on every signature), plus `@authority` (or `host`) and `content-type` when those names appear in `Signature-Input` (they MUST verify if listed). Other RFC 9421 features MAY be ignored.
 
 Clients MUST display AP-bound identities as **host-attested**, never as key-equals-person.
 
@@ -2146,7 +2316,7 @@ The operator SHOULD also export device capability private keys they still need, 
 
 On the destination knot:
 
-1. `POST /xrpc/tangled.repo.import` with the CAR (method defined in OpenAPI). The knot verifies commit signatures.
+1. `POST /xrpc/tangled.repo.import` with the CAR and a SIWS session for the DID **or** `repo/write` (method defined in OpenAPI). The knot verifies commit signatures.
 2. Write a new `sys/id` with the new knot in `endpoints` (first).
 3. Sign a new commit (rotation commit if `pubkey` also changes; otherwise a location-only commit signed by the identity key).
 4. Update DNS TXT / well-known / SNS to the same DID (handle unchanged) and optional `head=` hint.
@@ -2155,7 +2325,7 @@ Followers pull the new endpoint from `sys/id`. There is no follower-move protoco
 
 ## Multi-device
 
-Each device gets a device key and a `repo/write` capability with a TTL. Revoke by `sys.revocation`. The identity key stays on a hardware wallet or an offline machine.
+Each device gets a device key and a `repo/write` capability with a TTL. Revoke by `sys.revocation`. After that revocation, knots MUST reject subsequent `putRecord` (and other writes) that present the revoked capability (`CapabilityInvalid`). The identity key stays on a hardware wallet or an offline machine.
 
 Web clients: either the browser holds a device key in non-extractable WebCrypto, or the knot custodially signs (`custodialSign: true`, disclosed). Custodial signing means that knot can write as the user. It is OPTIONAL and NOT RECOMMENDED for sealed circles.
 
@@ -2209,7 +2379,8 @@ Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Atta
 | Attack | Control | Residual |
 | --- | --- | --- |
 | Confuse a record sig with a Solana transaction | Mandatory `\xffsolana offchain` envelope | Implementations that skip the envelope are non-conforming and unsafe |
-| Replay an invocation | `nonce` + `ts` on Invocation; knots SHOULD track nonces | Distributed knots need shared nonce state or short clock skew |
+| Replay an invocation | `nonce` + `ts` on Invocation; knots SHOULD track nonces; `max_uses` counted per leaf capability CID and persisted across restart | Distributed knots need shared nonce and use-count state |
+| Clock skew rejects a valid grant | `CAPABILITY_CLOCK_SKEW_SECONDS` (60) on `nbf` / `exp` / `valid_until` | Attackers get a 60-second extra window after `exp` |
 
 ## Visibility
 
@@ -2230,7 +2401,7 @@ Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Atta
 | MLS epoch skip / fork | Linearize on circle commit log; verify MLS epoch is monotonic | Split-brain if two owners ignore linearization — policy `invite: owner` avoids dual owners |
 | Forced-upgrade DoS (spam adds to trigger MLS) | `max_adds_per_hour`; not a user dialog | Determined owner can still grow |
 | Stolen or leftover membership grant | Revoke on remove; epoch advance | Fetch of ciphertext until revocation is visible; decrypt still needs epoch secrets |
-| Malicious Welcome | Verify credential = member Solana key; ignore Welcomes not in the circle log signed by an authorized committer | None if clients skip verification |
+| Malicious Welcome | Verify credential = member Solana key; ignore Welcomes not in the circle log signed by an authorized committer; Welcome is sealed to KeyPackage `init_key`, which MUST differ from the leaf/`agreement` key; adders MUST ignore expired `sys.mls.keypackage` records | Clients that HPKE-open Welcome with `agreement` fail; that is required; a stale published KeyPackage can be used until `exp` |
 | Identity/agreement rotation without re-wrap | Rotating member’s client MUST re-wrap and MLS-Update; not a user prompt | Offline rotator device past max-skew cannot decrypt until republish |
 
 ## Discovery and gateways
@@ -2243,6 +2414,8 @@ Assumptions: Ed25519, BLAKE3, HPKE, and MLS are as specified in their RFCs. Atta
 | Gateway drops `bytes_cid` and re-encodes | Spec forbids; clients SHOULD prefer envelopes with `bytes_cid` | Non-conforming gateways |
 | Two gateways assign different `foreign_id`s | Canonical `foreign_id` per protocol; rkey MUST be BLAKE3 of `protocol`, a 0x00 byte, and `foreign_id`; duplicates detected by `bytes_cid` or id-inside-bytes | Envelopes written before canonicalization remain until merged |
 | Selective translation | Another gateway; original network remains | Split view |
+| `node.stats` as an oracle for private activity | Counts and `hosted` are live `vis: public` tips only; learned peers, cap/sealed records, capability uses, and sessions MUST NOT appear | Traffic analysis of who pulls stats; public commit volume is visible |
+| Inflated or omitted public counts | Overlay rule: treat as this observer’s view; crawl another advertised peer | Users who treat one knot’s stats as the whole network |
 
 ## Availability
 
@@ -2261,8 +2434,8 @@ A Conflict-free Replicated Data Type (CRDT) op is a signed record. There is no u
 | Malicious collaborator inflates the op log (tiny inserts, spam tombstones) | `PAGE_TEXT_MAX_SCALARS` (1 048 576) and `PAGE_RGA_MAX_ATOMS` (4 194 304); refuse to materialize over-bound pages; knot `RateLimited` | Live Replicated Growable Array (RGA) still holds tombstoned atoms; compaction shrinks the record apply set, not the atom cap |
 | Compact omits a concurrent op | Snapshot MUST equal Apply of the included set; extra ops concurrent with the frontier are merged on top; reader detects stale vs invalid as in [Data model](./06-data-model.md#compaction) | A replica that never sees the extra op materializes without it until it pulls the replica that has it |
 | Compact spam (tiny or empty folds) | `PAGE_COMPACT_MIN_OPS` (32) and `PAGE_COMPACT_MIN_INTERVAL_MS` (300 000); knot `RateLimited`; `repo/write` required | 32 new ops plus interval still let a writer publish large snapshots |
-| Knot GC of pre-compact blocks too early | Compact-GC only when every local causal head descends from the compact; the compact record stays in the MST `prev`-closure | A replica that has not merged still needs another pull for concurrent heads; dangling `prev` after a valid GC-root is required |
-| Forged op | Each op is a signed Tangled record; unsigned gossip is not a transport; a compact is the same | Stolen `repo/write` on the shared-repo DID can compact a lie if verifiers have dropped `I(C)` |
+| Knot drops `I(C)` blocks | Authoring knot MUST retain `I(C)`; `getRepo` / `getBlocks` MUST serve them; clients MUST reject a compact whose `I(C)` cannot be fetched and replayed | A replica that has not merged still needs another pull for concurrent heads |
+| Forged op | Each op is a signed Tangled record; unsigned gossip is not a transport; a compact snapshot MUST equal Apply(`I(C)`) | Stolen `repo/write` on the shared-repo DID can still write a compact; verifiers detect a lie when `I(C)` is available |
 | Client displays a writer buffer instead of apply set `S` | Page bodies are incremental ops or a compact snapshot; clients MUST apply the CRDT (RGA text, Last-Writer-Wins (LWW) title/blob, compact union) | Non-conforming clients diverge |
 | Tombstone used to hide a concurrent edit | CRDT delete is live only when every causal head is a tombstone; compact MUST NOT be emitted when every head is a tombstone | A writer who omits a head from `prev` does not delete that head’s ops |
 
@@ -2476,3 +2649,229 @@ Actors are named. Identifiers are abbreviated (`did:sol:A…`). There is no live
 **Failure / threat.** Users confuse K’s 404 with Ada’s delete. Hostile K withholds; replicas detect by head/rev, not by filling missing records as “deleted.” Honest loss: there is no global takedown.
 
 **Coverage.** Visibility and labels said this in outline; the three-way distinction and replica failover were easy to misread.
+
+
+---
+
+# 21-changelog.md
+
+---
+title: Changelog
+slug: changelog
+order: 21
+---
+
+# Changelog
+
+This chapter records **normative** protocol changes shipped after the first complete v1 draft. It is not a client or product changelog. Informal names in parentheses are not wire identifiers.
+
+Each item states the problem, the change, and the RFC 2119 language. Implementers who already shipped an earlier v1 snapshot MUST apply these rules; `v` on records, commits, and capabilities remains `1`.
+
+## 21.1 Credentialed Cross-Origin Resource Sharing (CORS) preflight
+
+**Problem.** Actual responses already echo `Origin` and send `Access-Control-Allow-Credentials: true` when `Cookie` or `Authorization` is present. `OPTIONS` always sent `Access-Control-Allow-Origin: *`, so browsers rejected credentialed preflight.
+
+**Change.** Preflight uses the same credentialed rule as the actual response, keyed off `Access-Control-Request-Headers`.
+
+A knot MUST send `Access-Control-Allow-Origin: *` on `OPTIONS` when `Access-Control-Request-Headers` does not list `Cookie` or `Authorization`.
+
+When `Access-Control-Request-Headers` lists `Cookie` or `Authorization` (comma-separated, case-insensitive), the `OPTIONS` response MUST NOT use `*`. It MUST echo the request `Origin`, MUST set `Access-Control-Allow-Credentials: true`, and SHOULD set `Vary: Origin`. If that preflight has no `Origin`, the knot MUST omit `Access-Control-Allow-Origin`.
+
+See [HTTP API](./12-http-api.md#cors).
+
+## 21.2 Capability `max_uses` counted
+
+**Problem.** Spec 09 listed `["max_uses", n]` but said a knot MAY skip the counter. The reference knot skipped it, so a one-use grant was reusable.
+
+**Change.** Online knots that accept invocations MUST count successful uses per leaf capability Content Identifier (CID).
+
+A knot that verifies invocations MUST persist a counter keyed by the leaf capability CID. Before authorizing, it MUST reject the invocation with `CapabilityInvalid` (HTTP 403) if the stored count is greater than or equal to `n`. After a successful authorization it MUST increment the counter.
+
+`tangled.cap.verify` MUST NOT increment the counter (it is a check, not a resource use). Offline verifiers MAY ignore `max_uses`. Online knots persist the counter; see [21.18](#2118-max_uses-persisted-across-restart).
+
+See [Capabilities](./09-capabilities.md#caveats).
+
+## 21.3 `listRecords` is not on the wire
+
+**Problem.** The in-process engine served `GET /xrpc/tangled.sync.listRecords`. OpenAPI omitted it. Spec 12 already forbade a wire method. Live knots still answered the path.
+
+**Change.** Confirm the forbid. Clients MUST enumerate with `getRepo`, `getRepoAuth`, or `getRecord`.
+
+A Tangled knot MUST return `MethodNotImplemented` (HTTP 404) for `tangled.sync.listRecords`. An in-process engine MAY keep a `listRecords` helper for tests. A knot MUST NOT require clients to call it.
+
+See [HTTP API](./12-http-api.md#tangled-sync-getrepo).
+
+## 21.4 `getRepoAuth` `since` in query or body
+
+**Problem.** Spec 12 already allowed `since` as a query parameter or in the JSON/CBOR body. The reference knot read only the query string.
+
+**Change.** Honor both. If both are present and differ, the query parameter MUST win.
+
+A knot MUST treat `since` on `tangled.sync.getRepoAuth` as a commit or record CID. It MUST read `since` from the query string when present. If the query omits `since`, it MUST read `since` from the request body when present.
+
+See [HTTP API](./12-http-api.md#tangled-sync-getrepoauth).
+
+## 21.5 KeyPackage records for offline add
+
+**Problem.** Messaging Layer Security (MLS) Add needs a KeyPackage. Spec 10 published Welcomes for offline members but did not say how an adder obtains a KeyPackage when the new member is offline. That forced a round-trip or an out-of-band package.
+
+**Change.** Members publish KeyPackage records in their own repository. Add is still “add member.” Clients MUST NOT expose Hybrid Public Key Encryption (HPKE) versus MLS, or KeyPackage publish, as a user-facing mode.
+
+A `client.group` implementation MUST be able to publish a KeyPackage record:
+
+- collection `sys.mls.keypackage`
+- rkey = a Timestamp Identifier (TID)
+- `vis` `public` or `cap`
+- body `{ type: "keypackage", exp: uint, payload: bstr }`
+
+`payload` MUST be the RFC 9420 TLS-serialized KeyPackage. `init_key` MUST differ from the leaf / `agreement` key. `exp` MUST be Unix seconds. An adder MUST ignore a package with `exp` less than now (the [clock-skew window](#216-capability-clock-skew) applies). An adder MUST Welcome to a current unexpired package when adding an offline member. The new member’s client processes Welcome on next sync. No accept dialog.
+
+See [Circles](./10-circles.md#keypackage-records).
+
+## 21.6 Subscribe `since` cursor
+
+**Problem.** Spec 11 live subscribe had no resume cursor. A dropped WebSocket forced a full `getRepo` before the client could trust it had not missed a commit.
+
+**Change.** Optional `since` query parameter (a commit CID).
+
+`GET /xrpc/tangled.sync.subscribe?did=&collection=&since=` — `since` is OPTIONAL. When `since` is present and the knot still holds later commit events for that Decentralized Identifier (DID) (and `collection` filter), it MUST send those events first, in store order, then continue live. When `since` is omitted, the knot MAY send the current head as a hello with empty `ops` (v1 default). When the knot does not retain `since`, it MUST send that hello and MUST NOT invent a gap-free history.
+
+Subscribe filters remain `did` and optional `collection`. There is no byte-offset cursor. The event log is persisted; see [21.14](#2114-subscribe-since-persisted).
+
+See [Synchronization](./11-sync.md#live).
+
+## 21.7 Blob size and media type on `getBlob`
+
+**Problem.** `putBlob` accepted raw bytes. `getBlob` returned `Content-Type: application/octet-stream` with no size or stored type, so clients could not advertise media without out-of-band metadata.
+
+**Change.** Always send length. Echo a stored type when the writer supplied one.
+
+`putBlob` MAY include `mediaType` as a query parameter or `X-Tangled-Media-Type` request header (a Multipurpose Internet Mail Extensions (MIME) type such as `image/png`). The body `Content-Type` remains `application/octet-stream`. A knot MUST store that type with the blob when present.
+
+`getBlob` MUST send `Content-Length` equal to the byte length. `Content-Type` MUST remain `application/octet-stream` (the CID is raw 0x55). When a media type was stored, the knot MUST also send `X-Tangled-Media-Type` with that value.
+
+See [HTTP API](./12-http-api.md#tangled-sync-getblob).
+
+## 21.8 Capability clock-skew window
+
+**Problem.** Capability `nbf` already existed. Verifiers compared `nbf` and `exp` to `now` with no skew, so a 1-second clock difference rejected a valid grant.
+
+**Change.** A 60-second window on not-before, expiry, and `valid_until`.
+
+Let `SKEW` be `CAPABILITY_CLOCK_SKEW_SECONDS` (60). A verifier MUST accept a certificate when `now + SKEW >= nbf` and `now <= exp + SKEW`. A `valid_until` caveat MUST fail only when `now > until + SKEW`. Implementations MUST use 60. They MUST NOT expose the window as an interop-breaking setting.
+
+See [Capabilities](./09-capabilities.md#invocation) and [Cryptography](./05-cryptography.md#constants).
+
+## 21.9 `Retry-After` on `RateLimited`
+
+**Problem.** Page compact admission already returned `RateLimited` (HTTP 429) with no `Retry-After`, so clients could not back off correctly.
+
+**Change.** Every `RateLimited` response MUST include `Retry-After` as delta-seconds (RFC 9110). For page compact admission the value MUST be at least `PAGE_COMPACT_MIN_INTERVAL_MS / 1000` (300).
+
+See [HTTP API](./12-http-api.md#errors).
+
+## 21.10 Generative vs operational DID `keyAgreement`
+
+**Problem.** A generative `did:sol` document is computed from the Ed25519 public key alone. Putting X25519 on that document would require deriving agreement from the identity key (forbidden) or fetching `sys/id` (not generative). Resolvers had no `keyAgreement` even after `sys/id` was published.
+
+**Change.** Split the document. The generative document MUST NOT include `keyAgreement`. The operational document MUST include `keyAgreement` for `sys/id.agreement` when that record is available.
+
+A generative document MUST grant `authentication` and `capabilityInvocation` to the 32-byte Ed25519 key and MUST NOT invent `keyAgreement`. Implementations MUST NOT convert the identity Ed25519 key to X25519 for Diffie–Hellman.
+
+When a knot or client has `sys/id` (or equivalent hosted identity), `tangled.identity.resolve` and any `did:sol` document builder MUST return the operational document: the generative methods plus `keyAgreement` with id `did:sol:<base58>#agreement`, type `X25519KeyAgreementKey2020`, and `publicKeyBase58` of the X25519 `agreement` public key. Without `sys/id`, they MUST return the generative document.
+
+See [Identifiers](./04-identifiers.md#did) and [Resolution](./13-resolution.md).
+
+## 21.11 HTTP Message Signatures on ActivityPub import
+
+**Problem.** ActivityPub imports required `attested: true` and matching well-known JSON `{did, actor}`. HTTP Message Signature headers on the foreign payload were not verified, so a mutated body could still be stored if the JSON proof matched.
+
+**Change.** Keep the attestation rule. Verify RFC 9421 when signature fields are present.
+
+Knots that ingest `sys.foreign` / `sys.binding` for `activitypub` MUST reject `attested: false`. Matching inline JSON `{did, actor}` remains REQUIRED when those fields are present. RFC 9421 is now required, not optional; see [21.16](#2116-activitypub-rfc-9421-required).
+
+See [Interoperability](./16-interoperability.md#activitypub).
+
+## 21.12 Signed Commit `prev` chain on `putRecord`
+
+**Problem.** The reference knot advertised `getHead.commit` as the Merkle Search Tree (MST) root CID. Spec 07 already defined a signed Commit `{ did, version, data, prev, rev, sig }`. Import could not verify a commit chain.
+
+**Change.** `putRecord` that advances a repo MUST produce a signed Commit. `getHead.commit` is that Commit CID. `data` on the head JSON is the MST root.
+
+The Commit is DAG-CBOR signed with the Solana off-chain envelope (same construction as records). `data` MUST be the new MST root. `prev` MUST be the previous Commit CID, or absent/null at genesis. A client-supplied `prev` that does not equal the current head Commit CID MUST return `ConcurrentHeads` (HTTP 409). `rev` MUST increase; rollback MUST be refused. `getRepo` / import CAR MUST include Commit blocks. Import MUST verify each commit signature and the `prev` chain back to genesis or to `since`. Record-level `prev` (CRDT / Last-ts-wins) is unchanged.
+
+See [Repositories](./07-repositories.md#commit) and [HTTP API](./12-http-api.md#tangled-repo-putrecord).
+
+## 21.13 Compact `I(C)` retained and verified
+
+**Problem.** Clients accepted a signature-valid compact plus uncovered ops and could not re-check a lying snapshot once `I(C)` blocks were gone.
+
+**Change.** Compact records MUST permanently list `I(C)` as `included`. The authoring knot MUST NOT drop those blocks. `getRepo` / `getBlocks` MUST still serve them. A client MUST reject a compact if any CID in `I(C)` cannot be fetched and verified as a signed page op, or if Apply(`I(C)`) does not equal the snapshot. Stale concurrent ops still merge on top.
+
+See [Data model](./06-data-model.md#compaction).
+
+## 21.14 Subscribe `since` persisted
+
+**Problem.** The subscribe event window lived only in memory and was lost on restart.
+
+**Change.** An online knot MUST persist the commit event log next to the filesystem snapshot. Restart MUST still replay `since` for retained events.
+
+See [Synchronization](./11-sync.md#live).
+
+## 21.15 `getRepo ?since=` historical MST
+
+**Problem.** A `since` CAR returned later commits plus the current public records, not the MST snapshots of intermediate commits.
+
+**Change.** `since` MUST return the commit chain after `since` (and the `since` commit block) and the MST nodes plus records needed to reconstruct those commits. Import MUST verify the `prev` chain.
+
+See [Synchronization](./11-sync.md#get-repo) and [Repositories](./07-repositories.md#car-export).
+
+## 21.16 ActivityPub RFC 9421 required
+
+**Problem.** Attested JSON `{did, actor}` without HTTP Message Signatures could still pass.
+
+**Change.** ActivityPub `sys.foreign` / `sys.binding` ingest MUST have a verifiable RFC 9421 signature in addition to `attested: true` and `{did, actor}` when those fields apply. Attested-only MUST be rejected.
+
+See [Interoperability](./16-interoperability.md#activitypub).
+
+## 21.17 RFC 9421 covered-component set
+
+**Problem.** The verified subset was only `@method` `@path` `content-digest`. Extra covered components were ignored.
+
+**Change.** Implementations MUST implement `@method`, `@path`, `content-digest`, and MUST verify `@authority` (or `host`) and `content-type` when listed in `Signature-Input`. Other RFC 9421 features MAY be ignored.
+
+See [Interoperability](./16-interoperability.md#activitypub).
+
+## 21.18 `max_uses` persisted across restart
+
+**Problem.** A forgotten `max_uses` counter reset to zero, so a one-use grant could be reused after restart.
+
+**Change.** An online knot MUST persist the counter in the same snapshot as records. Restart MUST NOT reset counts.
+
+See [Capabilities](./09-capabilities.md#caveats).
+
+## 21.19 MLS wrapping vector vs live OpenMLS
+
+**Problem.** `spec/vectors/mls-welcome-commit.json` `payload_hex` is wrapping-only; OpenMLS Welcome bytes are not byte-stable.
+
+**Change.** That file remains the wrapping vector (ciphersuite, exporter label, record shape). Live RFC 9420 bytes are covered by `cargo test -p tangled --lib mls::`. OpenMLS Welcome hex is not frozen (not deterministic).
+
+See [Test vectors](./vectors/README.md).
+
+## 21.20 Public peer gossip on `node.describe`
+
+**Problem.** A knot that knew one other knot had no specified way to learn that peer’s other public knots. There is no DHT.
+
+**Change.** `tangled.node.describe` MAY include `peers`: an array of absolute knot base URLs the operator marked public.
+
+A knot MUST advertise only its operator-configured public set (`--peer`, `TANGLED_PEERS`, or `{data}/peers.txt` in the reference knot). It MUST NOT re-advertise URLs learned from other knots. A connecting knot that successfully describes a peer MAY store that `peers` list and try those URLs for sync and resolve. Omitted `peers` means `[]`. Private or internal knots MUST NOT be listed.
+
+See [HTTP API](./12-http-api.md#tangled-node-describe) and [Synchronization](./11-sync.md#peer-discovery).
+
+## 21.21 Public node statistics
+
+**Problem.** `node.describe` advertises profiles, blob limits, and public peers. Clients had no specified way to read knot-local public counts or hosted-identity topology without walking every `getHead` / `getRepo`.
+
+**Change.** `GET /xrpc/tangled.node.stats` returns public-only aggregates (`counts`, retained public commit `rates`) and advertised-peer topology (`topology.peers`, `topology.hosted`).
+
+A knot MUST count only live `vis: public` tips. It MUST NOT include `cap` / `sealed` records, capability or session counters, or learned peer URLs. `topology.peers` MUST equal `node.describe` `peers`. There is no global directory; clients MAY crawl advertised peers. See [HTTP API](./12-http-api.md#tangled-node-stats) and [Threat model](./18-threat-model.md#discovery-and-gateways).

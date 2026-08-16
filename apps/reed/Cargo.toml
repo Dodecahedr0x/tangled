@@ -1,0 +1,35 @@
+[package]
+name = "reed"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Reed social UI (Dioxus 0.7)"
+publish = false
+
+[lib]
+name = "reed"
+path = "src/lib.rs"
+
+[[bin]]
+name = "reed"
+path = "src/main.rs"
+required-features = ["desktop"]
+
+[features]
+default = []
+web = ["dioxus/web"]
+desktop = ["dioxus/desktop", "dep:notify-rust"]
+mobile = ["dioxus/mobile"]
+
+[dependencies]
+dioxus = { version = "=0.7.10", features = ["router"] }
+notify-rust = { version = "4", optional = true }
+reed-core = { path = "core" }
+serde_json = "1"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+dioxus-solana = "0.1"
+
+[dev-dependencies]
+dioxus-ssr = "=0.7.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "net"] }

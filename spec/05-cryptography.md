@@ -70,11 +70,15 @@ Verifiers MUST rebuild this exact byte string and call Ed25519 verify with the a
 
 Wallet-adapter `signMessage` is equivalent if and only if the client passes `message` (the full envelope bytes) to the wallet. Clients MUST NOT pass only the digest or only the CBOR.
 
-Sign In With Solana (SIWS) authenticates a human session to a knot’s HTTPS surface. SIWS MUST NOT be used as a record signature.
-
 ### Commit signatures
 
 A commit signs the same envelope construction, with `unsigned_record_dag_cbor` replaced by the unsigned commit map (`sig` and `sigRotation` omitted). Rotation commits carry a second signature `sigRotation` over the same message, verified against a key listed in the previous `sys/id.rotation`.
+
+## Sign In With Solana
+
+Sign In With Solana (SIWS) authenticates a human session to **this knot’s** HTTPS surface. It is knot-local login. SIWS MUST NOT be used as a record signature and MUST NOT replace the off-chain envelope on `putRecord`. HTTP methods, cookie attributes, and message fields are specified in [HTTP API](./12-http-api.md#sessions-siws).
+
+The SIWS signature is Ed25519 over the UTF-8 bytes of the canonical SIWS message. Implementations MUST NOT wrap that message in the Solana off-chain envelope used for records and commits.
 
 ## HPKE
 
@@ -87,13 +91,17 @@ Single-shot HPKE (base mode) MUST be used. The encapsulating key (`enc`) is stor
 
 ## MLS
 
-Ciphersuite MUST be `0x0001`. Credential type: basic credential whose identity is the 32-byte Solana public key (not the DID string). Application ID: `tangled.circle.v1`.
+Ciphersuite MUST be `0x0001` (`MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519`). Credential type: basic credential whose identity is the 32-byte Solana public key (not the DID string). Application ID: `tangled.circle.v1`.
 
-The MLS **exporter secret** with label `tangled.epoch` and context `uint64be(N)` and length 32 is `epoch_secret[N]` when the distributor is MLS.
+Each member’s MLS **leaf HPKE public key** MUST be that member’s Tangled X25519 `agreement` key (the same key Hybrid Public Key Encryption (HPKE) wraps use). RFC 9420 **requires** KeyPackage `init_key` to differ from the leaf encryption key. Implementations MUST satisfy that: Welcome is sealed to `init_key`, not to `agreement`. Path secrets and HPKE wraps use `agreement`. Clients MUST NOT treat `init_key` as the wrap target.
 
-Welcome and Commit messages are stored as sealed records in the circle log (`sys.circle.mls`, rkey = TID). They are not user-visible.
+The MLS **exporter secret** with label `tangled.epoch` and context `uint64be(N)` (8-byte big-endian epoch) and length 32 is `epoch_secret[N]` when the distributor is MLS.
+
+Welcome and Commit messages are RFC 9420 TLS-serialized payloads stored as sealed records in the circle log (`sys.circle.mls`, rkey = TID). They are not user-visible. Hybrid Public Key Encryption (HPKE) versus MLS MUST NOT appear as a user-facing mode.
 
 Group-capable implementations MUST implement MLS. Knots that only advertise `knot.public` MAY omit it.
+
+`spec/vectors/mls-welcome-commit.json` is wrapping-only: `payload_hex` is a stand-in. A conforming stack MUST produce RFC 9420 Welcome/Commit bytes that export the stated `epoch_secret` with that label and context. Live bytes are not byte-stable across MLS libraries.
 
 ## Epoch application keys
 
@@ -123,6 +131,7 @@ Record AEAD nonce = `nonce_base` XOR first 12 bytes of BLAKE3(unsigned record wi
 | `AGREEMENT_ROTATION_MAX_SKEW_SECONDS` | 604800 (7 days) |
 | `RECOVERY_DELAY_SECONDS` | 259200 |
 | `CAPABILITY_MAX_TTL_SECONDS` | 31536000 (365 days) |
+| `CAPABILITY_CLOCK_SKEW_SECONDS` | 60 |
 
 Implementations MUST use these values. They MUST NOT expose them as interop-breaking settings.
 
@@ -131,5 +140,6 @@ Implementations MUST use these values. They MUST NOT expose them as interop-brea
 - MUST NOT use the identity Ed25519 key for X25519 Diffie–Hellman.
 - MUST NOT sign raw DAG-CBOR or a raw 32-byte digest without the off-chain envelope.
 - MUST NOT use JWT as the capability encoding.
-- MUST NOT treat SIWS as a record signature.
+- MUST NOT treat SIWS as a record signature, and MUST NOT sign the SIWS message with the Solana off-chain envelope.
 - MUST NOT re-encrypt history on HPKE→MLS migration.
+- MUST NOT seal MLS Welcome to the leaf/`agreement` key.

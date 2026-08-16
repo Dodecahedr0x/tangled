@@ -18,7 +18,7 @@ The operator SHOULD also export device capability private keys they still need, 
 
 On the destination knot:
 
-1. `POST /xrpc/tangled.repo.import` with the CAR (method defined in OpenAPI). The knot verifies commit signatures.
+1. `POST /xrpc/tangled.repo.import` with the CAR and a SIWS session for the DID **or** `repo/write` (method defined in OpenAPI). The knot verifies commit signatures.
 2. Write a new `sys/id` with the new knot in `endpoints` (first).
 3. Sign a new commit (rotation commit if `pubkey` also changes; otherwise a location-only commit signed by the identity key).
 4. Update DNS TXT / well-known / SNS to the same DID (handle unchanged) and optional `head=` hint.
@@ -27,7 +27,7 @@ Followers pull the new endpoint from `sys/id`. There is no follower-move protoco
 
 ## Multi-device
 
-Each device gets a device key and a `repo/write` capability with a TTL. Revoke by `sys.revocation`. The identity key stays on a hardware wallet or an offline machine.
+Each device gets a device key and a `repo/write` capability with a TTL. Revoke by `sys.revocation`. After that revocation, knots MUST reject subsequent `putRecord` (and other writes) that present the revoked capability (`CapabilityInvalid`). The identity key stays on a hardware wallet or an offline machine.
 
 Web clients: either the browser holds a device key in non-extractable WebCrypto, or the knot custodially signs (`custodialSign: true`, disclosed). Custodial signing means that knot can write as the user. It is OPTIONAL and NOT RECOMMENDED for sealed circles.
 

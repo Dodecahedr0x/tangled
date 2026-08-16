@@ -20,9 +20,27 @@ Implementations MUST accept `did:sol:` on mainnet with no cluster prefix. Implem
 
 Tangled MUST NOT invent a `did:tangled` method.
 
-A generative DID has no on-chain document. Resolution of a generative DID MUST produce a DID document whose sole verification method is the public key itself, with `capabilityInvocation` and `authentication` granted to that key.
+A generative DID has no on-chain document. Resolution of a generative DID **without** a verified `sys/id` MUST produce a DID document whose sole verification method is the public key itself, with `capabilityInvocation` and `authentication` granted to that key. That **generative document** MUST NOT include `keyAgreement`. Implementations MUST NOT invent an X25519 key by converting the identity Ed25519 key.
+
+```json
+{
+  "id": "did:sol:<base58>",
+  "verificationMethod": [{
+    "id": "did:sol:<base58>#key",
+    "type": "Ed25519VerificationKey2020",
+    "controller": "did:sol:<base58>",
+    "publicKeyBase58": "<base58>"
+  }],
+  "authentication": ["did:sol:<base58>#key"],
+  "capabilityInvocation": ["did:sol:<base58>#key"]
+}
+```
 
 Persisting a DID document on-chain via the `did:sol` program is OPTIONAL. When present, it is a transparency log for rotation, not a gate on existence. A knot MUST serve `sys/id` even if no on-chain document exists.
+
+When a knot or client has a verified `sys/id` for the DID (or equivalent hosted identity), it MUST return the **operational document**: the generative methods plus `keyAgreement` for the X25519 `agreement` public key from `sys/id`. The agreement verification method id is `did:sol:<base58>#agreement`. Type is `X25519KeyAgreementKey2020`. The public key is `publicKeyBase58` (Bitcoin-alphabet base58 of the 32 raw bytes), matching the Ed25519 method encoding.
+
+`tangled.identity.resolve` MUST return that operational document in `document` when `sys/id` is available, and the generative document otherwise. Clients that only have the 32-byte Ed25519 key MUST emit the generative document.
 
 ## sys/id
 
@@ -55,7 +73,7 @@ A handle is a human-readable name bound to a DID. Two types:
 1. **DNS.** A hostname such as `alice.example.com`. Proof is either:
    - A DNS TXT record at `_tangled.<hostname>` whose value is the DID, or
    - `https://<hostname>/.well-known/tangled-did` serving `text/plain` with the DID as the sole line, or JSON `{"did":"did:sol:…"}`.
-2. **SNS.** A Solana Name Service domain. Proof is the SNS record whose owner or specified Tangled field is the identity public key. Resolution procedure is in [Resolution](./13-resolution.md).
+2. **SNS.** A Solana Name Service (SNS) `.sol` domain. Proof is the name-registry account on the Bonfida name program: a `tangled` field naming the DID, or, if that field is absent, the 32-byte account owner encoded as `did:sol:`. Resolution procedure (Program Derived Address (PDA), 96-byte header, JSON-RPC) is in [Resolution](./13-resolution.md).
 
 Bidirectional binding: `sys/id.alsoKnownAs` MUST list the handle, and the handle proof MUST name the DID. Clients MUST reject one-sided claims.
 

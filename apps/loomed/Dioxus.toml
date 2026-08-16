@@ -1,0 +1,5 @@
+[application]
+name = "loomed"
+
+[web.app]
+title = "Loomed"

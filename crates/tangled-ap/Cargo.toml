@@ -1,0 +1,29 @@
+[package]
+name = "tangled-ap"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "ActivityPub JSON-LD mapping, HTTP signatures, and WebFinger for tangled-knot"
+publish = false
+
+[features]
+default = []
+demo = ["dep:axum", "dep:rand", "dep:reqwest", "dep:tokio"]
+
+[dependencies]
+axum = { version = "0.8", optional = true }
+base64 = "0.22"
+rand = { version = "0.8", optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+rsa = { version = "0.9", features = ["pem", "sha2"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tangled = { path = "../tangled" }
+thiserror = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"], optional = true }
+
+[dev-dependencies]
+rand = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net"] }

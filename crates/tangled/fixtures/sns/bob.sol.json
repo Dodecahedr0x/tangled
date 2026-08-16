@@ -1,0 +1,14 @@
+{
+  "account": {
+    "data": [
+      "PVPCSzg2DtOBOiPfst/YIKtYIct5KaONLqqyUug4JZUHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      "base64"
+    ],
+    "executable": false,
+    "lamports": 1000000000,
+    "owner": "namesLPneVptA9Z5rqUDD9tMTWEJwofgaYwp8cawRkX",
+    "rentEpoch": 0,
+    "space": 96
+  },
+  "pubkey": "9cRvLDvBDDrfxUN8UzWpLA5nus83HDSUPUm5NUxA1SVv"
+}

@@ -1,0 +1,13 @@
+{
+  "$id": "https://reed.app/schemas/pub.reed.mute.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.reed.mute",
+  "type": "object",
+  "required": ["subject"],
+  "properties": {
+    "subject": {
+      "type": "string",
+      "description": "did:sol of the muted identity"
+    }
+  }
+}

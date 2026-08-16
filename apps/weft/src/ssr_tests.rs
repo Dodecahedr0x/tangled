@@ -1,0 +1,196 @@
+use dioxus::prelude::*;
+use weft_core::{
+    EdgeKind, HostedIdentity, KnotNode, LookupHit, NetworkTotals, NetworkView, NodeCounts,
+    NodeRates, NodeStats, NodeTopology, TopoEdge,
+};
+
+use crate::{LookupView, OverviewView, TopologyView};
+
+fn html(root: fn() -> Element) -> String {
+    let mut vdom = VirtualDom::new(root);
+    vdom.rebuild_in_place();
+    dioxus_ssr::render(&vdom)
+}
+
+fn sample_stats() -> NodeStats {
+    NodeStats {
+        v: 1,
+        did: "did:sol:alice".into(),
+        as_of: 1_700_000_000,
+        counts: NodeCounts {
+            identities: 1,
+            repos: 1,
+            records: 4,
+            blobs: 0,
+            peers: 1,
+            circles: 0,
+            foreign: 0,
+            commits: 4,
+        },
+        rates: NodeRates {
+            public_commits: 4,
+            retained: 256,
+        },
+        topology: NodeTopology {
+            peers: vec!["https://b.example".into()],
+            hosted: vec![HostedIdentity {
+                did: "did:sol:alice".into(),
+                handle: Some("alice.sol".into()),
+                rev: Some("3jzf".into()),
+                records: 4,
+            }],
+            truncated: false,
+        },
+    }
+}
+
+fn sample_view() -> NetworkView {
+    let stats = sample_stats();
+    NetworkView {
+        home: "http://127.0.0.1:3000".into(),
+        knots: vec![
+            KnotNode {
+                url: "http://127.0.0.1:3000".into(),
+                did: stats.did.clone(),
+                reachable: true,
+                stats: Some(stats),
+            },
+            KnotNode {
+                url: "https://b.example".into(),
+                did: String::new(),
+                reachable: false,
+                stats: None,
+            },
+        ],
+        edges: vec![
+            TopoEdge {
+                from: "http://127.0.0.1:3000".into(),
+                to: "https://b.example".into(),
+                kind: EdgeKind::Peer,
+            },
+            TopoEdge {
+                from: "http://127.0.0.1:3000".into(),
+                to: "did:sol:alice".into(),
+                kind: EdgeKind::Hosted,
+            },
+        ],
+        totals: NetworkTotals {
+            knots: 2,
+            identities: 1,
+            records: 4,
+            blobs: 0,
+            circles: 0,
+            foreign: 0,
+            commits: 4,
+        },
+    }
+}
+
+fn empty_overview() -> Element {
+    rsx! {
+        OverviewView {
+            view: None,
+            knot_unreachable: false,
+            knot_unconfigured: true,
+        }
+    }
+}
+
+fn unreachable_overview() -> Element {
+    rsx! {
+        OverviewView {
+            view: None,
+            knot_unreachable: true,
+        }
+    }
+}
+
+fn filled_overview() -> Element {
+    rsx! {
+        OverviewView {
+            view: Some(sample_view()),
+            knot_unreachable: false,
+        }
+    }
+}
+
+fn empty_topo() -> Element {
+    rsx! { TopologyView { view: None, knot_unreachable: false } }
+}
+
+fn filled_topo() -> Element {
+    rsx! {
+        TopologyView {
+            view: Some(sample_view()),
+            knot_unreachable: false,
+        }
+    }
+}
+
+fn lookup_identity() -> Element {
+    rsx! {
+        LookupView {
+            query: "did:sol:alice",
+            hit: Some(LookupHit::Identity {
+                did: "did:sol:alice".into(),
+                handle: Some("alice.sol".into()),
+                knot: Some("http://127.0.0.1:3000".into()),
+                rev: Some("3jzf".into()),
+                records: Some(4),
+            }),
+            err: None,
+            knot_unreachable: false,
+        }
+    }
+}
+
+#[test]
+fn overview_empty_mentions_weft_and_no_stats() {
+    let h = html(empty_overview);
+    assert!(h.contains("weft"));
+    assert!(h.contains("Overview"));
+    assert!(h.contains("No knot URL set"));
+}
+
+#[test]
+fn overview_unreachable_banner() {
+    let h = html(unreachable_overview);
+    assert!(h.contains("Cannot reach knot"));
+}
+
+#[test]
+fn overview_shows_network_counts() {
+    let h = html(filled_overview);
+    assert!(h.contains("Identities"));
+    assert!(h.contains(">4<") || h.contains("4"));
+    assert!(h.contains("Records"));
+    assert!(h.contains("retained public commits"));
+}
+
+#[test]
+fn topology_renders_interactive_mount() {
+    let h = html(filled_topo);
+    assert!(h.contains("Topology"));
+    assert!(h.contains("weft-topo"));
+    assert!(h.contains("topo-canvas"));
+    assert!(h.contains("data-graph"));
+    assert!(h.contains("127.0.0.1:3000"));
+    assert!(h.contains("b.example"));
+    assert!(h.contains("did:sol:alice"));
+    assert!(h.contains("topo-detail"));
+    assert!(h.contains("Hover or click"));
+}
+
+#[test]
+fn topology_empty_explains_graph() {
+    let h = html(empty_topo);
+    assert!(h.contains("No graph yet"));
+}
+
+#[test]
+fn lookup_shows_identity_hit() {
+    let h = html(lookup_identity);
+    assert!(h.contains("did:sol:alice"));
+    assert!(h.contains("alice.sol"));
+    assert!(h.contains("public records"));
+}

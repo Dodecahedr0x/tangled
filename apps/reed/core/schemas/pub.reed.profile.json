@@ -1,0 +1,12 @@
+{
+  "$id": "https://reed.app/schemas/pub.reed.profile.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.reed.profile",
+  "type": "object",
+  "required": ["displayName", "bio"],
+  "properties": {
+    "displayName": { "type": "string" },
+    "bio": { "type": "string" },
+    "avatar": { "type": "string" }
+  }
+}

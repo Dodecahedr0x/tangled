@@ -5,7 +5,7 @@ unsigned-commit = {
   v: 1,
   did: did,
   data: cid-bytes,
-  rev: tstr,
+  rev: tstr .regexp "[0-9abcdefghjkmnpqrstvwxyz]{13}",
   prev: cid-bytes / null,
   ? recovery: bool
 }

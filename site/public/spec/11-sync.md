@@ -12,9 +12,9 @@ Followers pull. Authors do not push into N inboxes. Relays are not the source of
 
 `GET /xrpc/tangled.sync.getHead?did=`
 
-Returns `{ did, commit, rev, knot }`. `commit` is the head CID. No capability for public repos. `repo/read` required if the knot hides the DID (unusual; default is to advertise heads).
+Returns `{ did, commit, rev, knot, data }`. `commit` is the head **Commit** CID (the signed Commit object, not the raw MST root). `data` is `Commit.data` (the MST root CID). No capability for public repos. `repo/read` required if the knot hides the DID (unusual; default is to advertise heads).
 
-Clients MUST cache `(did, commit)` and detect rollback: a head with `rev` less than a previously verified `rev` for the same DID is an attack or a recovery race. Recovery races are specified in [Identifiers](./04-identifiers.md#rotation).
+Clients MUST cache `(did, commit, rev)` and detect rollback: a head with `rev` less than a previously verified `rev` for the same DID is an attack or a recovery race. Clients MUST refuse to adopt that head except as specified for recovery in [Identifiers](./04-identifiers.md#rotation). Recovery races are specified there.
 
 ## Get record
 
@@ -42,9 +42,9 @@ Knots advertising `knot.public` MUST implement this method for publicly referenc
 
 `GET /xrpc/tangled.sync.getRepo?did=&since=`
 
-Returns a CAR. Without `since`, the full public repo (commit, public MST, public records). With `since` (a commit CID), a diff. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, once a compact is a Garbage Collection (GC) root ([Data model](./06-data-model.md#compaction)), the CAR MAY omit pre-compact op blocks in that compact’s included set. It MUST still include the compact record. If `since` already contains the compact and head descends from it, the diff is only later records. Clients MUST NOT treat dangling compact `prev` CIDs as a broken export after compact-GC.
+Returns a CAR. Without `since`, the full public repo (commits, public MST snapshots, public records). With `since` (a commit CID), the commit chain after `since` through head, the `since` commit block, and the MST nodes plus records needed to reconstruct those commits. Blobs are not included unless `blobs=true`. For `pub.tangled.page`, the CAR MUST include `I(C)` blocks of each compact ([Data model](./06-data-model.md#compaction)). It MUST still include the compact record.
 
-Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. Compact-GC omissions follow the same rule as `getRepo`.
+Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, returns authorized collections. If the invocation command is `circle/read`, the CAR MUST include only records the capability authorizes (circle-scoped records on this DID, plus the circle log when this DID is the owner) and MUST NOT include sibling collections. `I(C)` retention follows the same rule as `getRepo`. Import of that CAR MUST verify the `prev` chain.
 
 ## Notify (optional)
 
@@ -52,9 +52,11 @@ Authorized variant: `POST /xrpc/tangled.sync.getRepoAuth` with invocation, retur
 
 ## Live
 
-`GET /xrpc/tangled.sync.subscribe?did=&collection=` Upgrade: WebSocket.
+`GET /xrpc/tangled.sync.subscribe?did=&collection=&since=` Upgrade: WebSocket.
 
 Messages: `{ t: "commit", commit: cid, ops: [{action, collection, rkey, cid}] }`.
+
+`since` is OPTIONAL and is a commit CID. When `since` is present and the knot still holds later commit events for that DID (and `collection` filter), it MUST send those events first, in store order, then continue live. When `since` is omitted, the knot MAY send the current head as a hello with empty `ops`. When the knot does not retain `since`, it MUST send that hello and MUST NOT invent a gap-free history. There is no byte-offset cursor. An online knot MUST persist the commit event log next to the filesystem snapshot. Restart MUST still replay `since` for retained events.
 
 Public collections: no cap. Others: cap on subscribe. Heartbeat every 30 seconds. The server MAY drop slow clients.
 
@@ -77,9 +79,15 @@ Returns public records **this knot already stores** whose envelope `ref` equals 
 
 Knots advertising `knot.public` SHOULD maintain the index from public records they ingest (hosted repositories, follows, replicas). They MUST NOT crawl other knots in order to answer this method. They MUST NOT include `vis: cap` or `vis: sealed` records. Tombstones MUST NOT appear in `hits`. `count` is `len(hits)` after those filters (or the untruncated count if `limit` clipped `hits`). `overlay` MUST be `true`. `complete` MUST be `false` unless the knot can prove it stores every public annotator (v1 knots cannot; they MUST send `false`).
 
-A knot that does not implement the index MUST return `MethodNotImplemented`. Clients treat that as zero observed remote annotations from this knot.
+A knot that does not implement the index MUST return `MethodNotImplemented`. An empty `hits` array and `MethodNotImplemented` MUST NOT be treated as proof that the network has zero comments or annotations. They mean this observer has no public overlay (or no index). Clients MUST union overlays as specified in [Looms](./14-looms.md#annotation-discovery).
 
 Discovery of annotations without knowing every annotator DID is specified in [Looms](./14-looms.md#annotation-discovery).
+
+## Peer discovery
+
+Knots do not run a DHT. A knot MAY advertise other public knot base URLs in `tangled.node.describe` → `peers` ([HTTP API](./12-http-api.md#tangled-node-describe)). When knot A first successfully describes knot B, A MAY store B’s `peers` and try those URLs for further `describe`, `getHead`, `identity.resolve`, or `node.stats`. Only the operator-configured public set is advertised. Learned URLs stay local so a peer cannot trick a knot into advertising an attacker URL.
+
+`tangled.node.stats` is the public aggregate of this knot’s live public tips plus that same advertised peer set ([HTTP API](./12-http-api.md#tangled-node-stats)). Clients MAY crawl `peers` to assemble a network view. The crawl is incomplete by design.
 
 ## Follow
 

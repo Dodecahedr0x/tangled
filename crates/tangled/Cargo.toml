@@ -1,0 +1,43 @@
+[package]
+name = "tangled"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Tangled protocol reference client: identity, records, MST, capabilities, page CRDT, circles, HPKE, knot HTTP"
+readme = "README.md"
+keywords = ["tangled", "ipld", "solana", "crdt"]
+categories = ["cryptography", "encoding"]
+
+[lib]
+name = "tangled"
+path = "src/lib.rs"
+
+[[bin]]
+name = "tangled"
+path = "src/bin/tangled.rs"
+
+[dependencies]
+base64 = "0.22"
+blake3 = "1"
+bs58 = "0.5"
+chacha20poly1305 = "0.10"
+curve25519-dalek = "4"
+ed25519-dalek = { version = "2", features = ["rand_core", "zeroize"] }
+hex = "0.4"
+hkdf = "0.12"
+k256 = { version = "0.13", features = ["schnorr"] }
+openmls = "0.7.1"
+openmls_basic_credential = { version = "0.4", features = ["clonable"] }
+openmls_rust_crypto = "0.4"
+rand = "0.8"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "blocking"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+thiserror = "2"
+tokio = { version = "1", default-features = false, features = ["rt"] }
+x25519-dalek = { version = "2", features = ["static_secrets"] }
+zeroize = { version = "1", features = ["zeroize_derive"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

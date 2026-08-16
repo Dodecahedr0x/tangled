@@ -87,7 +87,7 @@ Implementation:
 3. Issue (or refresh) the membership grant to the new member.
 4. If `distributor` is `hpke` and `len(members)+1 ≤ 16`: new epoch `N+1`, new random `epoch_secret[N+1]`, HPKE-wrap to every current member including the new one. Old wraps remain so history decrypts.
 5. If `distributor` is `hpke` and `len(members)+1 > 16`: perform **seamless grow** below. This is still “add member” to the user.
-6. If `distributor` is `mls` or `dual`: MLS Add + Commit, Welcome for the new member. If `dual`, also HPKE-wrap `epoch_secret[N+1]` to members who have not processed Welcome.
+6. If `distributor` is `mls` or `dual`: MLS Add + Commit, Welcome for the new member. If the new member is offline, the adder MUST use a current `sys.mls.keypackage` from that member’s repository ([KeyPackage records](#keypackage-records)). If `dual`, also HPKE-wrap `epoch_secret[N+1]` to members who have not processed Welcome.
 
 If `history_share` is true, the owner (or the adder, if they hold old secrets) additionally wraps epoch secrets `0..N` to the new member. If false, the new member cannot decrypt pre-join records. `history_share` is an explicit policy, not a side effect of size migration.
 
@@ -95,8 +95,8 @@ If `history_share` is true, the owner (or the adder, if they hold old secrets) a
 
 The `addMember` that first exceeds 16 members MUST:
 
-1. Create an MLS group whose members are exactly the current circle including the new member. Credential for each member is that member’s 32-byte Solana public key. Ciphersuite `0x0001`.
-2. Publish a Welcome for every current member as `sys.circle.mls` records, `vis: sealed` to that member (HPKE 1:1). Offline members pick them up on next sync. No accept dialog.
+1. Create an MLS group whose members are exactly the current circle including the new member. Credential for each member is that member’s 32-byte Solana public key. Ciphersuite `0x0001`. Each leaf HPKE public key MUST be that member’s Tangled X25519 `agreement` key. RFC 9420 requires KeyPackage `init_key` ≠ leaf; Welcome is sealed to `init_key`, not to `agreement`.
+2. Publish a Welcome for every current member as `sys.circle.mls` records, `vis: sealed` to that member (HPKE 1:1 of the Welcome bytes). Offline members pick them up on next sync. No accept dialog.
 3. Advance to epoch `N+1`. Set `epoch_secret[N+1]` to the MLS exporter secret (label `tangled.epoch`, context `uint64be(N+1)`, 32 bytes).
 4. Set `distributor: "dual"`. HPKE-wrap `epoch_secret[N+1]` to every member who has not been observed to process Welcome (initially: everyone). Application senders encrypt **once**, to the epoch AEAD key. Laggards decrypt via the wrap they already understand; caught-up members decrypt via MLS.
 5. Dual-stack ends when every member known at the transition has a Welcome receipt record (`sys.circle.mls` body `{type:"receipt", epoch, member}`) **or** `DUAL_STACK_MAX_SKEW_EPOCHS` epochs have passed **or** `DUAL_STACK_MAX_SKEW_SECONDS` have elapsed, whichever first. Then `distributor: "mls"`. Knots MUST stop writing new HPKE wraps for this circle except as required by `hideMembers` debugging flags (none in v1).
@@ -151,9 +151,20 @@ Encrypt the application body with the current epoch AEAD. Recipients decrypt wit
 
 Senders using the annotation pattern MUST set envelope `circle`. Clients SHOULD `subscribe` or poll each current member’s knot; they MAY `tangled.sync.notify` after send. There is no circle-wide inbox POST.
 
+## KeyPackage records
+
+Messaging Layer Security (MLS) Add needs a KeyPackage. A member who may be added while offline MUST publish one in **their** repository so an adder can Welcome without a round-trip. This is still “add member.” Clients MUST NOT expose KeyPackage publish, Hybrid Public Key Encryption (HPKE), or MLS as a user-facing mode.
+
+- collection `sys.mls.keypackage`
+- rkey = Timestamp Identifier (TID)
+- `vis`: `public` or `cap`
+- body `{ type: "keypackage", exp: uint, payload: bstr }`
+
+`payload` MUST be the RFC 9420 TLS-serialized KeyPackage. `init_key` MUST differ from the leaf / `agreement` key. `exp` MUST be Unix seconds. An adder MUST ignore a package whose `exp` is outside the capability clock-skew window ([Capabilities](./09-capabilities.md#invocation)). When adding an offline member, the adder MUST Welcome to a current unexpired package. The new member’s client processes Welcome on next sync. No accept dialog.
+
 ## Offline members
 
-Welcomes and wraps are records. Sync delivers them. An offline member who returns during dual-stack reads via HPKE wrap, processes Welcome, and continues on MLS. An offline member who returns after dual-stack MUST still have a Welcome in the log; if the Welcome was GC’d (MUST NOT before max-skew), the member is re-Welcomed by any current member — still not a user-facing re-invite: the client does it on sync.
+Welcomes, wraps, and KeyPackage records are records. Sync delivers them. An offline member who returns during dual-stack reads via HPKE wrap, processes Welcome, and continues on MLS. An offline member who returns after dual-stack MUST still have a Welcome in the log; if the Welcome was GC’d (MUST NOT before max-skew), the member is re-Welcomed by any current member — still not a user-facing re-invite: the client does it on sync. An adder who lacks a live KeyPackage MUST fetch `sys.mls.keypackage` from the new member’s repository.
 
 ## Forced-upgrade denial of service
 
@@ -161,4 +172,4 @@ Spam-adding members to trigger MLS is a policy problem, not a dialog. Circles SH
 
 ## Conformance
 
-`spec/vectors/circle-grow-dual-stack.json` MUST pass: 16 members on HPKE, 17th added, one member offline throughout, pre-migration records still decrypt, circle id unchanged, no client API flag. Shrink 20→5 stays MLS. Add and remove during dual-stack linearize. Agreement rotation MUST follow [Agreement rotation](#agreement-rotation); `spec/vectors/circle-read-auth.json` covers membership-grant authorization, not wrap ciphertext.
+`spec/vectors/circle-grow-dual-stack.json` MUST pass: 16 members on HPKE, 17th added, one member offline throughout, pre-migration records still decrypt, circle id unchanged, no client API flag. Shrink 20→5 stays MLS. Add and remove during dual-stack linearize. Agreement rotation MUST follow [Agreement rotation](#agreement-rotation); `spec/vectors/circle-read-auth.json` covers membership-grant authorization, not wrap ciphertext. `spec/vectors/mls-welcome-commit.json` covers wrapping fields and exporter parameters; RFC 9420 payload bytes are produced by a conforming MLS stack (Welcome `init_key` ≠ leaf/`agreement`).

@@ -62,5 +62,6 @@ Honest losses, stated here so the rest of the spec does not have to apologize fo
 | [Threat model](./18-threat-model.md) | Attackers, controls, residual risk |
 | [Comparison](./19-comparison.md) | ActivityPub, Nostr, AT Protocol, Farcaster |
 | [Use cases](./20-use-cases.md) | Worked examples (informative) |
+| [Changelog](./21-changelog.md) | Normative v1 additions after the first complete draft |
 
 Machine-readable companions: Concise Data Definition Language (CDDL) under `cddl/`, core schemas under `schemas/`, OpenAPI under `http/`, translation tables under `interop/`, test vectors under `vectors/`.

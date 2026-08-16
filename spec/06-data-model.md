@@ -135,7 +135,7 @@ These exist so a substrate is not a secret microblog. Conforming knots MUST sync
 
 ## Merge rules
 
-Records that share `(author, collection, rkey)` form a causal DAG via `prev`. A replica’s **apply set** `S` for that key is every such record the replica has verified (signature, CID, schema). Two replicas that have the same `S` MUST produce the same **live value**, independent of the order they first received the records. For `pub.tangled.page`, after a valid compact `C`, `S` MAY omit records in `I(C)`; materialization uses `C`’s snapshot plus records not in `I(C)` ([Compaction](#compaction)).
+Records that share `(author, collection, rkey)` form a causal DAG via `prev`. A replica’s **apply set** `S` for that key is every such record the replica has verified (signature, CID, schema). Two replicas that have the same `S` MUST produce the same **live value**, independent of the order they first received the records. For `pub.tangled.page`, after a valid compact `C`, materialization MAY use `C`’s snapshot plus records not in `I(C)` ([Compaction](#compaction)) only after the client has fetched and verified every CID in `I(C)`.
 
 The Merkle Search Tree (MST) key `collection/rkey` holds **one** CID (the writer’s tip). That tip is not always the live value. A repository Content Addressable aRchive (CAR) MUST include every record block in the `prev`-closure of each MST value so a pull of one head includes that writer’s DAG, except that **compact-GC** MAY omit folded page-op blocks as specified in [Compaction](#compaction). Concurrent heads that exist only on another replica are learned by pulling that replica, or by a later record whose `prev` lists both heads.
 
@@ -210,7 +210,7 @@ page-op = {
 
 **`after`.** MUST be `null`, or an atom that exists in the RGA implied by this record’s `prev`-closure (including atoms listed in a compact snapshot in that closure), or an earlier atom index of this same record (`i` strictly less than the first new index of this `ins`). Invalid `ins` ops MUST be ignored (the run is not created). Invalid `del` ids MUST be ignored.
 
-**Apply (`S`).** If every causal head in `S` has `body` `null`, the live value is `null` (page deleted). Otherwise let `R` be the non-tombstone records in `S`. Partition `R` into compact records and incremental records. For each compact `C` in `R`, the **included set** `I(C)` is the `prev`-closure of `C` excluding `C` itself. An incremental record `X` is **covered** by `C` when `X`’s CID is in `I(C)`.
+**Apply (`S`).** If every causal head in `S` has `body` `null`, the live value is `null` (page deleted). Otherwise let `R` be the non-tombstone records in `S`. Partition `R` into compact records and incremental records. For each compact `C` in `R`, the **included set** `I(C)` is the `included` CID list on `C` (the `prev`-closure of the frontier, excluding `C`). An incremental record `X` is **covered** by `C` when `X`’s CID is in `I(C)`. A client MUST reject `C` if any CID in `I(C)` cannot be fetched and verified as a signed page op, or if Apply(`I(C)`) does not equal `C`’s snapshot (`text` / `title` / `blob` and the RGA atom table).
 
 1. Start from an empty RGA and LWW registers `title = ""`, `blob = null` with no candidates.
 2. For every compact `C` in `R` (any order): **union** `C`’s snapshot. Each snapshot atom is identified by its original atom-id. If the atom is new, insert it with the listed parent, scalar, and `del` flag. If it already exists, `del` becomes the logical OR of the two flags; parent and scalar MUST match or `C` is invalid. Each snapshot LWW register that is present is a candidate `(ts, cid, value)` as stored in the snapshot (the compact record’s own `ts` MUST NOT replace those).
@@ -231,12 +231,13 @@ When `blob` is the winning LWW value and is not `null`, it is an optional attach
 
 A **compact** is a signed same-key `pub.tangled.page` record whose body is `compact-body`. It folds a prefix of the op DAG into a snapshot so replicas MAY materialize from a smaller apply set. Last-ts-wins collections do not compact in version 1.
 
-A **frontier** is the set of same-key record CIDs that the compact claims as the causal heads of that prefix. The **included set** `I(C)` is every record in the `prev`-closure of those CIDs (equivalently, the `prev`-closure of `C` excluding `C`, when `prev` equals the frontier). A **snapshot** is the RGA atom table and LWW register candidates obtained by applying `I(C)` under [Apply (`S`)](#page-crdt).
+A **frontier** is the set of same-key record CIDs that the compact claims as the causal heads of that prefix. The **included set** `I(C)` is every record in the `prev`-closure of those CIDs (equivalently, the `prev`-closure of `C` excluding `C`, when `prev` equals the frontier). A compact record MUST permanently list `I(C)` as `included`. A **snapshot** is the RGA atom table and LWW register candidates obtained by applying `I(C)` under [Apply (`S`)](#page-crdt).
 
 ```
 compact-body = {
   compact: 1,
   frontier: [+ cid],
+  included: [* cid],
   snapshot: page-snapshot
 }
 
@@ -260,7 +261,7 @@ snapshot-atom = {
 }
 ```
 
-**Shape.** `compact` MUST be the integer `1`. `frontier` MUST be non-empty and MUST be sorted lexicographically as multibase base32 CID text. Envelope `prev` MUST be the same set as `frontier` (order in `prev` MAY differ). Snapshot `atoms` MUST be sorted by atom-id ascending (`op` as multibase base32 text, then `i`). Each `id.op` MUST be the creating record’s CID (never omitted). `parent` `null` means the virtual root. `ch` MUST be exactly one Unicode scalar. `title.value` MUST be text, not `null`. `blob` `null` means no `lww` on `blob` was in `I(C)`. A compact MUST NOT create new atom ids. `compact` values other than `1` make the page invalid to materialize.
+**Shape.** `compact` MUST be the integer `1`. `frontier` MUST be non-empty and MUST be sorted lexicographically as multibase base32 CID text. `included` MUST be the CID set `I(C)`, sorted the same way. Envelope `prev` MUST be the same set as `frontier` (order in `prev` MAY differ). Snapshot `atoms` MUST be sorted by atom-id ascending (`op` as multibase base32 text, then `i`). Each `id.op` MUST be the creating record’s CID (never omitted). `parent` `null` means the virtual root. `ch` MUST be exactly one Unicode scalar. `title.value` MUST be text, not `null`. `blob` `null` means no `lww` on `blob` was in `I(C)`. A compact MUST NOT create new atom ids. `compact` values other than `1` make the page invalid to materialize.
 
 **Who MAY compact.** Any principal that MAY `putRecord` that key: the identity key, or a device key with `repo/write` covering the page (including a shared-repo collaborator). There is no separate compact capability. Circle `policy` has no compact field. Compaction MUST NOT be presented as a Hybrid Public Key Encryption (HPKE) versus Messaging Layer Security (MLS) choice.
 
@@ -269,25 +270,23 @@ snapshot-atom = {
 - at least `PAGE_COMPACT_MIN_OPS` incremental records in `I(C)` are not in `I(K)` for the nearest compact ancestor `K` of `C` (all of `I(C)` counts when there is no such `K`)
 - `C.ts - K.ts >= PAGE_COMPACT_MIN_INTERVAL_MS` (300 000) when such a `K` exists in the knot’s apply set
 
-Those constants are admission control. They are not CRDT validity: a compact that folds fewer ops is algorithmically valid if a replica already has it. If the knot cannot compute `I(C)` because folded blocks were already compact-GC’d, it MUST still enforce the interval against the latest compact it stored for that key and MAY skip the min-ops count.
+Those constants are admission control. They are not CRDT validity: a compact that folds fewer ops is algorithmically valid if a replica already has it. The authoring knot MUST retain every block in `I(C)`, so it can always compute the min-ops count.
 
 A writer MUST NOT emit a compact when every causal head in its apply set is a tombstone (that would resurrect a deleted page). A writer SHOULD set `frontier` to every causal head in its apply set so the compact is not immediately stale.
 
 **Visibility.** `vis`, `circle`, and sealed `epoch` on a compact MUST match the records in `I(C)` when those records are present. Mixed `vis` in `I(C)` makes the compact invalid. A sealed or circle-scoped page stays sealed or circle-scoped: the compact body is the plaintext inside the same `Ciphertext` envelope class. Compaction MUST NOT change visibility class.
 
-**Safety (omit / stale / invalid).** A compact MUST NOT drop ops that are in `I(C)`: the snapshot MUST equal Apply(`I(C)`). A compact is **invalid** when `compact ≠ 1`, `frontier` is empty or unsorted, `prev` and `frontier` differ as sets, snapshot atoms are unsorted or duplicate, an atom’s `ch` is not one scalar, a parent is missing or cyclic, `vis`/`circle`/`epoch` mismatch folded records, or the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`). An invalid compact MUST NOT contribute a snapshot or an included set. If it is a causal head, clients MUST refuse to materialize the page.
+**Safety (omit / stale / invalid).** A compact MUST NOT drop ops that are in `I(C)`: the snapshot MUST equal Apply(`I(C)`). A client MUST fetch every CID in `I(C)` (`getRepo` / `getBlocks`) and MUST verify each as a signed page op that `C` claims to fold. It MUST replay those ops from the previous frontier (or empty) and MUST reject `C` if the live `text` / `title` / `blob` (and RGA atom table) do not equal the snapshot. A compact is **invalid** when `compact ≠ 1`, `frontier` is empty or unsorted, `included` is unsorted or disagrees with the `prev`-closure of the frontier, `prev` and `frontier` differ as sets, snapshot atoms are unsorted or duplicate, an atom’s `ch` is not one scalar, a parent is missing or cyclic, `vis`/`circle`/`epoch` mismatch folded records, any CID in `I(C)` cannot be fetched or verified, or the snapshot disagrees with Apply(`I(C)`). An invalid compact MUST NOT contribute a snapshot or an included set. If it is a causal head, clients MUST refuse to materialize the page.
 
 A compact that omits an op **concurrent** with its frontier (not in `I(C)`, and `C` not in that op’s `prev`-closure) is **stale** relative to that op, not automatically invalid. A reader that still has extra ops MUST merge them on top of the snapshot by the apply algorithm (`U` includes those ops). Detection:
 
-- Extra op `X` is in `I(C)`: `X` is folded. If the reader still has `I(C)` and the snapshot disagrees with Apply(`I(C)`), the compact is **invalid** (above).
+- Extra op `X` is in `I(C)`: `X` is folded. If the snapshot disagrees with Apply(`I(C)`), the compact is **invalid** (above).
 - `C` is in `X`’s `prev`-closure: `X` is after the compact; apply `X` on top.
 - Otherwise `X` is concurrent with `C`: the compact is **stale** vs `X`; apply `X` on top. The writer who omitted `X` from the frontier did not include it; readers who have `X` keep it.
 
-Clients that no longer hold `I(C)` MUST accept a signature-valid, schema-valid compact as the snapshot. They cannot re-check snapshot equality.
-
 **Convergence.** Two replicas that have seen the same set of incremental ops and compact records MUST produce the same live value, independent of compact times and apply order. Union of snapshots plus uncovered incremental ops is deterministic. A replica that compacted early (`C1`) and a replica that compacted later (`C2` with `I(C1) ⊆ I(C2)`) converge once both have `C2` or once both have `C1` plus the extra ops in `I(C2) \ I(C1)`. Concurrent incomparable compacts union by atom-id as in step 2.
 
-**Garbage collection (compact-GC).** Compacted-away record blocks (records in `I(C)` except compact records still in a live `prev`-closure) MAY be dropped from knot storage and from `getRepo` / CAR diffs when `C` is a **GC-root**: every causal head in that knot’s apply set for the key has `C` in its `prev`-closure. Until then, knots MUST keep blocks needed to serve concurrent heads. The compact record `C` MUST remain while it is in the `prev`-closure of any causal head or MST value; sync proves inclusion of `C` by that closure and by the MST inclusion proof of the page key. After compact-GC, `C.prev` MAY dangle (frontier CIDs absent). Clients MUST NOT reject a CAR as incomplete solely because those prev blocks are missing. Knots MUST NOT GC `C` itself in order to drop pre-compact blocks.
+**Retention (`I(C)`).** The authoring knot MUST NOT drop blocks in `I(C)` from its store. `getRepo` and `getBlocks` MUST still serve them. Knots MUST keep blocks needed to serve concurrent heads. The compact record `C` MUST remain while it is in the `prev`-closure of any causal head or MST value; sync proves inclusion of `C` by that closure and by the MST inclusion proof of the page key. Knots MUST NOT GC `C` itself in order to drop pre-compact blocks. There is no compact-GC of `I(C)`.
 
 **Knot write (compact).** A compact is an ordinary `putRecord`. `ConcurrentHeads` still applies: the compact’s `prev` MUST not orphan the current MST value. Last-ts-wins collections share none of this mechanism in version 1.
 
@@ -311,4 +310,4 @@ A delete is a record with the same `collection` and `rkey`, `body` `null`, `prev
 
 For Last-ts-wins collections, the tombstone is live when it wins among causal heads. For CRDT collections, the live value is `null` only when **every** causal head in `S` is a tombstone. A tombstone concurrent with an edit does not drop that edit: the page stays, and apply uses every non-tombstone record in `S`. A writer that means to delete the page MUST list every causal head it knows in `prev`.
 
-Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges. They MUST NOT garbage-collect CRDT op records that remain in some replica’s `prev`-closure, except **compact-GC** of folded page ops as specified in [Compaction](#compaction).
+Knots MAY garbage-collect blob bytes after a delete. They MUST keep the tombstone so sync converges. They MUST NOT garbage-collect CRDT op records that remain in some replica’s `prev`-closure, and they MUST NOT drop `I(C)` blocks of a page compact ([Compaction](#compaction)).
