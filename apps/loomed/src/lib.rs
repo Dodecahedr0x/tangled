@@ -66,6 +66,7 @@ pub enum Route {
 
 #[component]
 pub fn App() -> Element {
+    crate::notify::ensure_macos_application();
     let ui = use_context_provider(|| Signal::new(state::Ui::load()));
     #[cfg(feature = "desktop")]
     {
