@@ -1,0 +1,117 @@
+---
+import { githubUrl, sectionFor, siteNav, sitePath, withBase } from "../data/nav";
+
+interface Props {
+  showSearch?: boolean;
+  showMenu?: boolean;
+}
+
+const { showSearch = false, showMenu = false } = Astro.props;
+const path = sitePath(Astro.url.pathname);
+const section = sectionFor(path);
+const pagefindJs = withBase("/pagefind/pagefind-ui.js");
+const pagefindBundle = withBase("/pagefind/");
+---
+
+<a class="skip" href="#content">Skip to content</a>
+<header class="topbar">
+  {
+    showMenu && (
+      <button class="icon-btn menu-btn" type="button" id="menu" aria-label="Open navigation">
+        Menu
+      </button>
+    )
+  }
+  <a class="wordmark" href={withBase("/")}>Tangled <span>v1</span></a>
+  <nav class="site-nav" aria-label="Site">
+    {
+      siteNav.map((item) => (
+        <a
+          class:list={["site-link", { active: section === item.section }]}
+          href={withBase(item.href)}
+          aria-current={section === item.section ? "page" : undefined}
+        >
+          {item.label}
+        </a>
+      ))
+    }
+  </nav>
+  {
+    showSearch && (
+      <button class="search-btn" type="button" id="search-open" aria-label="Search">
+        Search the spec
+        <kbd>/</kbd>
+      </button>
+    )
+  }
+  <div class="top-actions">
+    <a class="icon-btn gh" href={githubUrl} rel="noopener noreferrer">
+      GitHub
+    </a>
+    <button class="icon-btn" type="button" id="theme" aria-label="Toggle theme">Theme</button>
+  </div>
+</header>
+<slot />
+<footer class="site-foot">
+  <p>
+    Specification, not a running network.
+    <a href={githubUrl} rel="noopener noreferrer">Source</a>
+    · Apache-2.0
+  </p>
+</footer>
+
+{
+  showSearch && (
+    <div id="search-mask" role="dialog" aria-label="Search">
+      <div id="search-box">
+        <div id="search"></div>
+      </div>
+    </div>
+  )
+}
+
+<script is:inline define:vars={{ pagefindJs, pagefindBundle }}>
+  (function () {
+    const root = document.documentElement;
+    const stored = localStorage.getItem("theme");
+    if (stored) root.dataset.theme = stored;
+    document.getElementById("theme")?.addEventListener("click", () => {
+      const next = root.dataset.theme === "light" ? "dark" : "light";
+      root.dataset.theme = next === "dark" ? "" : next;
+      localStorage.setItem("theme", root.dataset.theme || "dark");
+    });
+    document.getElementById("menu")?.addEventListener("click", () => {
+      document.getElementById("sidebar")?.classList.toggle("open");
+    });
+    const mask = document.getElementById("search-mask");
+    if (!mask) return;
+    const open = () => {
+      mask.classList.add("open");
+      const input = mask.querySelector("input");
+      input?.focus();
+    };
+    const close = () => mask.classList.remove("open");
+    document.getElementById("search-open")?.addEventListener("click", open);
+    mask.addEventListener("click", (e) => {
+      if (e.target === mask) close();
+    });
+    window.addEventListener("keydown", (e) => {
+      const t = e.target;
+      const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA");
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        open();
+      }
+      if (e.key === "Escape") close();
+    });
+    import(pagefindJs)
+      .then((mod) => {
+        const PF = mod.default || window.PagefindUI;
+        if (PF) new PF({ element: "#search", showSubResults: true, bundlePath: pagefindBundle });
+      })
+      .catch(() => {
+        const el = document.getElementById("search");
+        if (el) el.textContent = "Search index appears after npm run build.";
+      });
+  })();
+</script>

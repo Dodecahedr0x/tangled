@@ -2,10 +2,10 @@
 
 A content-network protocol: Solana-key identity, signed Merkle repositories, capability authorization, sealed records, and normative bridges to other networks.
 
-This repository is the **implementable specification** and a **static documentation site**. It is not a live network and does not run knots.
+This repository is the **implementable specification** and a **static site** (landing plus docs). It is not a live network and does not run knots.
 
 - Canonical spec: [`spec/`](spec/)
-- Site: [`site/`](site/)
+- Site: [`site/`](site/) — landing at `/`, docs at `/docs` and `/spec/…`
 - Rust reference client: [`crates/tangled/`](crates/tangled/)
 - Knot HTTP server: [`crates/tangled-knot/`](crates/tangled-knot/)
 - Loomed messenger: [`apps/loomed/`](apps/loomed/)
@@ -23,15 +23,18 @@ spec/interop/translations.yaml
 spec/vectors/       cryptographic fixtures
 ```
 
-## Docs site
+## Site
+
+Landing at `/`. Docs section at `/docs` (spec, HTTP reference, OpenAPI). Preview:
 
 ```bash
-cd site
-npm install
-npm run dev
+just docs
+# or: cd site && npm install && npm run dev
 ```
 
-Build is fully static (`npm run build`). Search is Pagefind, generated at build time.
+Build is fully static (`npm run build` in `site/`). Search is Pagefind, generated at build time.
+
+GitHub Pages: push to `main` publishes [dodecahedr0x.github.io/tangled](https://dodecahedr0x.github.io/tangled/). First time: repo **Settings → Pages → Source: GitHub Actions**.
 
 ## Vectors
 

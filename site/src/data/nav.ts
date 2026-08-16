@@ -1,3 +1,36 @@
+export const githubUrl = "https://github.com/tangled-protocol/tangled";
+
+/** Prefix a site-root path with Astro `base` (GitHub Pages serves this repo at `/tangled`). */
+export function withBase(path: string): string {
+  const raw = import.meta.env.BASE_URL;
+  const base = raw.endsWith("/") ? raw.slice(0, -1) : raw;
+  if (!path || path === "/") return base || "/";
+  return `${base}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/** Strip `base` so nav matching still uses `/docs`, `/spec/…`. */
+export function sitePath(pathname: string): string {
+  const raw = import.meta.env.BASE_URL;
+  const base = raw.endsWith("/") ? raw.slice(0, -1) : raw;
+  let p = pathname.replace(/\/$/, "") || "/";
+  if (base && (p === base || p.startsWith(`${base}/`))) {
+    p = p.slice(base.length) || "/";
+  }
+  return p;
+}
+
+export const siteNav = [
+  { href: "/", label: "Landing", section: "landing" as const },
+  { href: "/docs", label: "Docs", section: "docs" as const },
+  { href: "/reference/http", label: "Reference", section: "reference" as const },
+];
+
+export function sectionFor(path: string): "landing" | "docs" | "reference" {
+  if (path === "/" || path === "") return "landing";
+  if (path.startsWith("/reference")) return "reference";
+  return "docs";
+}
+
 export const specNav = [
   {
     module: "spec::intro",

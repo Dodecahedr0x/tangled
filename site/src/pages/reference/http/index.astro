@@ -1,14 +1,15 @@
 ---
 import DocLayout from "../../../layouts/DocLayout.astro";
 import { httpMethods } from "../../../data/http";
+import { withBase } from "../../../data/nav";
 ---
 
 <DocLayout title="HTTP reference" description="Knot HTTP methods">
   <h1>HTTP reference</h1>
   <p>
     Path prefix <code>/xrpc/</code>. Canonical encoding is DAG-CBOR (<code>application/cbor</code>); JSON is the InterPlanetary Linked Data (IPLD) mapping.
-    OpenAPI: <a href="/reference/openapi">rendered</a>,
-    <a href="/openapi.yaml">openapi.yaml</a>.
+    OpenAPI: <a href={withBase("/reference/openapi")}>rendered</a>,
+    <a href={withBase("/openapi.yaml")}>openapi.yaml</a>.
   </p>
   <table>
     <thead><tr><th></th><th>Method</th><th></th></tr></thead>
@@ -17,7 +18,7 @@ import { httpMethods } from "../../../data/http";
         httpMethods.map((m) => (
           <tr>
             <td><span class={`badge ${m.method.toLowerCase()}`}>{m.method}</span></td>
-            <td><a href={`/reference/http/${m.id}`}><code>{m.id}</code></a></td>
+            <td><a href={withBase(`/reference/http/${m.id}`)}><code>{m.id}</code></a></td>
             <td>{m.summary}</td>
           </tr>
         ))

@@ -1,0 +1,46 @@
+# Build the Astro site and publish it to GitHub Pages.
+# Repo Settings → Pages → Source: GitHub Actions (once).
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install, build, and upload site
+        uses: withastro/action@v6
+        with:
+          path: ./site
+        env:
+          ASTRO_SITE: https://dodecahedr0x.github.io
+          ASTRO_BASE: /tangled
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,6 +1,7 @@
 ---
 import DocLayout from "../../../layouts/DocLayout.astro";
 import { types } from "../../../data/types";
+import { withBase } from "../../../data/nav";
 
 export function getStaticPaths() {
   return types.map((t) => ({
@@ -34,5 +35,5 @@ const { t } = Astro.props;
   <ul>
     {t.impl.map((n) => <li>{n}</li>)}
   </ul>
-  <p>See <a href={t.see}>the chapter</a>.</p>
+  <p>See <a href={withBase(t.see)}>the chapter</a>.</p>
 </DocLayout>

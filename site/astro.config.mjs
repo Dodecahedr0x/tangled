@@ -1,17 +1,24 @@
 import { defineConfig } from "astro/config";
 import { fileURLToPath } from "node:url";
 
+const base = process.env.ASTRO_BASE ?? "/";
+const root = base.replace(/\/$/, "");
+
+function prefix(path) {
+  return `${root}${path}`;
+}
+
 function rewrite(url) {
   if (!url || typeof url !== "string") return url;
   if (url === "./http/openapi.yaml" || url.endsWith("/http/openapi.yaml")) {
-    return "/openapi.yaml";
+    return prefix("/openapi.yaml");
   }
   const m = url.match(/^\.\/\d+-([a-z0-9-]+)\.md(.*)$/);
   if (!m) return url;
   const slug = m[1];
   const hash = m[2] || "";
-  if (slug === "terminology") return `/terminology${hash}`;
-  return `/spec/${slug}${hash}`;
+  if (slug === "terminology") return prefix(`/terminology${hash}`);
+  return prefix(`/spec/${slug}${hash}`);
 }
 
 function walk(node) {
@@ -26,7 +33,8 @@ function remarkSpecLinks() {
 }
 
 export default defineConfig({
-  site: "https://tangled.protocol",
+  site: process.env.ASTRO_SITE ?? "https://dodecahedr0x.github.io",
+  base,
   trailingSlash: "never",
   markdown: {
     remarkPlugins: [remarkSpecLinks],

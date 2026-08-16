@@ -227,7 +227,7 @@ reed-demo knot="http://127.0.0.1:3000":
     "{{just_executable()}}" reed-seed "{{knot}}" --create-local
     "{{just_executable()}}" reed
 
-# Docs site preview at http://localhost:4321 (Astro; copies spec + OpenAPI)
+# Site preview at http://localhost:4321 (landing + docs; copies spec + OpenAPI)
 docs:
     npm --prefix site run dev
 

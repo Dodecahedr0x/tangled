@@ -1,11 +1,12 @@
 ---
 import DocLayout from "../layouts/DocLayout.astro";
+import { withBase } from "../data/nav";
 ---
 
 <DocLayout title="Compare" description="Tangled versus Nostr, AT Protocol, ActivityPub, Farcaster">
   <h1>Compare</h1>
   <p>
-    Evidence-based. Full prose: <a href="/spec/comparison">Comparison chapter</a>.
+    Evidence-based. Full prose: <a href={withBase("/spec/comparison")}>Comparison chapter</a>.
     Tangled has no incumbent graph; that loss is listed, not hidden.
   </p>
   <h2 id="identity">Identity</h2>

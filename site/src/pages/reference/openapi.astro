@@ -1,5 +1,6 @@
 ---
 import DocLayout from "../../layouts/DocLayout.astro";
+import { withBase } from "../../data/nav";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -10,9 +11,9 @@ const yaml = readFileSync(fileURLToPath(new URL("../../../../spec/http/openapi.y
   <h1>OpenAPI</h1>
   <p>
     Canonical machine-readable HTTP API from <code>spec/http/openapi.yaml</code>.
-    Copied to <a href="/openapi.yaml">/openapi.yaml</a> on preview and build.
-    Human-readable notes: <a href="/reference/http">HTTP reference</a>,
-    <a href="/spec/http-api">HTTP API</a>.
+    Copied to <a href={withBase("/openapi.yaml")}>/openapi.yaml</a> on preview and build.
+    Human-readable notes: <a href={withBase("/reference/http")}>HTTP reference</a>,
+    <a href={withBase("/spec/http-api")}>HTTP API</a>.
   </p>
   <h2 id="source">Source</h2>
   <pre><code>{yaml}</code></pre>

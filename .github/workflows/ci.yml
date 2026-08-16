@@ -1,12 +1,18 @@
-# Rust workspace tests plus live SNS JSON-RPC against solana-test-validator.
+# Format, clippy, workspace tests, and live SNS JSON-RPC against solana-test-validator.
 #
-# Solana CLI: Agave v4.2.1 (2026-08-13). That release includes
-# `solana-test-validator`. Do not point SOLANA_RPC at mainnet-beta.
+# Commands match `just fmt`, `just clippy`, and `just test`.
+# Solana CLI: Agave v4.2.1 (includes `solana-test-validator`).
+# Do not point SOLANA_RPC at mainnet-beta.
 name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -14,26 +20,51 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
   RUST_BACKTRACE: 1
   SOLANA_CLI_VERSION: v4.2.1
 
 jobs:
-  test:
+  fmt:
+    name: fmt
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
+
+      - name: cargo fmt
+        run: cargo fmt --all -- --check
+
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Format
-        run: cargo fmt --all -- --check
-
-      - name: Clippy
+      - name: cargo clippy
         run: cargo clippy --all-targets -- -D warnings
+
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
 
       - name: Workspace tests (no Solana RPC)
         run: cargo test --workspace
@@ -73,3 +104,23 @@ jobs:
             target/sns-test-ledger/validator-*.log
             target/sns-test-ledger/stdout.log
           if-no-files-found: warn
+
+  site:
+    name: site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Build static site
+        working-directory: site
+        env:
+          ASTRO_SITE: https://dodecahedr0x.github.io
+          ASTRO_BASE: /tangled
+        run: npm ci && npm run build

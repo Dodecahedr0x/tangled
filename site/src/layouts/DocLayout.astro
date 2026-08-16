@@ -2,10 +2,11 @@
 /* THESIS: Protocol documentation as a type-indexed instrument; refuses centered SaaS-docs heroes.
    OWN-WORLD: Slate, copper, Fira Sans / Source Serif 4 / Source Code Pro, hairline borders.
    STORY: Implementer finds claim, type, method, vector in one shell.
-   FIRST VIEWPORT: Dark chrome, 272px module tree, no marketing hero.
+   FIRST VIEWPORT: Dark chrome, 272px module tree, docs as a section of the site.
    FORM: rustdocs × Mintlify canon, restrained, dark-first. */
 import "../styles/global.css";
-import { specNav, toolNav } from "../data/nav";
+import Chrome from "../components/Chrome.astro";
+import { specNav, toolNav, sitePath, withBase } from "../data/nav";
 
 interface Props {
   title: string;
@@ -14,7 +15,7 @@ interface Props {
 }
 
 const { title, description = "Tangled protocol specification", headings = [] } = Astro.props;
-const path = Astro.url.pathname.replace(/\/$/, "") || "/";
+const path = sitePath(Astro.url.pathname);
 ---
 
 <!doctype html>
@@ -30,112 +31,55 @@ const path = Astro.url.pathname.replace(/\/$/, "") || "/";
       href="https://fonts.googleapis.com/css2?family=Fira+Sans:ital,wght@0,400;0,500;0,600;1,400&family=Source+Code+Pro:wght@400;600&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"
       rel="stylesheet"
     />
-    <link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
+    <link href={withBase("/pagefind/pagefind-ui.css")} rel="stylesheet" />
   </head>
   <body>
-    <a class="skip" href="#content">Skip to content</a>
-    <header class="topbar">
-      <button class="icon-btn menu-btn" type="button" id="menu" aria-label="Open navigation">Menu</button>
-      <a class="wordmark" href="/">Tangled <span>v1 spec</span></a>
-      <button class="search-btn" type="button" id="search-open" aria-label="Search">
-        Search the spec
-        <kbd>/</kbd>
-      </button>
-      <div class="top-actions">
-        <button class="icon-btn" type="button" id="theme" aria-label="Toggle theme">Theme</button>
-      </div>
-    </header>
-    <div class="shell">
-      <nav class="sidebar" id="sidebar" aria-label="Specification">
-        {
-          specNav.map((g) => (
-            <>
-              <div class="mod">{g.module}</div>
-              {g.items.map((i) => (
-                <a class:list={["nav-link", { active: path === i.href }]} href={i.href}>
-                  {i.label}
-                </a>
-              ))}
-            </>
-          ))
-        }
-        <div class="mod">spec::tools</div>
-        {
-          toolNav.map((i) => (
-            <a class:list={["nav-link", { active: path === i.href || path.startsWith(i.href + "/") }]} href={i.href}>
-              {i.label}
-            </a>
-          ))
-        }
-      </nav>
-      <div class="main">
-        <main class="prose" id="content" data-pagefind-body>
-          <slot />
-        </main>
-        {
-          headings.length > 0 && (
-            <aside class="toc" aria-label="On this page">
-              <h2>On this page</h2>
-              {headings
-                .filter((h) => h.depth === 2 || h.depth === 3)
-                .map((h) => (
-                  <a class={`depth-${h.depth}`} href={`#${h.slug}`}>
-                    {h.text}
+    <Chrome showSearch showMenu>
+      <div class="shell">
+        <nav class="sidebar" id="sidebar" aria-label="Specification">
+          <div class="mod">site::docs</div>
+          <a class:list={["nav-link", { active: path === "/docs" }]} href={withBase("/docs")}>Overview</a>
+          {
+            specNav.map((g) => (
+              <>
+                <div class="mod">{g.module}</div>
+                {g.items.map((i) => (
+                  <a class:list={["nav-link", { active: path === i.href }]} href={withBase(i.href)}>
+                    {i.label}
                   </a>
                 ))}
-            </aside>
-          )
-        }
-      </div>
-    </div>
-    <div id="search-mask" role="dialog" aria-label="Search">
-      <div id="search-box">
-        <div id="search"></div>
-      </div>
-    </div>
-    <script is:inline>
-      (function () {
-        const root = document.documentElement;
-        const stored = localStorage.getItem("theme");
-        if (stored) root.dataset.theme = stored;
-        document.getElementById("theme")?.addEventListener("click", () => {
-          const next = root.dataset.theme === "light" ? "dark" : "light";
-          root.dataset.theme = next === "dark" ? "" : next;
-          localStorage.setItem("theme", root.dataset.theme || "dark");
-        });
-        document.getElementById("menu")?.addEventListener("click", () => {
-          document.getElementById("sidebar")?.classList.toggle("open");
-        });
-        const mask = document.getElementById("search-mask");
-        const open = () => {
-          mask?.classList.add("open");
-          const input = mask?.querySelector("input");
-          input?.focus();
-        };
-        const close = () => mask?.classList.remove("open");
-        document.getElementById("search-open")?.addEventListener("click", open);
-        mask?.addEventListener("click", (e) => {
-          if (e.target === mask) close();
-        });
-        window.addEventListener("keydown", (e) => {
-          const t = e.target;
-          const typing = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA");
-          if (e.key === "/" && !typing) {
-            e.preventDefault();
-            open();
+              </>
+            ))
           }
-          if (e.key === "Escape") close();
-        });
-        import("/pagefind/pagefind-ui.js")
-          .then((mod) => {
-            const PF = mod.default || window.PagefindUI;
-            if (PF) new PF({ element: "#search", showSubResults: true });
-          })
-          .catch(() => {
-            const el = document.getElementById("search");
-            if (el) el.textContent = "Search index appears after npm run build.";
-          });
-      })();
-    </script>
+          <div class="mod">spec::tools</div>
+          {
+            toolNav.map((i) => (
+              <a class:list={["nav-link", { active: path === i.href || path.startsWith(i.href + "/") }]} href={withBase(i.href)}>
+                {i.label}
+              </a>
+            ))
+          }
+        </nav>
+        <div class="main">
+          <main class="prose" id="content" data-pagefind-body>
+            <slot />
+          </main>
+          {
+            headings.length > 0 && (
+              <aside class="toc" aria-label="On this page">
+                <h2>On this page</h2>
+                {headings
+                  .filter((h) => h.depth === 2 || h.depth === 3)
+                  .map((h) => (
+                    <a class={`depth-${h.depth}`} href={`#${h.slug}`}>
+                      {h.text}
+                    </a>
+                  ))}
+              </aside>
+            )
+          }
+        </div>
+      </div>
+    </Chrome>
   </body>
 </html>

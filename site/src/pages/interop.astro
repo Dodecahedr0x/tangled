@@ -1,5 +1,6 @@
 ---
 import DocLayout from "../layouts/DocLayout.astro";
+import { withBase } from "../data/nav";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
@@ -10,7 +11,7 @@ const yaml = readFileSync(fileURLToPath(new URL("../../../spec/interop/translati
   <h1>Interop tables</h1>
   <p>
     Normative YAML from <code>spec/interop/translations.yaml</code>. Gateways MUST preserve <code>bytes_cid</code> so export emits original bytes. ActivityPub imports are attested.
-    Chapter: <a href="/spec/interoperability">Interoperability</a>.
+    Chapter: <a href={withBase("/spec/interoperability")}>Interoperability</a>.
   </p>
   <table>
     <thead>
