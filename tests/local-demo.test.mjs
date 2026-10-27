@@ -249,3 +249,13 @@ test('--help documents supported flags without launching tools', { timeout: 1000
   for (const flag of ['--no-open', '--no-desktop', '--skip-build', '--port-offset', '--data-root']) assert.ok(demo.output().includes(flag));
   assert.equal((await demo.events()).length, 0);
 });
+
+test('a browser opener failure reports manual links without stopping services', { timeout: 15000 }, async t => {
+  const demo = await setup(t, { noOpen: false, settings: { openerExitCode: 7 } });
+  const child = demo.run();
+  await demo.ready();
+  await demo.until(() => /Could not open/.test(demo.output()) && /launch-links\.json/.test(demo.output()), 'browser failure warning', 3000);
+  child.stdin.end();
+  assert.equal((await demo.exited()).code, 0, demo.output());
+  await demo.cleaned();
+});

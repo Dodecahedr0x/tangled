@@ -7,6 +7,16 @@ use crate::state::{persist_knot, probe_knot, Ui, DEFAULT_KNOT_URL};
 pub fn Settings() -> Element {
     let ui = try_use_context::<Signal<Ui>>();
     let initial = ui.map(|s| s().knot).unwrap_or_default();
+    #[cfg(not(target_arch = "wasm32"))]
+    let personal_url = std::env::var("TANGLED_PERSONAL_URL")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| {
+            option_env!("TANGLED_PERSONAL_URL")
+                .unwrap_or("http://127.0.0.1:8788/")
+                .to_owned()
+        });
+    #[cfg(target_arch = "wasm32")]
     let personal_url = option_env!("TANGLED_PERSONAL_URL").unwrap_or("http://127.0.0.1:8788/");
     let mut knot = use_signal(|| initial);
     rsx! {

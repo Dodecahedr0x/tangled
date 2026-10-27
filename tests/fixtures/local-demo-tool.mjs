@@ -25,6 +25,7 @@ if (role === 'cargo') {
 }
 if (role === 'npm' && args.includes('ci')) { log('unexpected-build'); process.exit(91); }
 if (['open', 'xdg-open'].includes(role)) {
+  if (control().openerExitCode) process.exit(control().openerExitCode);
   if (!control().openerStaysAlive) process.exit(0);
   setInterval(() => {}, 1000);
   await new Promise(() => {});

@@ -17,6 +17,15 @@ data_dir := ".data"
 default:
     @just --list
 
+# Start and seed all local services/apps; Enter or Ctrl-C stops the owned processes.
+[positional-arguments]
+demo *flags:
+    @exec node scripts/local-demo.mjs "$@"
+
+# Supervisor CLI, seeding and real process-group lifecycle tests.
+test-demo:
+    node --test tests/local-demo*.test.mjs
+
 # Workspace tests (does not run --ignored live knot or SNS RPC)
 test:
     cargo test --workspace

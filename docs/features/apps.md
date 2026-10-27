@@ -18,7 +18,7 @@ connected-source organization, scoped app access, encrypted recovery and deliber
 publishing. It works with a local repository even before any other network users
 arrive. [Start the Personal app](./personal-app-api.md), then open it from Reed,
 Loomed or Weft settings. These links default to `http://127.0.0.1:8788/`;
-set `TANGLED_PERSONAL_URL` when compiling an existing app to use a different address.
+set `TANGLED_PERSONAL_URL` at runtime for native apps, or at build time for browser apps, to use a different address.
 First launch requires the private link printed by the service. An already connected
 Personal tab can connect another tab at the same local address.
 
