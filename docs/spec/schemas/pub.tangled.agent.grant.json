@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangled.protocol/schemas/pub.tangled.agent.grant.json",
+  "title": "pub.tangled.agent.grant",
+  "type": "object",
+  "required": ["cid", "capability"],
+  "properties": {
+    "cid": {"type": "string"},
+    "capability": {
+      "type": "object",
+      "required": ["v", "iss", "aud", "cmd", "res", "nbf", "exp", "pol", "prf", "sig"],
+      "properties": {
+        "v": {"const": 1},
+        "iss": {"type": "string"},
+        "aud": {"type": "string"},
+        "cmd": {"enum": ["repo/read", "repo/write"]},
+        "res": {"type": "string"},
+        "nbf": {"type": "integer", "minimum": 0},
+        "exp": {"type": "integer", "minimum": 1},
+        "pol": {"type": "array"},
+        "prf": {"type": "array", "maxItems": 0},
+        "sig": {"type": "string", "pattern": "^[0-9a-f]{128}$"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
