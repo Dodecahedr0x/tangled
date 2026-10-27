@@ -26,6 +26,47 @@ self-hosted knot on port 3000; Personal works independently on port 8788.
 
 ## Run the complete local setup
 
+### One command with sample data
+
+With Node.js 22+, Rust and the native desktop prerequisites below installed:
+
+```sh
+just demo
+# Without just: node scripts/local-demo.mjs
+```
+
+The command builds the binaries, installs documentation dependencies when missing,
+starts all seven processes, and seeds fictional sample data. Personal opens with
+reminders, inbox notes, saved articles, a reading queue and a source conversation.
+Reed and Loomed open with sample posts and conversations; Weft observes the seeded
+knot. The provider opens with a sample public post; demo sign-in details are
+printed in the terminal. The documentation opens alongside them.
+
+**Press Enter or Ctrl-C in the launcher to stop everything it started.** Closing
+one of the desktop apps also ends the demo. Startup failures stop the other demo
+processes. Shutdown sends a graceful termination first, then stops any remaining
+owned process groups after a bounded wait. Browser tabs may remain after their
+services stop.
+
+Each invocation creates a fresh private `.data/local-demo/run-*` directory and
+retains its state and logs after shutdown. Your normal profiles are untouched.
+The private Personal launch link and demo account are saved there; keep those
+files and terminal output private. If a required port is already
+occupied, the launcher exits without stopping the existing listener.
+
+```sh
+just demo --no-open                  # Keep browser tabs closed; print links
+just demo --no-desktop --no-open      # Services and sample data on a headless host
+just demo --port-offset 10000         # Use 13000 / 18788 / 18787 / 14321
+just demo --skip-build                # Reuse already-built binaries and site dependencies
+```
+
+The managed launcher supports macOS and Linux. Readiness, failure and cleanup
+messages stay in the terminal; detailed per-process logs are in the run directory.
+For manual control over each process, use the seven-terminal setup below.
+
+### Manual setup
+
 This starts **four services and three desktop windows**. Run every command from
 the repository root in Bash/zsh, with each numbered terminal kept open. To try only Personal,
 use Terminal 2; it needs none of the other processes.

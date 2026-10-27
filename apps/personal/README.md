@@ -17,7 +17,7 @@ The server embeds the app assets; no Node build is required to use it.
 
 The [app and API guide](../../docs/features/personal-app-api.md) describes the views,
 local session, recovery and third-party integration. Existing app settings link to
-`http://127.0.0.1:8788/`; compiling them with `TANGLED_PERSONAL_URL` changes that link.
+`http://127.0.0.1:8788/`; native apps accept `TANGLED_PERSONAL_URL` at runtime, while browser builds use its compile-time value.
 An authenticated Personal tab can connect another same-origin tab.
 
 ## Development checks
