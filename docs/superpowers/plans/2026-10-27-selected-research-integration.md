@@ -37,8 +37,8 @@
 - [x] Integrate worker's03 hardened peer policy and its explicit opt-in regressions/docs.
 - [x] Run combined workspace tests, focused negative tests, changed-file formatting, clippy and applicable WASM checks; fix any integration regressions.
 - [x] Independently review the combined diff; keep unselected experiment modules/endpoints absent.
-- [ ] Preserve main dirty state, merge selected commits into master, restore original work with conflict-aware comparison, rerun checks on the resulting combined working tree.
-- [ ] Save integration report with exact commands/results, merge commits and preservation evidence.
+- [x] Preserve main dirty state, merge selected commits into master, restore original work with conflict-aware comparison, rerun checks on the resulting combined working tree.
+- [x] Save integration report with exact commands/results, merge commits and preservation evidence.
 
 ## Evidence and integration decisions
 
@@ -54,3 +54,5 @@
 Ruling: the real provider-only cluster reproduces an existing empty-node-vector panic in bound_handoff. The user's pending changes already contain the identical one-line source-URL correction. Include that minimal harness correction (no unrelated pending changes) so actual combined process tests complete; preservation audit will record the already-included change. Native tests of source permissions still pass; conditional builder mutability removes the WebAssembly warning without changing directory policy.
 
 Final isolated checks:441 workspace tests passed,0 failed,7 ignored. Real process cluster with3 operations/256-byte payloads passed Reed,Loomed,Weft,provider,protocol. Full workspace clippy/format passed; WASM library check passed without warnings. Independent review found no blocker; matching-snapshot peer-state limitation is documented.
+
+Post-merge master working tree:514 passed,0 failed,7 ignored. All102 original pending paths verified against their preserved bytes or the independent three-way merged result, with no conflicts and an unstaged index. Recovery stash is retained. The original baseline and temporary peer worktrees were archived after moving the task to the integration worktree.
