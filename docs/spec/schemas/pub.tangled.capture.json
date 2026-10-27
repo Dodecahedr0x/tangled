@@ -1,0 +1,30 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.capture.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.capture",
+  "description": "Extensible private-first saved source or content snapshot. All blob and record access is capability-gated by default; this does not imply encryption from an operator.",
+  "type": "object",
+  "required": ["version", "kind", "title", "tags", "read", "starred", "source", "identity", "capturedAt"],
+  "properties": {
+    "version": {"const": 1},
+    "kind": {"enum": ["bookmark", "article", "text", "file", "screenshot"]},
+    "url": {"type": "string", "pattern": "^https?://"},
+    "title": {"type": "string", "maxLength": 4096},
+    "text": {"type": "string", "description": "Plain UTF-8 inline text. Never interpret as HTML."},
+    "blob": {"type": "string", "description": "Canonical content blob CID, including article text/plain and attachment bytes."},
+    "mime": {"type": "string", "description": "Original blob MIME; does not grant permission to execute or embed it."},
+    "size": {"type": "integer", "minimum": 0, "maximum": 16777216},
+    "tags": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}},
+    "read": {"type": "boolean"},
+    "starred": {"type": "boolean"},
+    "source": {"type": "object", "additionalProperties": true},
+    "identity": {"type": "string", "description": "Stable capture identity used to derive a deterministic record key; URL, explicit key, or content digest."},
+    "capturedAt": {"type": "integer", "minimum": 0, "description": "Unix seconds when originally saved."}
+  },
+  "allOf": [
+    {"if": {"properties": {"kind": {"const": "bookmark"}}}, "then": {"required": ["url"]}},
+    {"if": {"properties": {"kind": {"const": "text"}}}, "then": {"required": ["text", "mime", "size"]}},
+    {"if": {"properties": {"kind": {"enum": ["article", "file", "screenshot"]}}}, "then": {"required": ["blob", "mime", "size"]}}
+  ],
+  "additionalProperties": true
+}
