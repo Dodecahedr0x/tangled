@@ -6639,6 +6639,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "tangled-personal"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "hex",
+ "serde",
+ "serde_json",
+ "tangled",
+ "tempfile",
+]
+
+[[package]]
 name = "tangled-provider"
 version = "0.1.0"
 dependencies = [
