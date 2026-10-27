@@ -10,6 +10,7 @@ pub mod feeds;
 pub mod memory;
 pub mod notes;
 pub mod publish;
+pub mod web;
 
 /// Route the same JSON workflow contract used by the command client.
 pub fn execute(
