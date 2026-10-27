@@ -1,0 +1,76 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.replyIntent.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.replyIntent",
+  "description": "Exported transport object, not a newly signed record or evidence of delivery. Consumers must verify the cited signed sourceOverlay preview and source revision, and obtain their own send authorization.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "type",
+    "status",
+    "delivery",
+    "source",
+    "account",
+    "recipient",
+    "conversation",
+    "inReplyTo",
+    "kind",
+    "text",
+    "targetUri",
+    "targetCid",
+    "previewCid"
+  ],
+  "properties": {
+    "type": {
+      "const": "pub.tangled.replyIntent"
+    },
+    "status": {
+      "const": "confirmed"
+    },
+    "delivery": {
+      "const": "not-sent"
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "account": {
+      "type": "string",
+      "minLength": 1
+    },
+    "recipient": {
+      "type": "string",
+      "minLength": 1
+    },
+    "conversation": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inReplyTo": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "minLength": 1
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "targetUri": {
+      "type": "string",
+      "pattern": "^tangled://did:"
+    },
+    "targetCid": {
+      "type": "string",
+      "minLength": 1
+    },
+    "previewCid": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
