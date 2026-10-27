@@ -6652,14 +6652,17 @@ name = "tangled-personal"
 version = "0.1.0"
 dependencies = [
  "argon2",
+ "axum",
  "blake3",
  "hex",
  "quick-xml",
  "rand 0.8.7",
+ "reqwest",
  "serde",
  "serde_json",
  "tangled",
  "tempfile",
+ "tokio",
  "url",
  "zeroize",
 ]

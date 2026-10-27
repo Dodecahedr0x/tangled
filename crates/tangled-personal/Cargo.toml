@@ -16,6 +16,9 @@ url = "2"
 argon2 = "0.5"
 zeroize = "1"
 rand = "0.8"
+axum = "0.8"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync"] }
+tempfile = "3"
 
 [dev-dependencies]
-tempfile = "3"
+reqwest = { version = "0.12", default-features = false, features = ["json"] }

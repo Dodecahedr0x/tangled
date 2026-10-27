@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <title>Personal · Tangled</title>
+  <link rel="stylesheet" href="/app.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#workspace">Skip to workspace</a>
+  <aside class="sidebar" aria-label="Personal navigation">
+    <a class="wordmark" href="#library">Personal<span>Tangled</span></a>
+    <nav class="nav" aria-label="Workflows">
+      <a href="#library" data-view="library">Library</a>
+      <a href="#capture" data-view="capture">Capture</a>
+      <a href="#notes" data-view="notes">Notes</a>
+      <a href="#feeds" data-view="feeds">Reading</a>
+      <a href="#connections" data-view="connections">Connections</a>
+      <a href="#agents" data-view="agents">App access</a>
+      <a href="#devices" data-view="devices">Recovery</a>
+      <a href="#publish" data-view="publish">Publish</a>
+    </nav>
+    <div class="sidebar-foot"><p>Your material.<br>Your library.</p><span>Useful on its own.</span></div>
+  </aside>
+  <div class="app-main">
+    <header class="app-top"><span>Private library</span><details class="library-details"><summary>This library</summary><div><p id="library-status">Connecting…</p><dl><dt>Identity</dt><dd id="library-identity">Not connected</dd><dt>Storage</dt><dd id="library-storage">On this computer</dd></dl><a href="/api/v1/manifest" target="_blank" rel="noopener">Developer API contract</a><p class="hint">The local operator can read this library. Exported recovery copies are encrypted.</p></div></details></header>
+    <main id="workspace" tabindex="-1">
+      <header class="view-heading"><h1 id="view-title">Library</h1><p id="view-description">Find what you saved, wherever it came from.</p></header>
+      <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+      <div id="view"><p class="muted">Opening your library…</p></div>
+    </main>
+    <footer class="app-footer">A shared library, open to other apps.</footer>
+  </div>
+</body>
+</html>

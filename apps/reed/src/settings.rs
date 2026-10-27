@@ -11,6 +11,7 @@ pub fn Settings() -> Element {
         .map(|s| s().did.clone().unwrap_or_default())
         .unwrap_or_default();
     let archive_url = format!("{}/imports", initial.trim_end_matches('/'));
+    let personal_url = option_env!("TANGLED_PERSONAL_URL").unwrap_or("http://127.0.0.1:8788/");
     let mut knot = use_signal(|| initial);
     rsx! {
         div { class: "shell",
@@ -29,6 +30,8 @@ pub fn Settings() -> Element {
                         span { class: "tick" }
                         "Settings"
                     }
+                    p { a { href: personal_url, "Open Personal" } }
+                    p { class: "muted", "Your library, notes, reading, recovery, and publishing. Start Personal on this computer to connect." }
                     p { class: "muted", "Knot URL — the node Reed syncs with" }
                     p { a { href: archive_url, "Your private archive & connections" } }
                     p { class: "muted", "Import posts, conversations, and media from other apps in your host account. Imported history stays private." }
