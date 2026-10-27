@@ -67,7 +67,13 @@ async fn proxy_counts_live_bidirectional_traffic_and_closes_on_drop() {
             .unwrap(),
         0
     );
-    assert!(tokio::net::TcpStream::connect(address).await.is_err());
+    tokio::time::timeout(std::time::Duration::from_secs(2), async {
+        while tokio::net::TcpStream::connect(address).await.is_ok() {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("proxy listener did not close after task cancellation");
 }
 
 #[tokio::test]
@@ -147,4 +153,27 @@ fn invalid_workloads_are_rejected_before_any_node_starts() {
             "accepted {args:?}"
         );
     }
+}
+
+#[test]
+fn preserve_logs_keeps_failed_startup_files_with_bounded_output() {
+    let cluster = tangled_e2e::cluster::Cluster::provider_only().unwrap();
+    let source = cluster.root.path().join(".harness-logs");
+    std::fs::create_dir_all(&source).unwrap();
+    let mut noisy = vec![b'x'; 70_000];
+    noisy.extend_from_slice(b"failure-tail");
+    std::fs::write(source.join("knot-b-1.log"), &noisy).unwrap();
+    let destination = tempfile::tempdir().unwrap();
+    cluster.preserve_logs(destination.path()).unwrap();
+    let saved = std::fs::read(destination.path().join("knot-b-1.log")).unwrap();
+    assert_eq!(saved.len(), 65_536);
+    assert!(saved.ends_with(b"failure-tail"));
+}
+
+#[test]
+fn preserve_logs_accepts_an_empty_unstarted_cluster() {
+    let cluster = tangled_e2e::cluster::Cluster::provider_only().unwrap();
+    let destination = tempfile::tempdir().unwrap();
+    cluster.preserve_logs(destination.path()).unwrap();
+    assert_eq!(std::fs::read_dir(destination.path()).unwrap().count(), 0);
 }

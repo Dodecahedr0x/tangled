@@ -22,6 +22,7 @@ pub mod mls;
 pub mod mst;
 pub mod page;
 pub mod record;
+pub mod recovery;
 pub mod session;
 pub mod sign;
 pub mod sync;

@@ -136,3 +136,20 @@ In-process e2e lives in `tests/e2e.rs` and `tests/e2e_protocol.rs` with a shared
 - **MLS wrapping vector** `docs/spec/vectors/mls-welcome-commit.json` is wrapping-only; live RFC 9420 bytes are produced by OpenMLS in `cargo test -p tangled --lib mls::` (Welcome hex is not frozen; not deterministic).
 - **WebSocket** `subscribe` / `loom.firehose` are implemented in `tangled-knot`. The in-process engine used by unit tests still returns a transport error (no socket). The HTTP knot persists `since` replay.
 - **Live SNS** calls Solana JSON-RPC only when `HandleResolver.solana_rpc` / `SOLANA_RPC` is set. Default `cargo test` injects `HandleResolver.sns` and never hits the network. Ignored tests in `tests/sns_rpc.rs` call real `getAccountInfo` against `solana-test-validator` (CI and `scripts/sns-validator.sh`); they refuse `mainnet-beta` unless `SNS_ALLOW_MAINNET=1`.
+
+
+## Offline host recovery
+
+`tangled-recovery` snapshots the persistent `KnotEngine` store, verifies content-addressed dependency closure, restores into an empty directory, and scrubs/repairs a matching snapshot. Stop the host before running these commands:
+
+```sh
+cargo run -p tangled --bin tangled-recovery -- backup ./data DID ./host-backup.json
+cargo run -p tangled --bin tangled-recovery -- verify ./host-backup.json
+cargo run -p tangled --bin tangled-recovery -- restore ./host-backup.json ./empty-data DID
+cargo run -p tangled --bin tangled-recovery -- scrub ./host-backup.json ./empty-data
+cargo run -p tangled --bin tangled-recovery -- repair ./host-backup.json ./empty-data
+```
+
+The archive contains private records and blobs and is **not encrypted or authenticated**. Use a trusted source and protect the archive. It excludes signing/decryption keys, sessions, importer databases, external app files and credentials; restore those separately when needed. Scrub/repair compare exact snapshot files, so use the matching stopped snapshot, not a live or newer store. Extra destination files, changed erasure fences, or differing valid mutable metadata/tip CIDs cause repair to stop. Missing mutable files still require a trusted matching snapshot; this does not establish monotonic recovery after total state loss. Restore creates new directories/files with owner-only permissions on Unix and refuses a nonempty destination.
+
+The library API is `tangled::recovery::Backup`. See [offline recovery](../../docs/guides/recovery.md) for the trust boundary and operating limits.

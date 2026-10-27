@@ -1747,16 +1747,39 @@ impl KnotEngine {
             .find(|(k, _)| k == "blobs")
             .is_some_and(|(_, v)| v == "true")
             || body_auth.as_ref().and_then(|r| r.blobs).unwrap_or(false);
-        let scope = if auth {
+        let export_cap = if auth {
             match presented_invocation(req)? {
                 Some((cap, json, inv)) => {
                     if let Err(msg) = self.verify_presented(&cap, &json, inv.as_ref()) {
                         return api_error(403, "CapabilityInvalid", &msg);
                     }
+                    let scope = match capability::authorized_collections(&cap) {
+                        Ok(scope) => scope,
+                        Err(error) => {
+                            return api_error(403, "CapabilityInvalid", &error.to_string())
+                        }
+                    };
+                    match &scope {
+                        capability::AuthorizedScope::Repo { did: owner, .. } if owner != &did => {
+                            return api_error(
+                                403,
+                                "CapabilityInvalid",
+                                "capability does not cover requested DID",
+                            );
+                        }
+                        capability::AuthorizedScope::Circle { owner, .. } => {
+                            if let Err(error) =
+                                capability::verify_circle_read(&cap, owner, self.now)
+                            {
+                                return api_error(403, "CapabilityInvalid", &error.to_string());
+                            }
+                        }
+                        _ => {}
+                    }
                     if let Err(msg) = self.consume_cap(&cap) {
                         return api_error(403, "CapabilityInvalid", &msg);
                     }
-                    capability::authorized_collections(&cap).ok()
+                    Some((cap, scope))
                 }
                 None => {
                     return api_error(401, "CapabilityRequired", "getRepoAuth requires Cap");
@@ -1771,17 +1794,25 @@ impl KnotEngine {
             .filter(|r| r.did == did)
             .filter(|r| {
                 if auth {
-                    match &scope {
-                        Some(s) => {
-                            if let capability::AuthorizedScope::Circle { owner, rkey } = s {
-                                r.circle.as_deref()
-                                    == Some(capability::circle_envelope(owner, rkey).as_str())
-                                    || (r.did == *owner
-                                        && r.collection == "sys.circle"
-                                        && r.rkey == *rkey)
-                            } else {
-                                s.allows_collection(&r.collection)
-                            }
+                    match &export_cap {
+                        Some((cap, capability::AuthorizedScope::Circle { owner, rkey })) => {
+                            r.circle.as_deref()
+                                == Some(capability::circle_envelope(owner, rkey).as_str())
+                                || (r.did == *owner
+                                    && r.collection == "sys.circle"
+                                    && r.rkey == *rkey
+                                    && capability::authorizes(
+                                        cap,
+                                        "circle/read",
+                                        &capability::circle_resource_uri(owner, rkey),
+                                        self.now,
+                                    )
+                                    .is_ok())
+                        }
+                        Some((cap, capability::AuthorizedScope::Repo { .. })) => {
+                            let resource =
+                                format!("tangled://{}/{}/{}", r.did, r.collection, r.rkey);
+                            capability::authorizes(cap, "repo/read", &resource, self.now).is_ok()
                         }
                         None => false,
                     }
@@ -2289,7 +2320,7 @@ fn record_cid(record: &serde_json::Value) -> String {
     record_cbor_and_cid(record).0
 }
 
-fn record_cbor_and_cid(record: &serde_json::Value) -> (String, Vec<u8>) {
+pub(crate) fn record_cbor_and_cid(record: &serde_json::Value) -> (String, Vec<u8>) {
     let mut unsigned = record.clone();
     let sig_hex = unsigned
         .as_object_mut()
@@ -2733,6 +2764,13 @@ fn persist_engine(engine: &KnotEngine, dir: &Path) -> Result<()> {
     )?;
     write_json(dir.join("identities.json"), &engine.identities)?;
     write_json(dir.join("heads.json"), &engine.heads)?;
+    write_json(
+        dir.join("erased-cids.json"),
+        &engine
+            .private_archive_erasure_cids
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>(),
+    )?;
     write_json(dir.join("rev.json"), &engine.rev)?;
     write_json(dir.join("cap-uses.json"), &engine.cap_uses)?;
     write_json(dir.join("subscribe.json"), &engine.event_log)?;
@@ -2839,6 +2877,9 @@ fn load_engine(dir: &Path) -> Result<KnotEngine> {
         for k in keys {
             e.revoked.insert(k, ());
         }
+    }
+    if dir.join("erased-cids.json").exists() {
+        e.private_archive_erasure_cids = read_json(&dir.join("erased-cids.json"))?;
     }
     if dir.join("cap-uses.json").exists() {
         e.cap_uses = read_json(&dir.join("cap-uses.json"))?;

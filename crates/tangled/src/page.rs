@@ -370,20 +370,25 @@ fn verify_compacts(records: &[PageRecord]) -> Result<()> {
     Ok(())
 }
 
-fn prev_closure(records: &[PageRecord], start: &str) -> HashSet<String> {
+fn causal_closure(
+    records: &[PageRecord],
+    starts: impl IntoIterator<Item = String>,
+) -> HashSet<String> {
     let by_cid: HashMap<&str, &PageRecord> = records.iter().map(|r| (r.cid.as_str(), r)).collect();
     let mut seen = HashSet::new();
-    fn walk(cid: &str, by_cid: &HashMap<&str, &PageRecord>, seen: &mut HashSet<String>) {
-        if !seen.insert(cid.to_string()) {
-            return;
-        }
-        if let Some(r) = by_cid.get(cid) {
-            for p in &r.prev {
-                walk(p, by_cid, seen);
+    let mut pending: Vec<String> = starts.into_iter().collect();
+    while let Some(cid) = pending.pop() {
+        if seen.insert(cid.clone()) {
+            if let Some(record) = by_cid.get(cid.as_str()) {
+                pending.extend(record.prev.iter().cloned());
             }
         }
     }
-    walk(start, &by_cid, &mut seen);
+    seen
+}
+
+fn prev_closure(records: &[PageRecord], start: &str) -> HashSet<String> {
+    let mut seen = causal_closure(records, [start.to_string()]);
     seen.remove(start);
     seen
 }
@@ -409,27 +414,7 @@ pub fn apply(records: &[PageRecord]) -> Result<LivePage> {
 }
 
 fn apply_unchecked(records: &[PageRecord]) -> Result<LivePage> {
-    let by_cid: HashMap<&str, &PageRecord> = records.iter().map(|r| (r.cid.as_str(), r)).collect();
-
-    // Causal heads
-    let mut superseded = HashSet::new();
-    for r in records {
-        let mut seen = HashSet::new();
-        fn walk_prev(cid: &str, by_cid: &HashMap<&str, &PageRecord>, seen: &mut HashSet<String>) {
-            if !seen.insert(cid.to_string()) {
-                return;
-            }
-            if let Some(rec) = by_cid.get(cid) {
-                for p in &rec.prev {
-                    walk_prev(p, by_cid, seen);
-                }
-            }
-        }
-        for p in &r.prev {
-            walk_prev(p, &by_cid, &mut seen);
-        }
-        superseded.extend(seen);
-    }
+    let superseded = causal_closure(records, records.iter().flat_map(|r| r.prev.iter().cloned()));
     let heads: Vec<&PageRecord> = records
         .iter()
         .filter(|r| !superseded.contains(&r.cid))
@@ -646,33 +631,33 @@ fn apply_unchecked(records: &[PageRecord]) -> Result<LivePage> {
     }
 
     let mut text = String::new();
-    fn walk(
-        parent_key: &str,
-        atoms: &HashMap<String, Atom>,
-        children: &HashMap<String, Vec<AtomId>>,
-        text: &mut String,
-    ) {
-        if let Some(kids) = children.get(parent_key) {
-            for id in kids {
-                if let Some(a) = atoms.get(&id.key()) {
-                    if !a.del {
-                        text.push(a.ch);
-                    }
-                    walk(&id.key(), atoms, children, text);
-                }
+    let root_key = AtomId {
+        op: ROOT_OP.into(),
+        i: 0,
+    }
+    .key();
+    let mut pending: Vec<AtomId> = children
+        .get(&root_key)
+        .into_iter()
+        .flatten()
+        .rev()
+        .cloned()
+        .collect();
+    let mut visited = HashSet::new();
+    while let Some(id) = pending.pop() {
+        let key = id.key();
+        if !visited.insert(key.clone()) {
+            continue;
+        }
+        if let Some(atom) = atoms.get(&key) {
+            if !atom.del {
+                text.push(atom.ch);
+            }
+            if let Some(kids) = children.get(&key) {
+                pending.extend(kids.iter().rev().cloned());
             }
         }
     }
-    walk(
-        &AtomId {
-            op: ROOT_OP.into(),
-            i: 0,
-        }
-        .key(),
-        &atoms,
-        &children,
-        &mut text,
-    );
 
     if text.chars().count() > PAGE_TEXT_MAX_SCALARS {
         return Err(Error::page("PAGE_TEXT_MAX_SCALARS exceeded"));
@@ -843,25 +828,7 @@ fn apply_full(records: &[PageRecord]) -> Result<FullState> {
 
 /// Sorted frontier of causal heads (CID text).
 pub fn frontier_of(records: &[PageRecord]) -> Vec<String> {
-    let by_cid: HashMap<&str, &PageRecord> = records.iter().map(|r| (r.cid.as_str(), r)).collect();
-    let mut superseded = HashSet::new();
-    for r in records {
-        fn walk(cid: &str, by_cid: &HashMap<&str, &PageRecord>, seen: &mut HashSet<String>) {
-            if !seen.insert(cid.to_string()) {
-                return;
-            }
-            if let Some(rec) = by_cid.get(cid) {
-                for p in &rec.prev {
-                    walk(p, by_cid, seen);
-                }
-            }
-        }
-        let mut seen = HashSet::new();
-        for p in &r.prev {
-            walk(p, &by_cid, &mut seen);
-        }
-        superseded.extend(seen);
-    }
+    let superseded = causal_closure(records, records.iter().flat_map(|r| r.prev.iter().cloned()));
     let mut f: Vec<String> = records
         .iter()
         .filter(|r| !superseded.contains(&r.cid) && !r.is_tombstone())
