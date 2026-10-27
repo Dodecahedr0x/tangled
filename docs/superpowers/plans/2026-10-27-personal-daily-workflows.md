@@ -6,13 +6,13 @@ Goal: make the existing Personal app useful daily and safe to leave while keepin
 Architecture: existing Store/execute is source of truth; browser Today aggregates existing APIs, stable URI links select existing records, and ephemeral dirty-state guards protect editors. No new runtime dependencies or data schemas.
 Tech stack: existing Rust loopback service and plain browser ES modules, Node tests and Playwright.
 
-- [ ] Root: branch from master, pin shared contract, dispatch three agents in separate worktrees.
-- [ ] Today agent: failing tests then today.js; due/inbox/unread lists, direct open, reversible actions, partial errors and bounded results; commit.
-- [ ] Notes agent: failing tests then library.js; dirty snapshots for note editor, confirmation before same-pane replacement, route guard registration, initial URI/mode selection in Library/Capture/Notes and Copy link actions; commit.
-- [ ] Reading agent: failing tests then reading.js; initial URI selection for Feed/Connections even outside current filters, generation-safe loads, Copy link actions, safe unavailable/foreign records; commit.
-- [ ] Root: tested routes.js parser/formatter, Today nav, authenticated bootstrap preserves safe destination, guard across hash/nav/beforeunload, copy links without credentials, embed assets/discovery; integrate commits.
-- [ ] Real Chromium: Today mutations update canonical records; dirty cancel/accept/save/failure/close; record link reload and invalid/foreign URI; third-party record links and extension preservation; existing eight workflows and mobile overflow/focus.
-- [ ] Fresh review plus desktop/mobile visual evidence; fix material findings, run scoped Rust/UI/docs checks, preserve latest pending main exactly, merge master and validate combined tree.
+- [x] Root: branch from master, pin shared contract, dispatch three agents in separate worktrees.
+- [x] Today agent: failing tests then today.js; due/inbox/unread lists, direct open, reversible actions, partial errors and bounded results; commit.
+- [x] Notes agent: failing tests then library.js; dirty snapshots for note editor, confirmation before same-pane replacement, route guard registration, initial URI/mode selection in Library/Capture/Notes and Copy link actions; commit.
+- [x] Reading agent: failing tests then reading.js; initial URI selection for Feed/Connections even outside current filters, generation-safe loads, Copy link actions, safe unavailable/foreign records; commit.
+- [x] Root: tested routes.js parser/formatter, Today nav, authenticated bootstrap preserves safe destination, guard across hash/nav/beforeunload, copy links without credentials, embed assets/discovery; integrate commits.
+- [x] Real Chromium: Today mutations update canonical records; dirty cancel/accept/save/failure/close; record link reload and invalid/foreign URI; third-party record links and extension preservation; existing eight workflows and mobile overflow/focus.
+- [x] Fresh review plus desktop/mobile visual evidence; fix material findings, run scoped Rust/UI/docs checks, preserve latest pending main exactly, merge master and validate combined tree.
 
 ## Shared client contract
 
