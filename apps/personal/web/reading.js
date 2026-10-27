@@ -183,7 +183,7 @@ export async function mountFeeds(root, ctx) {
       const result = await ctx.api('feeds', { action: 'queue', ...filters() });
       if (generation !== queueGeneration) return;
       queue.replaceChildren(...result.items.map(item => {
-        const open = button(recordTitle(item), () => { renderReader(item); revealSelection(reader); }); open.classList?.add('item-title');
+        const open = button(recordTitle(item), () => { renderReader(item); ctx.updateRecordLink?.('feeds', item.uri); revealSelection(reader); }); open.classList?.add('item-title');
         return el('div', { class: `item${selected?.uri === item.uri ? ' selected' : ''}`, 'data-item': item.uri },
           el('div', { class: 'item-main' }, open, meta(`${item.reading?.read ? 'Read' : 'Unread'}${item.reading?.starred ? ' · Starred' : ''} · ${item.body.sourceUrl}`),
             item.effectiveTags?.length ? meta(item.effectiveTags.join(', ')) : null));
@@ -270,7 +270,7 @@ export async function mountConnections(root, ctx) {
       const rows = await ctx.api('connections', filters()); if (generation !== listGeneration) return;
       list.replaceChildren(...rows.map(item => {
         const imported = nativeOf(item), object = imported.object || {};
-        const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) revealSelection(reader); }));
+        const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) { ctx.updateRecordLink?.('connections', item.uri); revealSelection(reader); } }));
         return el('div', { class: `item${item.rkey === selectedKey ? ' selected' : ''}`, 'data-item': item.rkey }, el('div', { class: 'item-main' }, open,
           meta(`${imported.source} · ${object.sender || 'Sender not supplied'} · ${object.timestamp || 'Time not supplied'}`),
           meta(`Account: ${imported.account}${object.conversation ? ` · Conversation: ${object.conversation}` : ''}${item.body.deleted ? ' · Deleted at source' : ''}${item.overlay?.body?.bookmarked ? ' · Bookmarked' : ''}`)));
@@ -379,7 +379,7 @@ export async function mountConnections(root, ctx) {
       const showItems = button('Show contact items', () => ctx.run(showItems, async () => {
         query.value = ''; source.value = identity.source; account.value = identity.account; conversation.value = ''; tag.value = ''; bookmarked.checked = false; deleted.checked = false;
         const rows = await ctx.api('connections', { action: 'list', contact: contact.uri });
-        list.replaceChildren(...rows.map(item => { const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) revealSelection(reader); })); return el('div', { class: 'item', 'data-item': item.rkey }, open); }));
+        list.replaceChildren(...rows.map(item => { const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) { ctx.updateRecordLink?.('connections', item.uri); revealSelection(reader); } })); return el('div', { class: 'item', 'data-item': item.rkey }, open); }));
         say(listStatus, `${rows.length} items from ${body.alias || identity.sender}. Use Search items to return to filters.`);
       }));
       return el('div', { class: 'item' }, el('div', { class: 'item-main' }, el('strong', { text: body.alias || identity.sender }), meta(`${identity.source} · ${identity.account} · ${identity.sender}`), meta((body.groups || []).join(', '))), showItems);
