@@ -15,7 +15,23 @@ cargo run -p tangled-personal -- serve --data ./personal --listen 127.0.0.1:8788
 
 The server opens the browser and prints `http://127.0.0.1:8788/#session=HEX`. `--no-open` prints the URL without launching a browser; port `0` chooses an available port. Only numeric loopback listen addresses are accepted. Use the exact printed address, including its port. The seven application assets and bundled Fira Sans font are embedded at build time: an installed binary works without its source checkout. Stop with Ctrl-C.
 
-The fragment is a fresh random 256-bit owner credential for this process. It is never served in application HTML, discovery, or unauthenticated session metadata. The browser reads it, retains it in tab session storage and clears it from the visible URL. Keep the printed URL private. Restart generates a new token; open the new printed URL. The server keeps each opened repository exclusively locked until it stops, and serializes workflow/storage operations on blocking workers.
+The fragment is a fresh random 256-bit owner credential for this process. It is never served in application HTML, discovery, or unauthenticated session metadata. The browser reads it, retains it in tab session storage and clears it from the visible URL. Keep the printed URL private. Another tab at the same exact local origin can request a connection from an already authenticated Personal tab using a same-origin browser channel. The credential remains in per-tab session storage; it is not stored in cookies or persistent local storage. Restart generates a new token; open the new printed URL. The server keeps each opened repository exclusively locked until it stops, and serializes workflow/storage operations on blocking workers.
+
+## Using the app
+
+- **Library:** search across collections, save searches, organize items and add annotations.
+- **Capture:** save bookmarks, article text, screenshots or files; read and download originals.
+- **Notes:** write notes and drafts, capture to your inbox, set reminder dates and attach files. Reminder dates are stored metadata; no background notifications are scheduled.
+- **Reading:** subscribe to a feed URL, then import an RSS/Atom file. Readable article text, tags, stars and read state remain local. Subscription does not start background fetching.
+- **Connections:** import a recovery `activity.json`, organize source items and contacts, then preview and explicitly approve a reply-intent download. Exporting a reply does not deliver it to the source service.
+- **App access:** issue scoped expiring grants to a real app DID, download its certificate and revoke access. A certificate does not create an app's private key.
+- **Recovery:** download an encrypted recovery file, verify it, synchronize a newer same-owner copy or explicitly restore to a fresh library. The app clears passphrase fields after each action.
+- **Publish:** select individual records. Saved article text has a named inclusion control; original links and files require selection. Preview HTML and RSS, download them, or separately confirm a signed public publication. Hosting and delivery are separate actions.
+
+Each view reads and writes the shared repository rather than a browser-only database.
+Imported source markup is inert; feed reading reduces it to plain text. Generated
+publication previews run in a sandbox. Advanced CID controls let third-party formats
+choose known local blobs without recursively exposing nested private source data.
 
 ## HTTP contract
 

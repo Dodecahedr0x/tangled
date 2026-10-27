@@ -1,0 +1,37 @@
+# Personal
+
+A local browser app for all eight personal workflows, built on the shared signed
+repository engine and extensible collections.
+
+From the repository root:
+
+```sh
+cargo run -p tangled-personal -- serve --data .data/personal --listen 127.0.0.1:8788
+```
+
+Open the private launch link printed by the service. The browser normally opens
+automatically; add `--no-open` to choose it yourself. Keep that link private.
+The server embeds the app assets; no Node build is required to use it.
+
+The [app and API guide](../../docs/features/personal-app-api.md) describes the views,
+local session, recovery and third-party integration. Existing app settings link to
+`http://127.0.0.1:8788/`; compiling them with `TANGLED_PERSONAL_URL` changes that link.
+An authenticated Personal tab can connect another same-origin tab.
+
+## Development checks
+
+```sh
+cd apps/personal
+npm ci
+npm run check
+npm test
+# First build tangled-personal at the repository root, then:
+npm run test:browser
+```
+
+The browser test uses Playwright Chromium and a temporary isolated repository.
+Install Chromium with `npx playwright install chromium` if necessary. Set
+`TANGLED_PERSONAL_APP` to another binary path and `TANGLED_UI_SCREENSHOTS` to an
+output directory for desktop/mobile captures. It covers all eight workflows,
+error recovery, downloads, scoped grants, third-party extension preservation and
+encrypted restoration. It creates no external accounts and sends no source replies.

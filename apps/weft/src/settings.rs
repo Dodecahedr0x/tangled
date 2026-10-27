@@ -7,6 +7,7 @@ use crate::state::{persist_knot, probe_knot, Ui, DEFAULT_KNOT_URL};
 pub fn Settings() -> Element {
     let ui = try_use_context::<Signal<Ui>>();
     let initial = ui.map(|s| s().knot).unwrap_or_default();
+    let personal_url = option_env!("TANGLED_PERSONAL_URL").unwrap_or("http://127.0.0.1:8788/");
     let mut knot = use_signal(|| initial);
     rsx! {
         div { class: "shell",
@@ -17,6 +18,8 @@ pub fn Settings() -> Element {
                         span { class: "tick" }
                         "Settings"
                     }
+                    p { a { href: personal_url, "Open Personal" } }
+                    p { class: "muted", "Your library, notes, reading, recovery, and publishing. Start Personal on this computer to connect." }
                     p { class: "muted", "Knot URL — Weft reads node.stats from this node and crawls its advertised peers." }
                     div { class: "field",
                         label { class: "field-label", r#for: "knot-url", "Knot URL" }

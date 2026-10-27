@@ -8,6 +8,7 @@ pub fn Settings() -> Element {
     let ui = try_use_context::<Signal<Ui>>();
     let initial = ui.as_ref().map(|s| s().knot).unwrap_or_default();
     let archive_url = format!("{}/imports", initial.trim_end_matches('/'));
+    let personal_url = option_env!("TANGLED_PERSONAL_URL").unwrap_or("http://127.0.0.1:8788/");
     let mut knot = use_signal(|| initial);
     rsx! {
         div { class: "shell",
@@ -18,6 +19,8 @@ pub fn Settings() -> Element {
             }
             section { class: "stage stage-pad",
                 p { class: "brand", "Knot" }
+                p { a { href: personal_url, "Open Personal" } }
+                p { class: "muted", "Your library, notes, reading, recovery, and publishing. Start Personal on this computer to connect." }
                 p { a { href: archive_url, "Your private archive & connections" } }
                 p { class: "muted", "Browse imported conversations and media in your host account. Source participants are not invited to Tangled." }
                 input {

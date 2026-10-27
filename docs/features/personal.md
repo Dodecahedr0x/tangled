@@ -7,17 +7,19 @@ order: 9
 
 # A node for one person
 
-A Tangled repository is useful without followers or peers. The `tangled-personal` command client and reusable Rust library provide personal workflows over the existing signed repository engine. The data belongs to ordinary protocol collections, not to one user interface. Reed, Loomed, Weft and independently built apps can use the same records.
+A Tangled repository is useful without followers or peers. The Personal browser app, `tangled-personal` command client and reusable Rust library provide personal workflows over the existing signed repository engine. The data belongs to ordinary protocol collections, not to one user interface. Reed, Loomed, Weft and independently built apps can use the same records.
 
 ## Start locally
 
-Build the command client once:
+Launch the Personal app:
 
 ```sh
-cargo build -p tangled-personal
+cargo run -p tangled-personal -- serve --data .data/personal --listen 127.0.0.1:8788
 ```
 
-Create a private note, then find it through another workflow:
+The browser opens with eight views: Library, Capture, Notes, Reading, Connections, App access, Recovery and Publish. Save your first note or file directly in the app; no other network users are needed. Keep the private launch link printed by the service to reconnect. Reed, Loomed and Weft settings link to Personal on this computer. See the [browser app and API guide](./personal-app-api.md) for authentication, file flows and third-party integration.
+
+For command-line clients, build with `cargo build -p tangled-personal`. Create a private note, then find it through another workflow:
 
 ```sh
 printf '%s\n' '{"action":"create","rkey":"first","body":{"text":"Remember the café project"}}' |
@@ -47,7 +49,7 @@ The first versions deliberately accept supplied content rather than claiming ext
 
 ## Build another app
 
-Call `tangled_personal::execute(feature, &mut store, input)` or individual module entry points. The executable uses that same dispatcher. `Store::open` uses the existing knot snapshot format and identity file, while `Store::memory` supplies an isolated repository for tests. `records` exposes generic `list`, `get`, `put` and `delete` actions for application-defined collections:
+Call `tangled_personal::execute(feature, &mut store, input)` or individual module entry points. The executable and browser service use that same dispatcher. The versioned [local HTTP API](./personal-app-api.md) exposes public discovery and collection profiles plus authenticated JSON actions, so independently built interfaces can use the same records. `Store::open` uses the existing knot snapshot format and identity file, while `Store::memory` supplies an isolated repository for tests. `records` exposes generic `list`, `get`, `put` and `delete` actions for application-defined collections:
 
 ```sh
 printf '%s\n' '{"action":"put","collection":"pub.example.fieldNotes","rkey":"site-a","body":{"text":"Oak trees by the river","vendor.example":{"survey":7}}}' |

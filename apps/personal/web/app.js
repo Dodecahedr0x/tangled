@@ -14,13 +14,20 @@ const views = {
   publish: ['Publish', 'Choose what to share. Preview it before making a public copy.', mountPublish],
 };
 const tokenKey = 'tangled-personal.session';
-const params = new URLSearchParams(location.hash.slice(1));
-if (params.has('session')) {
-  sessionStorage.setItem(tokenKey, params.get('session'));
-  history.replaceState(null, '', `${location.pathname}${location.search}#library`);
-}
 let token = sessionStorage.getItem(tokenKey) || '';
+function consumeLaunchLink() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  if (!params.has('session')) return false;
+  const credential = params.get('session');
+  history.replaceState(null, '', `${location.pathname}${location.search}#library`);
+  if (!/^[0-9a-f]{64}$/.test(credential)) return false;
+  token = credential;
+  sessionStorage.setItem(tokenKey, token);
+  return true;
+}
+consumeLaunchLink();
 let ready = false;
+const peers = typeof BroadcastChannel === 'function' ? new BroadcastChannel('tangled-personal-tabs-v1') : null;
 let noticeTimer;
 const notice = document.querySelector('#notice');
 const panel = document.querySelector('#view');
@@ -41,7 +48,7 @@ async function request(path, input, method = 'POST') {
   const contentType = response.headers.get('content-type') || '';
   const data = contentType.includes('application/json') ? await response.json() : { error: 'The local service returned an unreadable response.' };
   if (!response.ok) {
-    if (response.status === 401) throw new Error('This session expired. Reopen the app’s launch link to reconnect.');
+    if (response.status === 401) { const error = new Error('This session expired. Reopen the app’s launch link to reconnect.'); error.status = 401; throw error; }
     throw new Error(data.error || `The request could not finish (${response.status}). Try again.`);
   }
   return data;
@@ -61,7 +68,7 @@ const ctx = {
     document.body.append(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   },
-  navigate(view) { location.hash = views[view] ? view : 'library'; },
+  navigate(view) { location.hash = Object.hasOwn(views, view) ? view : 'library'; },
   async refreshSession() {
     ctx.session = await request('session', undefined, 'GET');
     document.querySelector('#library-identity').textContent = ctx.session.did;
@@ -72,7 +79,7 @@ const ctx = {
 };
 async function route() {
   if (!ready) return;
-  const name = location.hash.slice(1) in views ? location.hash.slice(1) : 'library';
+  const name = Object.hasOwn(views, location.hash.slice(1)) ? location.hash.slice(1) : 'library';
   const [title, description, mount] = views[name];
   document.title = `${title} · Personal`;
   document.querySelector('#view-title').textContent = title;
@@ -86,15 +93,40 @@ async function route() {
   try { await mount(root, ctx); }
   catch (error) { root.replaceChildren(empty('Could not open this view', error.message, button('Try again', route))); notify(error.message, 'error'); }
 }
+async function peerSession() {
+  if (!peers) return '';
+  return new Promise(resolve => {
+    const id = crypto.randomUUID();
+    const finish = value => { clearTimeout(timer); peers.removeEventListener('message', receive); resolve(value); };
+    const receive = event => {
+      if (event.data?.type === 'session' && event.data.id === id && /^[0-9a-f]{64}$/.test(event.data.token)) finish(event.data.token);
+    };
+    const timer = setTimeout(() => finish(''), 2000);
+    peers.addEventListener('message', receive);
+    peers.postMessage({type:'request',id});
+  });
+}
+peers?.addEventListener('message', async event => {
+  if (!ready || !token || event.data?.type !== 'request' || typeof event.data.id !== 'string' || event.data.id.length > 64) return;
+  try {
+    await request('session', undefined, 'GET');
+    peers.postMessage({type:'session',id:event.data.id,token});
+  } catch { /* Only a currently authenticated tab may connect another same-origin tab. */ }
+});
 async function boot() {
   if (!token) {
-    panel.replaceChildren(empty('Open your library’s launch link', 'This tab needs the private link shown when Personal starts. The link connects you to your local library; it does not create an online account.'));
+    const peerToken = await peerSession();
+    if (!token && peerToken) { token = peerToken; sessionStorage.setItem(tokenKey, token); }
+  }
+  if (!token) {
+    panel.replaceChildren(empty('Open your library’s launch link', 'This tab needs the private link shown when Personal starts. The link connects you to your local library; it does not create an online account.', button('Connect to an open Personal tab', boot)));
     document.querySelector('#library-status').textContent = 'Launch link required';
     return;
   }
   try { await ctx.refreshSession(); ready = true; await route(); }
-  catch (error) { panel.replaceChildren(empty('Your library is not connected', error.message, button('Reconnect', boot))); notify(error.message, 'error'); }
+  catch (error) { ready = false; if (error.status === 401) { token = ''; sessionStorage.removeItem(tokenKey); } panel.replaceChildren(empty('Your library is not connected', error.message, button('Reconnect', boot))); notify(error.message, 'error'); }
 }
-window.addEventListener('hashchange', route);
+document.querySelector('.skip-link').addEventListener('click', event => { event.preventDefault(); document.querySelector('#workspace').focus(); });
+window.addEventListener('hashchange', () => { if (consumeLaunchLink()) { ready = false; boot(); } else route(); });
 window.addEventListener('personal-error', event => notify(event.detail, 'error'));
 boot();

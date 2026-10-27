@@ -1,7 +1,7 @@
 ---
 title: Apps and host configuration
 slug: apps
-description: The roles of Reed, Loomed, and Weft and how they connect to a knot.
+description: The roles of Personal, Reed, Loomed, and Weft and how they connect to a knot.
 order: 4
 ---
 
@@ -10,6 +10,21 @@ order: 4
 Reed, Loomed, and Weft use the same knot protocol. Each presents a different view
 of signed repository data. App collections and interface choices sit above the
 core protocol; an unfamiliar app collection can still be stored and synchronized.
+
+## Personal
+
+Personal supplies a private library, capture reader, notes and self inbox, feed reading,
+connected-source organization, scoped app access, encrypted recovery and deliberate
+publishing. It works with a local repository even before any other network users
+arrive. [Start the Personal app](./personal-app-api.md), then open it from Reed,
+Loomed or Weft settings. These links default to `http://127.0.0.1:8788/`;
+set `TANGLED_PERSONAL_URL` when compiling an existing app to use a different address.
+First launch requires the private link printed by the service. An already connected
+Personal tab can connect another tab at the same local address.
+
+Personal uses the same open collection profiles and signed repository engine as
+other clients. Its browser service exposes an authenticated, versioned JSON API
+and public discovery, allowing independent interfaces to build on its workflows.
 
 ## Reed
 
