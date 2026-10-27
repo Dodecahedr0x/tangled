@@ -56,6 +56,7 @@ try {
   assert.match(await disconnected.locator('#library-status').textContent(), /Connected/);
   assert.equal(await disconnected.evaluate(() => location.hash), '#notes');
   await disconnected.evaluate(() => sessionStorage.setItem('tangled-personal.session', '0'.repeat(64)));
+  await disconnected.getByLabel('Text', { exact: true }).fill('');
   await disconnected.reload();
   await disconnected.getByRole('button', { name: 'Reconnect', exact: true }).waitFor();
   await disconnected.goto(launch);
@@ -66,7 +67,7 @@ try {
   await peer.waitForFunction(() => document.querySelector('#library-status')?.textContent.includes('Connected'));
   await peer.close();
   await page.evaluate(() => { location.hash = 'constructor'; });
-  await page.getByRole('heading', { name: 'Library', level: 1, exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Today', level: 1, exact: true }).waitFor();
 
   await go('Notes');
   await page.locator('.skip-link').evaluate(link => link.click());
@@ -174,7 +175,7 @@ try {
     await page.locator('#notice').evaluate(node => { node.hidden = true; });
     await page.screenshot({ path: path.join(screenshots, 'personal-desktop.png'), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
-    for (const label of ['Library','Capture','Notes','Reading','Connections','App access','Recovery','Publish']) {
+    for (const label of ['Today','Library','Capture','Notes','Reading','Connections','App access','Recovery','Publish']) {
       await go(label);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
       assert.equal(overflow, false, `${label} overflows a mobile viewport`);

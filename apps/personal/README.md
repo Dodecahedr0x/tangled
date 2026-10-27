@@ -1,6 +1,6 @@
 # Personal
 
-A local browser app for all eight personal workflows, built on the shared signed
+A local browser app with Today and all eight personal workflows, built on the shared signed
 repository engine and extensible collections.
 
 From the repository root:
@@ -11,6 +11,8 @@ cargo run -p tangled-personal -- serve --data .data/personal --listen 127.0.0.1:
 
 Open the private launch link printed by the service. The browser normally opens
 automatically; add `--no-open` to choose it yourself. Keep that link private.
+Today brings together reminders, inbox notes and unread material. Notes protect
+unsaved edits; Copy link opens the same record after reload or from another app.
 The server embeds the app assets; no Node build is required to use it.
 
 The [app and API guide](../../docs/features/personal-app-api.md) describes the views,

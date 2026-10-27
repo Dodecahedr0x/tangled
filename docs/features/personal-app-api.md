@@ -13,15 +13,22 @@ Build or launch the complete local app with:
 cargo run -p tangled-personal -- serve --data ./personal --listen 127.0.0.1:8788
 ```
 
-The server opens the browser and prints `http://127.0.0.1:8788/#session=HEX`. `--no-open` prints the URL without launching a browser; port `0` chooses an available port. Only numeric loopback listen addresses are accepted. Use the exact printed address, including its port. The seven application assets and bundled Fira Sans font are embedded at build time: an installed binary works without its source checkout. Stop with Ctrl-C.
+The server opens the browser and prints `http://127.0.0.1:8788/#session=HEX`. `--no-open` prints the URL without launching a browser; port `0` chooses an available port. Only numeric loopback listen addresses are accepted. Use the exact printed address, including its port. The nine application assets and bundled Fira Sans font are embedded at build time: an installed binary works without its source checkout. Stop with Ctrl-C.
 
 The fragment is a fresh random 256-bit owner credential for this process. It is never served in application HTML, discovery, or unauthenticated session metadata. The browser reads it, retains it in tab session storage and clears it from the visible URL. Keep the printed URL private. Another tab at the same exact local origin can request a connection from an already authenticated Personal tab using a same-origin browser channel. The credential remains in per-tab session storage; it is not stored in cookies or persistent local storage. Restart generates a new token; open the new printed URL. The server keeps each opened repository exclusively locked until it stops, and serializes workflow/storage operations on blocking workers.
 
 ## Using the app
 
+Personal opens on **Today**: due reminders, your self inbox, unread saved items and
+unread feed articles, with quick actions to write a note, capture to your inbox or
+save an item. Each section shows up to ten records and can refresh independently.
+Clear a reminder, file an inbox item or mark something read directly here; Undo
+remains available while Today stays open. These actions change the same signed
+records seen in the other views and in third-party clients.
+
 - **Library:** search across collections, save searches, organize items and add annotations.
 - **Capture:** save bookmarks, article text, screenshots or files; read and download originals.
-- **Notes:** write notes and drafts, capture to your inbox, set reminder dates and attach files. Reminder dates are stored metadata; no background notifications are scheduled.
+- **Notes:** write notes and drafts, capture to your inbox, set reminder dates and attach files. Unsaved edits trigger a discard prompt before another view or note replaces the editor, and the browser warns before closing or reloading. Reminder dates are stored metadata; no background notifications are scheduled.
 - **Reading:** subscribe to a feed URL, then import an RSS/Atom file. Readable article text, tags, stars and read state remain local. Subscription does not start background fetching.
 - **Connections:** import a recovery `activity.json`, organize source items and contacts, then preview and explicitly approve a reply-intent download. Exporting a reply does not deliver it to the source service.
 - **App access:** issue scoped expiring grants to a real app DID, download its certificate and revoke access. A certificate does not create an app's private key.
@@ -32,6 +39,23 @@ Each view reads and writes the shared repository rather than a browser-only data
 Imported source markup is inert; feed reading reduces it to plain text. Generated
 publication previews run in a sandbox. Advanced CID controls let third-party formats
 choose known local blobs without recursively exposing nested private source data.
+
+## Open a specific record from another app
+
+The public manifest's `app.recordLinkTemplate` is `/#library?item={uri}`. Replace
+`{uri}` with a percent-encoded stable Tangled record URI. Library supports local
+records from unfamiliar application collections, retaining their original data.
+Native views also accept `#notes?item=…`, `#capture?item=…`, `#feeds?item=…` and
+`#connections?item=…`. The linked record opens even outside the current list or
+filter; reload retains the destination. Readers and note editors offer **Copy
+link**. Links contain the record reference and no owner session credential.
+
+A link grants no access. It requires the normal authenticated local app session;
+a connected same-origin tab can supply that session. The initial launch flow
+retains a pending destination. Foreign-library, unavailable or wrong-collection
+records show an error without changing repository data. A native app can also
+open `#notes?mode=note`, `#notes?mode=draft` or `#notes?mode=inbox` to prepare a new
+composer; those links do not create a record until the person saves it.
 
 ## HTTP contract
 

@@ -17,7 +17,7 @@ Launch the Personal app:
 cargo run -p tangled-personal -- serve --data .data/personal --listen 127.0.0.1:8788
 ```
 
-The browser opens with eight views: Library, Capture, Notes, Reading, Connections, App access, Recovery and Publish. Save your first note or file directly in the app; no other network users are needed. Keep the private launch link printed by the service to reconnect. Reed, Loomed and Weft settings link to Personal on this computer. See the [browser app and API guide](./personal-app-api.md) for authentication, file flows and third-party integration.
+The browser opens on Today, bringing together due reminders, your self inbox and unread material. Eight workflow views provide Library, Capture, Notes, Reading, Connections, App access, Recovery and Publish. Save your first note or file directly in the app; no other network users are needed. Keep the private launch link printed by the service to reconnect. Reed, Loomed and Weft settings link to Personal on this computer. See the [browser app and API guide](./personal-app-api.md) for authentication, file flows and third-party integration.
 
 For command-line clients, build with `cargo build -p tangled-personal`. Create a private note, then find it through another workflow:
 
