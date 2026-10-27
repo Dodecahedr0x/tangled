@@ -37,10 +37,8 @@ Existing docs/guides/recovery.md required missing frontmatter; parent added only
 Logs in /tmp/tangled-solo-*.log. Shared concurrent target paths caused false artifacts initially; workers switched private. Parent final target /tmp/tangled-solo-integration-target. Do not rely on initial shared-target baseline failure as current result.
 Smoke script /tmp/tangled-solo-smoke.py exercises8 command workflows, article/feed search, static export and encrypted restore; run AFTER fix merge against rebuilt binary.
 
-## Remaining
+## Final integration phase
 
-1 Receive consolidated fix commit, integrate without touching last2 modules, fix conflicts if any.
-2 Scoped independent re-review by reviewer_six (fix range), address residual blockers.
-3 Final personal tests,nextest,fmt,strict lint, full workspace tests and docs; run smoke script.
-4 Commit integration/report and inspect main checkout latest status. Save latest main tracked/index/untracked bytes privately, stash only as necessary for authorized merge, merge integration into master, restore --index and resolve overlaps preserving user work. Compare hashes outside feature delta; overlapping compare independent3way.
-5 Validate actual master with preserved pending changes. Archive integration/fix worktrees when no longer needed; preserve task evidence in repo. Final report concise: merge hash, tests, generic interoperability, explicit first-version transport limits, docs link.
+All eight features and consolidated review fixes integrated; no residual independent review blockers. Source identity canonicalization f63efe2 checked against JSON preserve-order builds and independent JavaScript vectors. Final integration checks:540 workspace tests passed,7 ignored;99 personal nextest passed with no leak;strict workspace lint/format passed;docs86 pages/3473 links passed;8-workflow CLI smoke passed.
+
+Next: private latest-master pending-file/index backup; authorized local merge; restore and hash-verify all100 pending paths (Cargo.lock independent3way); validate real master; archive remaining integration/fix worktrees. See VALIDATION.md.
