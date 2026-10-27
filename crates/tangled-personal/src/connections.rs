@@ -35,7 +35,9 @@ fn string<'a>(v: &'a Value, field: &str) -> Result<&'a str> {
 }
 
 fn stable_key(value: &Value) -> Result<String> {
-    let bytes = serde_json::to_vec(value).map_err(|e| e.to_string())?;
+    let mut canonical = value.clone();
+    canonical.sort_all_objects();
+    let bytes = serde_json::to_vec(&canonical).map_err(|e| e.to_string())?;
     Ok(hex::encode(blake3::hash(&bytes).as_bytes()))
 }
 

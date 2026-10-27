@@ -275,3 +275,34 @@ fn editing_a_preview_invalidates_prior_confirmation_without_altering_source() {
         record["cid"]
     );
 }
+
+#[test]
+fn source_identity_key_is_independent_of_json_map_feature_flags() {
+    let mut store = tangled_personal::Store::memory();
+    let result=tangled_personal::connections::execute(&mut store,serde_json::json!({"action":"ingest","activity":[{"source":"fixture","account":"owner","object":{"id":"42","kind":"message","conversation":"room","text":"hello"}}]})).unwrap();
+    let canonical=br#"{"account":"owner","conversation":"room","id":"42","kind":"message","source":"fixture"}"#;
+    assert_eq!(
+        result["items"][0]["rkey"],
+        hex::encode(blake3::hash(canonical).as_bytes())
+    );
+}
+
+#[test]
+fn published_identity_vectors_match_independent_client_keys() {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../docs/spec/vectors/personal-source-identity.json"
+    ))
+    .unwrap();
+    let mut store = tangled_personal::Store::memory();
+    let expected = &fixture["vectors"][1];
+    let result=tangled_personal::connections::execute(&mut store,serde_json::json!({"action":"contact","source":expected["identity"]["source"],"account":expected["identity"]["account"],"sender":expected["identity"]["sender"],"patch":{"alias":"Person"}})).unwrap();
+    assert_eq!(result["rkey"], expected["rkey"]);
+    for vector in fixture["vectors"].as_array().unwrap() {
+        assert_eq!(
+            hex::encode(
+                blake3::hash(vector["canonical_json"].as_str().unwrap().as_bytes()).as_bytes()
+            ),
+            vector["rkey"]
+        );
+    }
+}
