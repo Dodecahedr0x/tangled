@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangled.protocol/schemas/pub.tangled.agent.activity.json",
+  "title": "pub.tangled.agent.activity",
+  "type": "object",
+  "required": ["actor", "action", "capability", "invocation", "invocation_cbor", "request", "citations"],
+  "properties": {
+    "actor": {"type": "string"},
+    "action": {"enum": ["search", "write"]},
+    "capability": {"type": "string"},
+    "invocation": {"type": "string"},
+    "invocation_cbor": {"type": "string", "pattern": "^[0-9a-f]+$"},
+    "request": {"type": "object", "additionalProperties": true},
+    "citations": {
+      "type": "array",
+      "items": {
+        "type": "object", "required": ["uri", "cid"],
+        "properties": {"uri": {"type": "string"}, "cid": {"type": "string"}},
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

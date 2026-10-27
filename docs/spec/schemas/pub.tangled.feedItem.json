@@ -1,0 +1,100 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.feedItem.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "title": "pub.tangled.feedItem",
+  "description": "Private imported feed entry body. Source data is evidence, not a native authored activity. Signed envelope ts records local arrival; source timestamps remain unmodified. Imported entries are immutable in the initial client.",
+  "required": [
+    "v",
+    "subscription",
+    "sourceUrl",
+    "sourceId",
+    "title",
+    "link",
+    "body",
+    "bodyType",
+    "publishedAt",
+    "updatedAt",
+    "provenance"
+  ],
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "subscription": {
+      "type": "string",
+      "pattern": "^tangled://",
+      "description": "Stable signed record URI, never an HTTP source identity."
+    },
+    "sourceUrl": {
+      "type": "string",
+      "format": "uri",
+      "maxLength": 8192
+    },
+    "sourceId": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "Original Atom id / RSS guid, else original link, else deterministic normalized-content hash. Scoped to sourceUrl for deduplication."
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "link": {
+      "type": "string",
+      "maxLength": 8192,
+      "description": "Original source link, possibly absent, relative, or unsafe. Consumers must validate before opening."
+    },
+    "body": {
+      "type": "string",
+      "maxLength": 262144,
+      "description": "Untrusted source content; never execute it or insert HTML without sanitization. Exact XML remains in provenance blob."
+    },
+    "bodyType": {
+      "enum": [
+        "text",
+        "html"
+      ]
+    },
+    "publishedAt": {
+      "type": "string",
+      "maxLength": 1024,
+      "description": "Original source timestamp verbatim; empty when absent. No guaranteed date format."
+    },
+    "updatedAt": {
+      "type": "string",
+      "maxLength": 1024,
+      "description": "Original Atom updated value verbatim; empty when absent."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "kind",
+        "format",
+        "sourceUrl",
+        "blob"
+      ],
+      "properties": {
+        "kind": {
+          "const": "feed-import"
+        },
+        "format": {
+          "enum": [
+            "rss",
+            "atom"
+          ]
+        },
+        "sourceUrl": {
+          "type": "string",
+          "format": "uri"
+        },
+        "blob": {
+          "type": "string",
+          "description": "CID of exact supplied UTF-8 XML bytes. No claim that a network fetch occurred."
+        }
+      }
+    }
+  }
+}

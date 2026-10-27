@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangled.protocol/schemas/pub.tangled.annotation.memory.json",
+  "title": "Personal memory profile of pub.tangled.annotation",
+  "description": "An additive profile for records in the existing pub.tangled.annotation collection. Does not replace or change its base schema.",
+  "allOf": [{"$ref": "pub.tangled.annotation.json"}],
+  "type": "object",
+  "required": ["target"],
+  "properties": {
+    "target": {
+      "type": "object",
+      "required": ["uri"],
+      "properties": {
+        "uri": {"type": "string", "pattern": "^tangled://did:[^/]+/[^/]+/[^/]+$"},
+        "cid": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": true
+    },
+    "tags": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "additionalProperties": true
+}

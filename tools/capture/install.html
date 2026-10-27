@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Save to Tangled</title>
+<style>
+body{font:17px/1.6 system-ui,sans-serif;max-width:660px;margin:64px auto;padding:0 24px;color:#15211c;background:#fafbf8}a{color:#166144}#capture-bookmarklet{display:inline-block;padding:12px 20px;background:#166144;color:white;border-radius:8px;text-decoration:none}code{font-size:14px;background:#eaf0e9;padding:3px 5px}pre{overflow:auto;background:#eaf0e9;padding:16px}h1{line-height:1.15}
+</style>
+<h1>Keep a page for later.</h1>
+<p>Drag this button to your browser’s bookmarks bar:</p>
+<p><a id="capture-bookmarklet" href="#">Save to Tangled</a></p>
+<p>On a page you want to save, click the bookmark. It downloads <code>tangled-capture.json</code> with the page URL, title, visible article text, and any selected passage.</p>
+<p>From the Tangled repository, import the downloaded file:</p>
+<pre>cargo run -p tangled-personal -- --data ./personal capture &lt; ~/Downloads/tangled-capture.json</pre>
+<p>The file stays on your computer. The helper makes no server requests, reads no cookies or browser storage, and does not send data to a service. Review the JSON before importing if the page contains sensitive material.</p>
+<p>Page policies may block bookmarklets or downloads. You can instead supply the same fields in a JSON file manually. Article capture uses the first <code>article</code> or <code>main</code> element, with visible body text as a fallback; it is a plain-text snapshot, limited to 1,048,576 characters.</p>
+<script src="capture.js"></script>
+</html>

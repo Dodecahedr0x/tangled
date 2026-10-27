@@ -1,3 +1,10 @@
+---
+title: Offline host recovery
+slug: recovery
+description: Back up, inspect and restore a stopped host with explicit integrity and recovery limits.
+order: 4
+---
+
 # Offline host recovery
 
 `tangled-recovery` captures and checks a stopped host's persistent `KnotEngine` state. It includes historical records, commits, Merkle tree blocks, owned blobs, indexes and persistent admission metadata. It restores into an empty directory and can scrub or repair a matching snapshot.

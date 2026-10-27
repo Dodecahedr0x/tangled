@@ -68,3 +68,7 @@ source service or publish the archive to a public timeline.
 [Use cases](../spec/20-use-cases.md) connects applications to the protocol data
 model. Core requirements remain in [Architecture](../spec/03-architecture.md) and
 [Conformance](../spec/02-conformance.md).
+
+## Independently built apps
+
+Reed, Loomed and Weft are initial clients rather than an exclusive application set. Personal workflows expose signed records and extensible collection schemas through the same repository data plane. Any app can retain unfamiliar collections, interpret the published profiles, preserve extensions, and use stable Tangled URIs and exact-revision CIDs. The reusable personal client is one implementation of those workflows; it is not a separate network or an application-private source of truth. See [A node for one person](./personal.md) for working commands, generic record access, and first-version limits.

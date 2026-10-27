@@ -1,0 +1,39 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.note.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.note",
+  "description": "Extensible private-by-default personal note. Ordinary signed record successors; not a pub.tangled.page CRDT.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["text", "state", "createdAt", "updatedAt"],
+  "properties": {
+    "text": { "type": "string" },
+    "title": { "type": "string", "maxLength": 512 },
+    "state": { "enum": ["note", "draft", "inbox"] },
+    "createdAt": { "type": "integer", "minimum": 0, "description": "Unix seconds, generated at creation." },
+    "updatedAt": { "type": "integer", "minimum": 0, "description": "Unix seconds, generated for each successor." },
+    "reminderAt": { "type": "integer", "minimum": 0, "description": "Unix seconds. A due query includes reminders at or before its cutoff. No scheduler implied." },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": true,
+        "required": ["cid", "mime", "name"],
+        "properties": {
+          "cid": { "type": "string", "description": "Existing blob CID, validated by the implementation." },
+          "mime": { "type": "string", "minLength": 3, "maxLength": 255, "pattern": "^[^\\s/]+/[^\\s/]+$" },
+          "name": { "type": "string", "minLength": 1, "maxLength": 512 }
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["uri", "cid"],
+      "properties": {
+        "uri": { "type": "string", "pattern": "^tangled://did:", "description": "Stable source record URI, captured by conversion." },
+        "cid": { "type": "string", "description": "Exact source record revision CID at conversion time." }
+      }
+    }
+  }
+}

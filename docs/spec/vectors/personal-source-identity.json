@@ -1,0 +1,29 @@
+{
+  "profile": "tangled-personal-source-identity-v1",
+  "hash": "BLAKE3-256 lowercase hexadecimal",
+  "encoding": "Compact UTF-8 JSON object with lexicographically sorted keys, exact valid Unicode strings and no normalization.",
+  "vectors": [
+    {
+      "collection": "pub.tangled.sourceItem",
+      "identity": {
+        "account": "owner",
+        "conversation": "room",
+        "id": "42",
+        "kind": "message",
+        "source": "fixture"
+      },
+      "canonical_json": "{\"account\":\"owner\",\"conversation\":\"room\",\"id\":\"42\",\"kind\":\"message\",\"source\":\"fixture\"}",
+      "rkey": "2023958bf9d54e6aa716a42d84c53a72724348933a7f3fc81a3baeaeb80826de"
+    },
+    {
+      "collection": "pub.tangled.sourceContact",
+      "identity": {
+        "account": "owner",
+        "sender": "person",
+        "source": "fixture"
+      },
+      "canonical_json": "{\"account\":\"owner\",\"sender\":\"person\",\"source\":\"fixture\"}",
+      "rkey": "063d34d2c48f30b519043bb5c8f28bcf2618785f663449d6c17489db95529aa7"
+    }
+  ]
+}

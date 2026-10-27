@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangled.protocol/schemas/pub.tangled.savedSearch.json",
+  "title": "pub.tangled.savedSearch",
+  "description": "Portable keyword query over authorized current records. Capability-gated by default. Unknown extension fields are permitted.",
+  "type": "object",
+  "required": ["name", "query"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "query": {"type": "string"},
+    "source": {"type": "string"},
+    "collection": {"type": "string"},
+    "tag": {"type": "string"},
+    "group": {"type": "string", "description": "Owner's pub.tangled.collection rkey"},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "offset": {"type": "integer", "minimum": 0}
+  },
+  "additionalProperties": true
+}

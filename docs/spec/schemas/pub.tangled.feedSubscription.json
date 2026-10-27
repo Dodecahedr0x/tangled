@@ -1,0 +1,39 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.feedSubscription.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "title": "pub.tangled.feedSubscription",
+  "description": "Private feed subscription body. Collection records use capability visibility by default. Extensions are allowed and preserved on edits. This is neither a native author nor a network follow.",
+  "required": [
+    "v",
+    "url",
+    "title",
+    "tags"
+  ],
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "url": {
+      "type": "string",
+      "maxLength": 8192,
+      "format": "uri",
+      "description": "Canonical HTTP(S) feed URL, without user credentials or fragment."
+    },
+    "title": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}

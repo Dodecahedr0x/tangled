@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/tangled-e2e", "crates/tangled-import", "crates/tangled", "crates/tangled-ap", "crates/tangled-knot", "crates/tangled-provider", "apps/loomed", "apps/loomed/core", "apps/reed", "apps/reed/core", "apps/weft", "apps/weft/core"]
+members = ["crates/tangled-personal", "crates/tangled-e2e", "crates/tangled-import", "crates/tangled", "crates/tangled-ap", "crates/tangled-knot", "crates/tangled-provider", "apps/loomed", "apps/loomed/core", "apps/reed", "apps/reed/core", "apps/weft", "apps/weft/core"]
 
 [workspace.package]
 edition = "2021"

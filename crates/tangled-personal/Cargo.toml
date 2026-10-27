@@ -1,0 +1,21 @@
+[package]
+name = "tangled-personal"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Interoperable personal workflows on signed Tangled repositories"
+
+[dependencies]
+tangled = { path = "../tangled" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+blake3 = "1"
+hex = "0.4"
+quick-xml = "0.41"
+url = "2"
+argon2 = "0.5"
+zeroize = "1"
+rand = "0.8"
+
+[dev-dependencies]
+tempfile = "3"

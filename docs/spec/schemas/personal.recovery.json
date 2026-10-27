@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "personal.recovery.json",
+  "title": "Portable encrypted personal owner recovery container v1",
+  "description": "An encrypted file container, not a signed repository record. Authenticated plaintext includes version, owner signing/agreement seeds, optional complete CAR and supplemental owner blobs.",
+  "type": "object",
+  "required": ["format", "owner", "kdf", "salt", "enc", "ct"],
+  "properties": {
+    "format": {"const": "tangled.personal.recovery.v1"},
+    "owner": {"type": "string", "maxLength": 256},
+    "kdf": {"const": "argon2id-v19-m19456-t2-p1"},
+    "salt": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+    "enc": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "ct": {"type": "string", "pattern": "^[0-9a-f]+$", "maxLength": 134217760}
+  },
+  "additionalProperties": true
+}

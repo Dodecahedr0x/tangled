@@ -1,0 +1,47 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.sourceContact.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.sourceContact",
+  "description": "Local alias/grouping for one source/account/native sender tuple. Shared aliases and groups do not merge native identities.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "identity"
+  ],
+  "properties": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "account",
+        "sender"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sender": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "alias": {
+      "type": "string"
+    },
+    "groups": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  }
+}
