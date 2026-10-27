@@ -12,7 +12,7 @@ fn bookmark_is_private_and_duplicate_save_does_not_erase_user_edits() {
         &mut store,
         json!({"action":"save","url":"https://example.test/story","title":"Story","source":{"type":"browser","selection":"quote"}}),
     );
-    assert_eq!(first["visibility"], "cap");
+    assert_eq!(first["vis"], "cap");
     assert_eq!(first["body"]["kind"], "bookmark");
     let uri = first["uri"].as_str().unwrap();
     let edited = execute(
@@ -40,7 +40,8 @@ fn bookmark_is_private_and_duplicate_save_does_not_erase_user_edits() {
 
 #[test]
 fn article_reader_uses_saved_plain_text_offline_and_preserves_extensions() {
-    let mut store = Store::memory();
+    let directory = tempfile::tempdir().unwrap();
+    let mut store = Store::open(directory.path()).unwrap();
     let item = save(
         &mut store,
         json!({"action":"save","kind":"article","url":"https://example.test/read","title":"Saved","text":"Article\n<script>alert(1)</script>","extensions":{"example.extra":{"v":1}}}),
@@ -48,8 +49,9 @@ fn article_reader_uses_saved_plain_text_offline_and_preserves_extensions() {
     let uri = item["uri"].as_str().unwrap();
     assert!(item["body"]["blob"].is_string());
     let exported = store.export().unwrap();
-    let mut imported = Store::memory();
-    imported.import(&exported).unwrap();
+    store.import(&exported).unwrap();
+    drop(store);
+    let mut store = Store::open(directory.path()).unwrap();
     // Reading the signed content needs no source request or executing renderer.
     let reader = execute(&mut store, json!({"action":"render","uri":uri})).unwrap();
     assert_eq!(reader["mime"], "text/plain");
