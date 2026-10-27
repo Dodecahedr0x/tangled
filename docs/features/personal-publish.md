@@ -1,3 +1,10 @@
+---
+title: Personal publishing
+slug: personal-publish
+description: Deliberately export selected content as readable HTML, RSS and signed public publications.
+order: 16
+---
+
 # Publish and share selected content
 
 The `publish` workflow creates readable static HTML and RSS from explicitly selected local signed records. Someone can open the exported `index.html`, read the content, and download selected attachments without a Tangled account. Send the directory as a ZIP or host its files yourself. This command does not deploy a site, create a live guest-link service, send messages, or modify the source application's data.

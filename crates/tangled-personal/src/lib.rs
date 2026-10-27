@@ -28,6 +28,8 @@ pub fn execute(
         "agents" => agents::execute(store, input),
         "devices" => devices::execute(store, input),
         "feeds" => feeds::execute(store, input),
+        "publish" => publish::execute(store, input),
+        "connections" => connections::execute(store, input),
         "records" => {
             let action = input["action"].as_str().ok_or("Missing action")?;
             let collection = || {

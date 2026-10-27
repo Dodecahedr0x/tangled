@@ -1,3 +1,10 @@
+---
+title: Connected source organization
+slug: personal-connections
+description: Organize supplied social history with source context and reviewed reply intents.
+order: 17
+---
+
 # Connected-source organization
 
 `connections` is a private, offline view over supplied source activity. It writes ordinary owner-signed, capability-gated `pub.tangled.sourceItem`, `pub.tangled.sourceOverlay`, and `pub.tangled.sourceContact` records and content-addressed blobs. The owner signs the projection; the preserved native sender is never presented as a Tangled author. Capability gating does not imply encryption from the local host operator.
