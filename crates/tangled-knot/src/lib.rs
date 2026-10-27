@@ -14,13 +14,14 @@ use axum::routing::get;
 use axum::Router;
 use serde::Deserialize;
 use tangled::http::{
-    merge_peer_urls, normalize_peer_url, ApiError, KnotClient, KnotRequest, KnotResponse,
-    Method as KnotMethod, SubscribeMessage,
+    merge_peer_urls, normalize_peer_url, ApiError, KnotRequest, KnotResponse, Method as KnotMethod,
+    SubscribeMessage,
 };
 use tangled::identity::Identity;
 use tangled::{Error, KnotEngine, Result as TangledResult};
 use tokio::sync::broadcast;
 
+pub mod discovery;
 pub mod imports;
 mod ws;
 
@@ -128,6 +129,8 @@ pub struct KnotCli {
     pub data: PathBuf,
     pub public_url: Option<String>,
     pub peers: Vec<String>,
+    /// Development only: accept learned peers whose entire DNS answer is loopback.
+    pub allow_learned_loopback: bool,
     pub help: bool,
 }
 
@@ -141,6 +144,7 @@ impl KnotCli {
         let mut data = PathBuf::from("./data");
         let mut public_url = None;
         let mut peers = Vec::new();
+        let mut allow_learned_loopback = false;
         let mut help = false;
         let mut it = args.into_iter();
         while let Some(a) = it.next() {
@@ -176,6 +180,7 @@ impl KnotCli {
                         peers.push(n);
                     }
                 }
+                "--allow-learned-loopback" => allow_learned_loopback = true,
                 "-h" | "--help" => help = true,
                 other => return Err(format!("unknown argument {other}")),
             }
@@ -185,6 +190,7 @@ impl KnotCli {
             data,
             public_url,
             peers,
+            allow_learned_loopback,
             help,
         })
     }
@@ -213,27 +219,57 @@ pub fn collect_public_peers(cli: &[String], data_dir: &Path, env: Option<&str>) 
     out
 }
 
-/// `describe` a remote knot and store its `peers` locally. Does not re-advertise them.
+/// Explicit caller-supplied seed; permits local operator configurations.
 pub async fn learn_from_remote(
     engine: &Mutex<KnotEngine>,
     base: &str,
 ) -> TangledResult<Vec<String>> {
-    let d = KnotClient::http(base).describe().await?;
+    learn_peer(engine, base, true, discovery::DiscoveryOptions::default()).await
+}
+
+async fn learn_peer(
+    engine: &Mutex<KnotEngine>,
+    base: &str,
+    configured: bool,
+    options: discovery::DiscoveryOptions,
+) -> TangledResult<Vec<String>> {
+    let d = discovery::describe_peer_with_options(base, configured, options).await?;
     let mut g = engine
         .lock()
         .map_err(|_| Error::Transport("engine poisoned".into()))?;
-    g.learn_peers(&d.peers);
+    g.peer_succeeded(base);
+    g.learn_peers_from(base, &d.peers);
     Ok(g.learned_peers().to_vec())
 }
 
-/// Best-effort gossip: describe each seed URL and remember its public peers.
+/// Bounded round: reserve seed, known-good and exploration opportunities.
+/// Newly advertised peers wait for the next round; no recursive crawl.
 pub async fn gossip_configured_peers(engine: &Mutex<KnotEngine>, seeds: &[String]) {
-    for url in seeds {
-        let _ = tokio::time::timeout(
-            std::time::Duration::from_secs(3),
-            learn_from_remote(engine, url),
+    gossip_configured_peers_with_options(engine, seeds, discovery::DiscoveryOptions::default())
+        .await;
+}
+
+/// Development exceptions must be supplied explicitly on every discovery round.
+pub async fn gossip_configured_peers_with_options(
+    engine: &Mutex<KnotEngine>,
+    seeds: &[String],
+    options: discovery::DiscoveryOptions,
+) {
+    let attempts = match engine.lock() {
+        Ok(mut g) => g.select_peers(seeds),
+        Err(_) => return,
+    };
+    for attempt in attempts {
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(4),
+            learn_peer(engine, &attempt.url, attempt.configured, options),
         )
         .await;
+        if !matches!(result, Ok(Ok(_))) {
+            if let Ok(mut g) = engine.lock() {
+                g.peer_failed(&attempt.url);
+            }
+        }
     }
 }
 

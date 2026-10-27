@@ -5,7 +5,8 @@ use std::process;
 
 use tangled::KnotEngine;
 use tangled_knot::{
-    collect_public_peers, gossip_configured_peers, load_or_create_identity, KnotCli,
+    collect_public_peers, discovery::DiscoveryOptions, gossip_configured_peers_with_options,
+    load_or_create_identity, KnotCli,
 };
 
 fn print_help() {
@@ -13,13 +14,14 @@ fn print_help() {
         "tangled-knot — Tangled knot HTTP server\n\
          \n\
          Usage:\n\
-           tangled-knot [--listen ADDR] [--data DIR] [--public-url URL] [--peer URL]...\n\
+           tangled-knot [--listen ADDR] [--data DIR] [--public-url URL] [--peer URL]... [--allow-learned-loopback]\n\
          \n\
          Flags:\n\
            --listen ADDR      bind address (default 127.0.0.1:3000; :0 for ephemeral)\n\
            --data DIR         data directory (default ./data)\n\
            --public-url URL   advertised knot URL in getHead / identity.resolve\n\
            --peer URL         public peer knot URL advertised in node.describe (repeatable)\n\
+           --allow-learned-loopback  development only: permit learned loopback peers (default off)\n\
            --help             this message\n\
          \n\
          Also: TANGLED_PEERS (comma or space) and {{data}}/peers.txt (one URL per line).\n\
@@ -108,12 +110,18 @@ async fn main() {
         eprintln!("public peers {}", public_peers.join(" "));
     }
 
+    let discovery_options = DiscoveryOptions {
+        allow_learned_loopback: cli.allow_learned_loopback,
+    };
     let state = tangled_knot::AppState::new(engine, true);
     tokio::spawn({
         let engine = state.engine.clone();
         let seeds = public_peers.clone();
         async move {
-            gossip_configured_peers(&engine, &seeds).await;
+            loop {
+                gossip_configured_peers_with_options(&engine, &seeds, discovery_options).await;
+                tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            }
         }
     });
     if let Err(e) = axum::serve(listener, tangled_knot::router(state)).await {

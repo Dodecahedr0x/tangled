@@ -88,6 +88,8 @@ pub struct KnotEngine {
     pub signing_keys: HashMap<String, [u8; 32]>,
     /// Peer knot URLs learned from other knots' `describe.peers`. Not advertised.
     pub learned_peers: Vec<String>,
+    /// Persisted bounded peer provenance, successes and selection cursor.
+    pub peer_book: crate::peers::PeerBook,
     /// CID-only private archive erasure fences; replayed from the durable fence file.
     pub private_archive_erasure_cids: std::collections::HashSet<String>,
 }
@@ -192,8 +194,44 @@ impl KnotEngine {
 
     /// Remember peer URLs from another knot's `describe`. Never copied into `describe.peers`.
     pub fn learn_peers(&mut self, urls: &[String]) {
-        crate::http::merge_peer_urls(&mut self.learned_peers, urls);
-        let _ = self.persist();
+        self.learn_peers_from("https://legacy.invalid", urls);
+    }
+
+    /// Remember ads with the contacted source's network provenance.
+    pub fn learn_peers_from(&mut self, source: &str, urls: &[String]) {
+        self.peer_book.learn(source, urls);
+        self.learned_peers = self.peer_book.advertised_urls();
+        let _ = self.persist_peer_state();
+    }
+
+    pub fn peer_succeeded(&mut self, url: &str) {
+        self.peer_book.succeeded(url, url);
+        self.learned_peers = self.peer_book.advertised_urls();
+        let _ = self.persist_peer_state();
+    }
+
+    pub fn peer_failed(&mut self, url: &str) {
+        self.peer_book.failed(url);
+        self.learned_peers = self.peer_book.advertised_urls();
+        let _ = self.persist_peer_state();
+    }
+
+    pub fn select_peers(&mut self, seeds: &[String]) -> Vec<crate::peers::PeerAttempt> {
+        let attempts = self.peer_book.select(seeds);
+        let _ = self.persist_peer_state();
+        attempts
+    }
+
+    // Discovery updates write only bounded peer metadata, not every repo block.
+    fn persist_peer_state(&self) -> Result<()> {
+        let Some(dir) = self.data_dir.as_ref() else {
+            return Ok(());
+        };
+        let bytes = serde_json::to_vec_pretty(&self.peer_book)
+            .map_err(|e| Error::Transport(e.to_string()))?;
+        let temp = dir.join("peers-state.json.tmp");
+        std::fs::write(&temp, bytes).map_err(fs_err)?;
+        std::fs::rename(&temp, dir.join("peers-state.json")).map_err(fs_err)
     }
 
     pub fn learned_peers(&self) -> &[String] {
@@ -2703,6 +2741,29 @@ fn write_json(path: impl AsRef<Path>, v: &impl serde::Serialize) -> Result<()> {
     std::fs::write(path, bytes).map_err(fs_err)
 }
 
+// Optional discovery state must not prevent opening authenticated repo state.
+fn load_peer_cache(path: &Path) -> crate::peers::PeerBook {
+    use std::io::Read;
+    const MAX_CACHE_BYTES: u64 = 262_144;
+    let load = || -> Option<crate::peers::PeerBook> {
+        let file = std::fs::File::open(path).ok()?;
+        let mut bytes = Vec::new();
+        file.take(MAX_CACHE_BYTES + 1)
+            .read_to_end(&mut bytes)
+            .ok()?;
+        if bytes.len() as u64 > MAX_CACHE_BYTES {
+            return None;
+        }
+        serde_json::from_slice::<crate::peers::PeerBook>(&bytes)
+            .ok()
+            .map(|book| book.sanitize())
+    };
+    load().unwrap_or_else(|| {
+        eprintln!("ignoring invalid or oversized optional peer discovery cache");
+        crate::peers::PeerBook::default()
+    })
+}
+
 fn read_json<T: for<'de> serde::Deserialize<'de>>(path: &Path) -> Result<T> {
     let bytes = std::fs::read(path).map_err(fs_err)?;
     serde_json::from_slice(&bytes).map_err(|e| Error::Transport(e.to_string()))
@@ -2751,6 +2812,7 @@ fn remove_erased_repo_files(
 }
 
 fn persist_engine(engine: &KnotEngine, dir: &Path) -> Result<()> {
+    engine.persist_peer_state()?;
     write_json(dir.join("describe.json"), &engine.describe)?;
     write_json(
         dir.join("config.json"),
@@ -2856,12 +2918,18 @@ fn load_engine(dir: &Path) -> Result<KnotEngine> {
             .get("knot_base")
             .and_then(|v| v.as_str())
             .map(str::to_string);
-        if let Some(peers) = cfg.get("learned_peers").and_then(|v| v.as_array()) {
-            crate::http::merge_peer_urls(
-                &mut e.learned_peers,
-                peers.iter().filter_map(|v| v.as_str()),
+        if dir.join("peers-state.json").exists() {
+            e.peer_book = load_peer_cache(&dir.join("peers-state.json"));
+        } else if let Some(peers) = cfg.get("learned_peers").and_then(|v| v.as_array()) {
+            e.peer_book.learn(
+                "https://legacy.invalid",
+                &peers
+                    .iter()
+                    .filter_map(|v| v.as_str().map(str::to_string))
+                    .collect::<Vec<_>>(),
             );
         }
+        e.learned_peers = e.peer_book.advertised_urls();
     }
     if dir.join("identities.json").exists() {
         e.identities = read_json(&dir.join("identities.json"))?;

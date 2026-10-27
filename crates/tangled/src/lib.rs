@@ -21,6 +21,7 @@ pub mod knot;
 pub mod mls;
 pub mod mst;
 pub mod page;
+pub mod peers;
 pub mod record;
 pub mod recovery;
 pub mod session;

@@ -22,6 +22,7 @@ cargo run -p tangled-knot -- --listen 127.0.0.1:3000 --data ./data
 | `--data DIR` | `./data` | Identity seeds, records, blobs. |
 | `--public-url URL` | `http://<bound>` | Advertised in `getHead.knot` and `identity.resolve`. |
 | `--peer URL` | none | Public peer knot URL in `node.describe` `peers` (repeatable). |
+| `--allow-learned-loopback` | off | Development only: permit learned destinations whose complete DNS answer is loopback. |
 | `TANGLED_PEERS` | unset | Extra public peer URLs (comma or space). |
 | `{data}/peers.txt` | absent | One public peer URL per line (`#` comments). |
 | `SOLANA_RPC` | unset | JSON-RPC for SNS `.sol` handles. Default tests never set this; CI uses a local validator. |
@@ -100,13 +101,54 @@ Resolve (`GET /xrpc/tangled.ap.resolve`) does WebFinger + actor fetch, then pull
 
 Outbound Create/Follow/Like to the instance inbox is still attempted from this knot. **Inbound** replies from Mastodon need a reachable inbox: run the knot with `--public-url https://your-knot.example` (HTTPS in front). In Reed Search paste `acct:user@instance` (or `@user@instance`) and Follow. Without a public URL, you still see posts via the outbox pull above.
 
+## Peer discovery
+
+Startup and subsequent discovery rounds (60 seconds after each round) reserve
+up to four operator seed attempts, two previously successful peers and two
+unverified peers. Only the first 64 normalized operator seeds participate; seed
+slots rotate between them. A round attempts at most eight peers sequentially
+with a four-second outer deadline per attempt. Advertisements are deferred to
+the next round, with no recursive crawl. Learned URLs are never re-advertised.
+
+The private peer cache holds at most 64 records, eight from any source network
+and four from any destination network. IPv4 /24 and IPv6 /48 group literal
+addresses; the final two DNS labels form a heuristic group. Successful peers
+survive unverified floods; three consecutive failed attempts remove them.
+Source and network groups limit concentration, not Sybil ownership. Independent
+operator seeds remain important. DNS aliases, shared hosting, and public suffixes
+limit the grouping heuristic.
+
+Learned URLs must be HTTP(S) origins. Discovery rejects private/nonpublic DNS
+answers, pins checked addresses, disables proxies and redirects, and limits
+responses to 64 KiB. Explicit `--peer`/environment/file seeds can use private
+addresses only when selected as exact operator-supplied origins. Advertisements
+never inherit that permission. Learned discovery is public-only by default even
+when `--public-url` is localhost or a loopback IP.
+
+Local demonstrations that need learned loopback peers must explicitly pass
+`--allow-learned-loopback` on each daemon launch. This development exception
+requires **every** resolved address to be loopback; it rejects LAN, metadata,
+and mixed public/loopback or public/private DNS answers. IPv4 and IPv6 loopback
+answers may appear together. It does not enable proxies or redirects or change
+response/time/attempt bounds. Public helper functions remain strict by default;
+embedded callers must explicitly use `DiscoveryOptions` with the options variants.
+These rules apply to peer discovery, not arbitrary content fetches or ActivityPub's
+separate policy.
+
+Peer state uses a bounded optional `peers-state.json` cache, atomically replaced
+without rewriting repository blocks. Missing older caches migrate from legacy
+`config.json` URLs. Malformed/oversized peer caches emit a diagnostic and reset
+only discovery state; operator seeds remain usable. Peer cache updates are
+best-effort and do not provide power-loss durability.
+
 ## Data directory
 
 ```
 data/
   identity.json          # knot Ed25519 + X25519 seeds
   describe.json
-  config.json            # includes learned_peers (not advertised)
+  config.json            # legacy learned_peers fallback; not advertised
+  peers-state.json       # bounded peer provenance, successful contacts, cursor
   peers.txt              # optional operator public peer URLs
   identities.json
   heads.json
