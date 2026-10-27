@@ -130,3 +130,32 @@ test('reading state mutations retain the item URI and source HTML is inert', asy
   await byText(root, 'Mark read').onClick();
   assert.deepEqual(ctx.calls.find(([, i]) => i.action === 'mark')[1], { action: 'mark', item: item.uri, read: true });
 });
+
+async function htmlArticleText(html) {
+  const item = { uri: 'tangled://owner/feedItem/html', ts: 1, body: { title: 'HTML article', body: html, bodyType: 'html', sourceUrl: 'https://source.test/feed' }, reading: {} };
+  const ctx = context((_, request) => request.action === 'list' ? { subscriptions: [] } : { items: [item] });
+  const root = el('main'); await mountFeeds(root, ctx); await byText(root, 'HTML article').onClick();
+  return { text: nodes(root).find(node => node.class === 'reader-body').textContent, item };
+}
+
+test('HTML feed articles read naturally without markup or active-content text', async () => {
+  const html = '<p>Morning light across <b>orchids</b>.</p><script>alert("hidden")</script><style>.hidden {color:red}</style><p>Second paragraph.</p>';
+  const { text, item } = await htmlArticleText(html);
+  assert.equal(text, 'Morning light across orchids.\n\nSecond paragraph.');
+  assert.equal(item.body.body, html, 'source evidence remains unchanged');
+});
+
+test('HTML plain text preserves entities and handles quoted tag delimiters', async () => {
+  const { text } = await htmlArticleText('<p title="a > b">Tea &amp; cake&nbsp;&#8212; &#x1F337; &lt;3 &quot;hello&quot;</p><p>Line<br>two &copy; 2026 &Eacute; &eacute; &AMP; &constructor;</p>');
+  assert.equal(text, 'Tea & cake — 🌷 <3 "hello"\n\nLine\ntwo © 2026 É é & &constructor;');
+});
+
+test('malformed HTML stays bounded and does not reveal unterminated script content', async () => {
+  assert.equal((await htmlArticleText('<p>Visible</p><!-- no end <script>hidden')).text, 'Visible');
+  assert.equal((await htmlArticleText('<p>Visible</p><ScRiPt data-x=">">hidden <b>text')).text, 'Visible');
+  assert.equal((await htmlArticleText('<p>Visible</p><a title="unterminated > hidden')).text, 'Visible');
+  const { text } = await htmlArticleText('<p>' + 'x'.repeat(300000) + '</p>');
+  assert.ok(text.length <= 262144, 'reader extraction bounds oversized input');
+  const multibyte = (await htmlArticleText('é'.repeat(262144))).text;
+  assert.ok(new TextEncoder().encode(multibyte).length <= 262144, 'input is bounded by UTF-8 bytes');
+});

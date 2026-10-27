@@ -33,6 +33,58 @@ function safeLink(value) {
   } catch { return null; }
 }
 
+// Bounded text extraction for a reader, not an HTML sanitizer. Never parsed into a live DOM.
+function feedPlainText(html) {
+  const bytes = new TextEncoder().encode(String(html).slice(0, 256 * 1024));
+  const source = new TextDecoder().decode(bytes.subarray(0, 256 * 1024), { stream: true }), pieces = [];
+  const paragraphs = new Set(['address', 'article', 'aside', 'blockquote', 'div', 'dl', 'fieldset', 'figcaption', 'figure', 'footer', 'form', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'main', 'nav', 'ol', 'p', 'pre', 'section', 'table', 'ul']);
+  const lines = new Set(['br', 'dt', 'dd', 'li', 'tr']);
+  let index = 0, suppressed = '';
+  while (index < source.length) {
+    if (suppressed) {
+      const close = new RegExp(`</${suppressed}(?=[\\s/>])`, 'ig'); close.lastIndex = index;
+      const match = close.exec(source);
+      if (!match) break;
+      index = match.index; suppressed = '';
+    }
+    if (source[index] !== '<') {
+      const end = source.indexOf('<', index);
+      pieces.push(source.slice(index, end < 0 ? source.length : end).replace(/\s+/g, ' '));
+      index = end < 0 ? source.length : end; continue;
+    }
+    if (source.startsWith('<!--', index)) {
+      const end = source.indexOf('-->', index + 4);
+      index = end < 0 ? source.length : end + 3; continue;
+    }
+    const tag = /^<\/?([a-z][a-z0-9:-]*)(?=[\s/>]|$)/i.exec(source.slice(index, index + 128));
+    const declaration = /^<!|^<\?/.test(source.slice(index, index + 2));
+    if (!tag && !declaration) { pieces.push('<'); index++; continue; }
+    let end = index + (tag?.[0].length || 2), quote = '';
+    for (; end < source.length; end++) {
+      const char = source[end];
+      if (quote) { if (char === quote) quote = ''; }
+      else if (char === '"' || char === "'") quote = char;
+      else if (char === '>') break;
+    }
+    if (end === source.length) break; // An unfinished tag/attribute cannot expose hidden trailing text.
+    const name = tag?.[1].toLowerCase(), closing = source[index + 1] === '/';
+    if (!closing && (name === 'script' || name === 'style')) suppressed = name;
+    if (paragraphs.has(name)) pieces.push('\n\n');
+    else if (lines.has(name)) pieces.push('\n');
+    else if (name === 'td' || name === 'th') pieces.push(' ');
+    index = end + 1;
+  }
+  const entities = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', copy: '©', reg: '®', trade: '™', ndash: '–', mdash: '—', hellip: '…', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', bull: '•', middot: '·', euro: '€', pound: '£', yen: '¥', cent: '¢', times: '×', divide: '÷' };
+  const latinNames = 'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml';
+  latinNames.split(' ').forEach((name, offset) => { entities[name] = String.fromCodePoint(160 + offset); });
+  Object.assign(entities, { AMP: '&', LT: '<', GT: '>', QUOT: '"' });
+  return pieces.join('').replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z][a-z0-9]{1,31});/gi, (whole, entity) => {
+    if (entity[0] !== '#') return Object.hasOwn(entities, entity) ? entities[entity] : whole;
+    const hex = entity[1]?.toLowerCase() === 'x', point = Number.parseInt(entity.slice(hex ? 2 : 1), hex ? 16 : 10);
+    return point > 0 && point <= 0x10ffff && !(point >= 0xd800 && point <= 0xdfff) ? String.fromCodePoint(point) : '\ufffd';
+  }).replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
 export async function mountFeeds(root, ctx) {
   const feedback = status(), subscriptions = el('div', { class: 'list' }), queue = el('div', { class: 'list' });
   const reader = el('article', { class: 'reader', 'aria-label': 'Feed reader' });
@@ -84,8 +136,8 @@ export async function mountFeeds(root, ctx) {
       meta(`Imported locally: ${timeLabel(item.ts)}`),
       el('div', { class: 'actions' }, read, star, link),
       field('Article tags', itemTags, 'Comma-separated. Subscription tags also apply.'), saveTags,
-      body.bodyType === 'html' ? meta('Source markup is shown as inert text.') : null,
-      el('div', { class: 'reader-body', text: body.body || 'This source entry has no article text.' }));
+      body.bodyType === 'html' ? meta('Plain-text reading view. The original XML remains preserved with the imported entry.') : null,
+      el('div', { class: 'reader-body', text: (body.bodyType === 'html' ? feedPlainText(body.body || '') : body.body) || 'This source entry has no article text.' }));
   }
   async function loadQueue() {
     const generation = ++queueGeneration;
