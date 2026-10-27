@@ -30,11 +30,12 @@ pub fn DiscoverView(
     rsx! {
         div { class: "shell",
             BandRail { show_refresh: true, self_did, on_refresh }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
                 if knot_unreachable {
                     div { class: "banner", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
                 }
-                p { class: "page-title",
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Discover"
                 }

@@ -8,13 +8,16 @@ pub fn BandRail(
     #[props(default)] show_refresh: bool,
     #[props(default)] on_refresh: EventHandler<()>,
 ) -> Element {
+    let context = try_use_context::<Signal<crate::state::Ui>>();
+    let host = context.map(|s| s().knot).unwrap_or_default();
     rsx! {
-        nav { class: "rail",
+        nav { class: "rail", aria_label: "Application navigation",
             div { class: "rail-head",
                 div { class: "brand",
                     span { class: "tick" }
                     "Weft"
                 }
+                p { class: "rail-description", "A view of the public network" }
             }
             div { class: "rail-nav",
                 AppLink { to: Route::Overview {}, class: "rail-link",
@@ -42,6 +45,11 @@ pub fn BandRail(
                         span { "Refresh" }
                     }
                 }
+            }
+            div { class: "identity-anchor",
+                strong { "Read-only explorer" }
+                span { "Configured knot and advertised public peers" }
+                if !host.is_empty() { code { "{host}" } }
             }
         }
     }

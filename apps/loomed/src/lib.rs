@@ -3,13 +3,17 @@
 use dioxus::prelude::*;
 
 mod compose;
+mod icons;
 mod inbox;
 mod labels;
 mod notify;
 mod onboard;
 mod paths;
+mod rail;
 mod settings;
 mod state;
+#[path = "../../suite.rs"]
+mod suite;
 mod thread;
 
 pub use compose::Compose;
@@ -22,14 +26,13 @@ pub use thread::{Thread, ThreadView};
 #[component]
 pub fn AppLink(to: Route, #[props(default)] class: String, children: Element) -> Element {
     let href = to.to_string();
-    if try_consume_context::<dioxus::prelude::dioxus_router::RouterContext>().is_some() {
-        rsx! {
-            Link { to, class, {children} }
-        }
+    let router = try_consume_context::<dioxus::prelude::dioxus_router::RouterContext>();
+    let current = router.as_ref().is_some_and(|r| r.current::<Route>() == to);
+    let active = if current { Some("page") } else { None };
+    if router.is_some() {
+        rsx! { Link { to, class, aria_current: active,  {children} } }
     } else {
-        rsx! {
-            a { href, class, {children} }
-        }
+        rsx! { a { href, class, aria_current: active,  {children} } }
     }
 }
 
@@ -46,7 +49,7 @@ const MPLUS_CODE: Asset = asset!(
 pub const APP_CSS: &str = include_str!("../assets/app.css");
 
 fn app_style() -> String {
-    APP_CSS
+    format!("{}\n{}", include_str!("../../commons.css"), APP_CSS)
         .replace(
             "url(\"./fonts/FiraSans-Regular.woff2\")",
             &format!(
@@ -104,6 +107,7 @@ pub fn App() -> Element {
     let _ = ui;
     rsx! {
         style { {app_style()} }
+        a { href: "#main-content", class: "skip-link", "Skip to main content" }
         Router::<Route> {}
     }
 }

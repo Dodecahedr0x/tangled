@@ -11,9 +11,10 @@ pub fn Settings() -> Element {
     rsx! {
         div { class: "shell",
             BandRail {}
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Weft" }
                 div { class: "stage-panel",
-                    p { class: "page-title",
+                    h1 { class: "page-title",
                         span { class: "tick" }
                         "Settings"
                     }

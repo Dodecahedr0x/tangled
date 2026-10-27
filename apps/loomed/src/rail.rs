@@ -17,14 +17,22 @@ pub fn BandRail(
     #[props(default)] on_query: EventHandler<String>,
     #[props(default)] on_refresh: EventHandler<()>,
 ) -> Element {
+    let context = try_use_context::<Signal<crate::state::Ui>>();
+    let host = context.map(|s| s().knot).unwrap_or_default();
+    let self_did = if self_did.is_empty() {
+        context.and_then(|s| s().did).unwrap_or_default()
+    } else {
+        self_did
+    };
     let me = (!self_did.is_empty()).then_some(self_did.as_str());
     rsx! {
-        nav { class: "rail",
+        nav { class: "rail", aria_label: "Application navigation",
             div { class: "rail-head",
                 div { class: "brand",
                     span { class: "tick" }
-                    "loomed"
+                    "Loomed"
                 }
+                p { class: "rail-description", "Private conversations, together" }
                 if show_tune {
                     label { class: "tune-wrap",
                         Icon { glyph: Glyph::Search }
@@ -42,11 +50,7 @@ pub fn BandRail(
             div { class: "rail-list",
                 for c in conversations.iter() {
                     AppLink {
-                        class: if c.circle.0 == active_circle {
-                            "conv is-active"
-                        } else {
-                            "conv"
-                        },
+                        class: if c.circle.0 == active_circle { "conv is-active" } else { "conv" },
                         to: Route::Thread {
                             circle: c.circle.0.clone(),
                         },
@@ -73,12 +77,12 @@ pub fn BandRail(
                 if show_band {
                     AppLink { to: Route::Inbox {}, class: "rail-link",
                         Icon { glyph: Glyph::Chats }
-                        span { "Chats" }
+                        span { "Inbox" }
                     }
                 }
                 AppLink { to: Route::Compose {}, class: "rail-link",
                     Icon { glyph: Glyph::NewChat }
-                    span { "New chat" }
+                    span { "New conversation" }
                 }
                 AppLink { to: Route::Settings {}, class: "rail-link",
                     Icon { glyph: Glyph::Settings }
@@ -98,6 +102,11 @@ pub fn BandRail(
                         span { "Refresh" }
                     }
                 }
+            }
+            div { class: "identity-anchor",
+                strong { "Keys on this device" }
+                if !self_did.is_empty() { code { "{self_did}" } }
+                if !host.is_empty() { code { "{host}" } }
             }
         }
     }

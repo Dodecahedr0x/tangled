@@ -23,13 +23,15 @@ pub fn OnboardView() -> Element {
     rsx! {
         div { class: "shell",
             BandRail { self_did }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
                 div { class: "stage-panel",
-                    p { class: "page-title",
+                    h1 { class: "page-title",
                         span { class: "tick" }
                         "Identity"
                     }
-                    p { class: "muted", "Generate a new identity or import a key file." }
+                    p { class: "muted", "Generate a new identity or import a key file. Keys stay on this device; your provider password does not restore them." }
+                    p { class: "banner", "Generating or importing replaces the current local identity. Keep your existing key file before continuing." }
                     button {
                         onclick: move |_| {
                             let keys = ReedKeys::generate();

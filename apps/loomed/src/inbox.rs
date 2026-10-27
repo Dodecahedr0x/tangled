@@ -42,35 +42,22 @@ pub fn InboxView(
     let me = (!self_did.is_empty()).then_some(self_did.as_str());
     rsx! {
         div { class: "shell",
-            nav { class: "rail",
-                div { class: "rail-head",
-                    div { class: "brand", "Loomed" }
-                    input {
-                        r#type: "search",
-                        class: "tune",
-                        placeholder: "Search",
-                        aria_label: "search",
-                        value: query,
-                        oninput: move |e| on_query.call(e.value()),
-                    }
-                }
-                div { class: "rail-nav",
-                    AppLink { to: Route::Inbox {}, class: "rail-link", "Inbox" }
-                    AppLink { to: Route::Compose {}, class: "rail-link", "New" }
-                    AppLink { to: Route::Settings {}, class: "rail-link", "Settings" }
-                    AppLink { to: Route::Onboard {}, class: "rail-link", "Identity" }
-                }
+            crate::rail::BandRail {
+                show_band: true, show_tune: true,
+                query: query.clone(), self_did: self_did.clone(), on_query,
             }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Loomed" }
                 div { class: "band",
                     if knot_unreachable {
                         span { class: "banner late", {knot_banner()} }
                     }
                 }
-                div { class: "sheet-cols pair",
-                    span { "Who" }
-                    span { "Last" }
+                div { class: "inbox-intro",
+                    h1 { class: "page-title", "Messages" }
+                    AppLink { to: Route::Compose {}, class: "button", "New conversation" }
                 }
+                p { class: "scope-label private", "Private conversations" }
                 if conversations.is_empty() && hits.is_empty() && !knot_unreachable {
                     p { class: "muted empty-stage", "No conversations yet" }
                 }
@@ -82,7 +69,7 @@ pub fn InboxView(
                         },
                         span { class: "conv-title",
                             if c.unread > 0 {
-                                span { class: "late-mark" }
+                                span { class: "unread-label", "Unread" }
                             }
                             {
                                 let peers = row_peers(c);

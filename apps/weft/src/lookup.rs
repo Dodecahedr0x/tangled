@@ -33,11 +33,12 @@ pub fn LookupView(
     rsx! {
         div { class: "shell",
             BandRail {}
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Weft" }
                 if knot_unreachable {
                     div { class: "banner", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
                 }
-                p { class: "page-title",
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Lookup"
                 }
@@ -71,7 +72,7 @@ fn HitCard(hit: LookupHit) -> Element {
     match hit {
         LookupHit::Knot { url, stats } => rsx! {
             div { class: "hit",
-                p { class: "page-title",
+                h2 { class: "page-title",
                     span { class: "tick" }
                     "Knot"
                 }
@@ -90,7 +91,7 @@ fn HitCard(hit: LookupHit) -> Element {
             records,
         } => rsx! {
             div { class: "hit",
-                p { class: "page-title",
+                h2 { class: "page-title",
                     span { class: "tick" }
                     "Identity"
                 }

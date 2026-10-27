@@ -22,6 +22,7 @@ pub fn Thread(cid: String) -> Element {
 #[component]
 pub fn ThreadView(cid: String, posts: Vec<Post>, draft: String, self_did: String) -> Element {
     let mut draft = use_signal(|| draft);
+    let mut error = use_signal(String::new);
     let root = posts
         .first()
         .map(|p| p.id.0.clone())
@@ -29,8 +30,9 @@ pub fn ThreadView(cid: String, posts: Vec<Post>, draft: String, self_did: String
     rsx! {
         div { class: "shell",
             BandRail { self_did: self_did.clone() }
-            section { class: "stage",
-                p { class: "page-title",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Thread"
                 }
@@ -42,8 +44,12 @@ pub fn ThreadView(cid: String, posts: Vec<Post>, draft: String, self_did: String
                         }
                     }
                 }
+                if !error().is_empty() { p { class: "banner late", role: "alert", "{error}" } }
                 div { class: "compose",
+                    label { r#for: "public-reply", "Public reply" }
                     input {
+                        id: "public-reply",
+                        aria_label: "Public reply",
                         value: draft,
                         placeholder: "Reply",
                         oninput: move |e| draft.set(e.value()),
@@ -52,8 +58,9 @@ pub fn ThreadView(cid: String, posts: Vec<Post>, draft: String, self_did: String
                         onclick: move |_| {
                             let text = draft();
                             if text.is_empty() { return; }
-                            if transmit(&cid, &text).is_ok() {
-                                draft.set(String::new());
+                            match transmit(&cid, &text) {
+                                Ok(_) => { draft.set(String::new()); error.set(String::new()); }
+                                Err(err) => error.set(err.to_string()),
                             }
                         },
                         "Send"

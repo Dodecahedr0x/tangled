@@ -690,8 +690,16 @@ async fn car_export_filters_private_record_blocks_and_scoped_siblings() {
         .blocks
         .iter()
         .any(|(cid, _)| cid == &circle_log.cid));
-    for (label, cid) in [("other circle payload", &other.cid), ("other circle log", &other_log.cid), ("unrelated private record", &private.cid)] {
-        assert!(circle_car.get(cid).is_none(), "circle CAR leaked {label} {cid}: {:?}", circle_car.get(cid).map(tangled::dagcbor::decode_json));
+    for (label, cid) in [
+        ("other circle payload", &other.cid),
+        ("other circle log", &other_log.cid),
+        ("unrelated private record", &private.cid),
+    ] {
+        assert!(
+            circle_car.get(cid).is_none(),
+            "circle CAR leaked {label} {cid}: {:?}",
+            circle_car.get(cid).map(tangled::dagcbor::decode_json)
+        );
     }
 }
 

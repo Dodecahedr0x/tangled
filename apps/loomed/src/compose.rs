@@ -11,14 +11,15 @@ pub fn Compose() -> Element {
     let mut note = use_signal(String::new);
     rsx! {
         div { class: "shell",
-            nav { class: "rail",
-                div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
-                }
-            }
-            section { class: "stage stage-pad",
-                p { class: "brand", "New" }
+            crate::rail::BandRail { show_band: true }
+            main { class: "stage stage-pad", id: "main-content",
+                crate::suite::SuiteBar { current: "Loomed" }
+                AppLink { to: Route::Inbox {}, class: "back-link", "Back to Inbox" }
+                h1 { class: "page-title", "New conversation" }
+                p { class: "scope-label private", "Private conversation" }
+                label { r#for: "recipient", "Recipient identity or handle" }
                 input {
+                    id: "recipient",
                     r#type: "text",
                     placeholder: "did:sol or handle",
                     value: peer,
@@ -28,7 +29,7 @@ pub fn Compose() -> Element {
                     onclick: move |_| {
                         note.set(open_circle(&peer()));
                     },
-                    "open"
+                    "Start conversation"
                 }
                 if !note().is_empty() {
                     p { class: "muted", {note()} }

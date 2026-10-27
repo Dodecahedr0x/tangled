@@ -22,13 +22,17 @@ pub fn ComposeView(#[props(default)] self_did: String) -> Element {
     rsx! {
         div { class: "shell",
             BandRail { self_did }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
                 div { class: "stage-panel",
-                    p { class: "page-title",
+                    h1 { class: "page-title",
                         span { class: "tick" }
                         "Compose"
                     }
+                    p { class: "scope-label", "Public post" }
+                    label { r#for: "public-post", "Your public post" }
                     textarea {
+                        id: "public-post",
                         placeholder: "What's happening",
                         value: draft,
                         oninput: move |e| draft.set(e.value()),

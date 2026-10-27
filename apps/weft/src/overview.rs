@@ -29,7 +29,8 @@ pub fn OverviewView(
     rsx! {
         div { class: "shell",
             BandRail { show_refresh: true, on_refresh }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Weft" }
                 div { class: "band",
                     if knot_unconfigured {
                         span { class: "banner", {banner_text(KnotStatus::Unconfigured).unwrap_or("No knot URL set")} }
@@ -37,10 +38,11 @@ pub fn OverviewView(
                         span { class: "banner late", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
                     }
                 }
-                p { class: "page-title",
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Overview"
                 }
+                p { class: "muted", "Read-only view of your configured knot and its advertised public peers. These counts are not a view of the entire network." }
                 if let Some(view) = view.as_ref() {
                     div { class: "stat-grid",
                         Stat { label: "Knots", value: view.totals.knots.to_string() }

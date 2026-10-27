@@ -2,6 +2,51 @@
 name: Tangled
 description: Protocol site — funnel: plain landing, mechanism docs, rustdoc spec
 colors:
+  application-rail: "#153e38"
+  application-leaf: "#d8edc8"
+  application-canvas: "#f3f6f5"
+  application-surface: "#fff"
+  application-text: "#203b35"
+  application-muted: "#52665c"
+  application-line: "#dce5df"
+  application-input: "#a4b6aa"
+  application-focus: "#427c6e"
+  application-rail-text: "#f3f8f4"
+  application-rail-description: "#bdd4c7"
+  application-rail-link: "#e2eee8"
+  application-rail-hover: "#2a5048"
+  application-anchor-line: "#4b6d61"
+  application-anchor-text: "#c0d6ca"
+  application-scope-bg: "#e8eeea"
+  application-scope-ink: "#3e5e49"
+  application-private-bg: "#eeeaf6"
+  application-private-ink: "#574675"
+  application-warning-bg: "#fbf4df"
+  application-warning-ink: "#70511d"
+  application-warning-line: "#e0d7b9"
+  application-danger: "#9b302b"
+  application-error-bg: "#fbefed"
+  application-error-line: "#e2c6c0"
+  application-placeholder: "#60756a"
+  application-rail-input: "#234d43"
+  application-rail-input-line: "#719584"
+  application-rail-placeholder: "#d0e1d5"
+  application-primary-hover: "#25594e"
+  application-secondary-hover: "#eef4ef"
+  application-selection: "#edf4e9"
+  application-fixture-bg: "#e6eee9"
+  application-fixture-ink: "#344d41"
+  application-feed-current: "#52785c"
+  application-federation-ink: "#3f654c"
+  application-quiet-surface: "#edf3ee"
+  application-reply-line: "#cbd9cb"
+  application-message-incoming: "#eef2ef"
+  application-message-own: "#dfeecf"
+  application-graph-edge: "#a9bdb0"
+  application-graph-node-line: "#496e54"
+  application-graph-hosted: "#e5eeea"
+  application-provider-ghost-line: "#6f9184"
+  application-provider-anchor-line: "#51736a"
   bg: "#12141a"
   bg-sidebar: "#0c0e12"
   bg-code: "#1a1d24"
@@ -20,6 +65,113 @@ colors:
   callout-note: "#3d2a1f"
   scrim: "rgba(0, 0, 0, 0.55)"
 typography:
+  application-metadata-small:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "11px"
+    fontWeight: 400
+    lineHeight: 1.55
+  application-metadata:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.55
+  application-secondary:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "13px"
+    fontWeight: 400
+    lineHeight: 1.55
+  application-control:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "14px"
+    fontWeight: 550
+    lineHeight: 1.4
+  application-title-small:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "15px"
+    fontWeight: 600
+    lineHeight: 1.55
+  application-body:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "16px"
+    fontWeight: 400
+    lineHeight: 1.55
+  application-context-title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "17px"
+    fontWeight: 700
+    lineHeight: 1.25
+  application-stat-mobile:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "18px"
+    fontWeight: 550
+    lineHeight: 1.55
+  application-section:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "19px"
+    fontWeight: 650
+    lineHeight: 1.35
+  application-stat:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "20px"
+    fontWeight: 550
+    lineHeight: 1.55
+  application-empty-title:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "21px"
+    fontWeight: 600
+    lineHeight: 1.55
+  application-thread-profile:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "23px"
+    fontWeight: 600
+    lineHeight: 1.25
+  application-avatar-large:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "24px"
+    fontWeight: 600
+    lineHeight: 1.55
+  application-page-mobile:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "26px"
+    fontWeight: 650
+    lineHeight: 1.25
+  application-brand-mobile:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "27px"
+    fontWeight: 650
+    lineHeight: 1.55
+  application-page:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "29px"
+    fontWeight: 650
+    lineHeight: 1.25
+  application-provider-brand:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "30px"
+    fontWeight: 700
+    lineHeight: 1.2
+  application-brand:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "32px"
+    fontWeight: 650
+    lineHeight: 1.55
+  application-provider-page:
+    fontFamily: "-apple-system, BlinkMacSystemFont, \"Segoe UI\", sans-serif"
+    fontSize: "34px"
+    fontWeight: 650
+    lineHeight: 1.2
+  application-identifier:
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace"
+    fontSize: "12px"
+    lineHeight: 1.55
+  application-ui:
+    fontFamily: "-apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+    fontSize: "16px"
+    lineHeight: 1.55
+  application-code:
+    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace"
+    fontSize: "12px"
+    lineHeight: 1.55
   ui:
     fontFamily: "Fira Sans, ui-sans-serif, system-ui, sans-serif"
     fontSize: "14px"
@@ -99,9 +251,22 @@ typography:
     lineHeight: 1.55
     letterSpacing: "0"
 rounded:
+  application-badge: "5px"
+  application-field: "7px"
+  application-control: "8px"
+  application-surface: "10px"
+  application-message-tail: "2px"
+  application-avatar: "50%"
   sm: "2px"
   md: "4px"
 spacing:
+  application-space-1: "4px"
+  application-space-2: "8px"
+  application-space-3: "12px"
+  application-space-4: "16px"
+  application-space-5: "20px"
+  application-space-6: "28px"
+  application-space-7: "40px"
   sm: "8px"
   md: "16px"
   lg: "32px"
@@ -127,6 +292,8 @@ components:
 ---
 
 # Design
+
+This file governs the documentation website. The user-approved Commons system for Reed, Loomed, Weft, and the hosted provider is documented in `apps/DESIGN.md`; its shared runtime tokens live in `apps/commons.css`. App screens do not inherit the site’s copper/slate palette.
 
 ## Overview
 

@@ -169,7 +169,7 @@ fn profile_page() -> Element {
 }
 
 #[test]
-fn fira_sans_is_vendored() {
+fn commons_keeps_local_font_assets_and_needs_no_remote_fonts() {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
     let regular = root.join("assets/fonts/FiraSans-Regular.woff2");
     let ofl = root.join("assets/fonts/OFL.txt");
@@ -183,20 +183,15 @@ fn fira_sans_is_vendored() {
         ofl_text.contains("SIL OPEN FONT LICENSE"),
         "OFL text missing in {ofl:?}"
     );
-    assert!(crate::APP_CSS.contains("@font-face"), "{}", crate::APP_CSS);
+    let css = crate::app_style();
     assert!(
-        crate::APP_CSS.contains("FiraSans-Regular.woff2"),
-        "{}",
-        crate::APP_CSS
+        !css.contains("fonts.googleapis.com") && !css.contains("fonts.gstatic.com"),
+        "app styles must not require external font requests"
     );
     assert!(
-        !crate::APP_CSS.contains("fonts.googleapis.com")
-            && !crate::APP_CSS.contains("fonts.gstatic.com"),
-        "must not hotlink Google Fonts"
+        css.contains("color-scheme: light"),
+        "Commons is a light reading surface"
     );
-    assert!(crate::APP_CSS.contains("#ffffff"));
-    assert!(crate::APP_CSS.contains("#111111"));
-    assert!(crate::APP_CSS.contains("#e30613"));
 }
 
 #[test]
@@ -773,4 +768,65 @@ fn desktop_notify_never_looks_up_use_default() {
     assert!(!prod.contains("\"use_default\""));
     assert!(prod.contains("set_application"));
     assert_ne!(crate::notify::macos_notify_bundle_id(), "use_default");
+}
+
+#[test]
+fn commons_home_exposes_public_compose_and_local_custody() {
+    let s = html(home_with_posts);
+    assert!(s.contains("<h1"), "Home needs a real page heading: {s}");
+    assert!(
+        s.contains("Posts on Reed are public"),
+        "composer must name public scope: {s}"
+    );
+    assert!(
+        s.contains("Keys on this device"),
+        "local custody stays visible: {s}"
+    );
+    assert!(
+        s.contains("Application navigation"),
+        "navigation must be labeled: {s}"
+    );
+}
+
+#[test]
+fn capture_commons_reed_views() {
+    let Ok(dir) = std::env::var("TANGLED_DESIGN_CAPTURE_DIR") else {
+        return;
+    };
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, root) in [
+        ("reed-home", home_with_posts as fn() -> Element),
+        ("reed-empty", empty_home),
+        ("reed-offline", unreachable_home),
+        ("reed-profile", profile_page),
+        ("reed-thread", quiet_thread),
+        ("reed-identity", onboard),
+    ] {
+        std::fs::write(std::path::Path::new(&dir).join(format!("{name}.html")), format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{name}</title><style>{}</style><p class=\"fixture-note\">Synthetic test data · server-rendered Rust view</p>{}</html>", crate::app_style(), html(root))).unwrap();
+    }
+}
+
+#[test]
+fn public_scope_is_present_at_post_and_reply_submission() {
+    fn compose() -> Element {
+        rsx! { crate::compose::ComposeView {} }
+    }
+    let s = html(compose);
+    assert!(
+        s.contains("Public post"),
+        "scope must be visible where users submit: {s}"
+    );
+    assert!(
+        s.contains("for=\"public-post\"") && s.contains("id=\"public-post\""),
+        "composer label must be associated: {s}"
+    );
+    let reply = html(quiet_thread);
+    assert!(
+        reply.contains("Public reply"),
+        "reply scope must remain visible: {reply}"
+    );
+    assert!(
+        reply.contains("aria-label=\"Public reply\""),
+        "reply field must be named: {reply}"
+    );
 }

@@ -139,6 +139,7 @@ pub fn ThreadView(
 ) -> Element {
     let mut draft = use_signal(|| draft);
     let mut messages = use_signal(|| messages);
+    let mut error = use_signal(String::new);
     let circle_send = circle.clone();
     let shown = messages();
     let peers = if recipients.is_empty() {
@@ -155,14 +156,13 @@ pub fn ThreadView(
     let subtitle = group_subtitle(member_count(&peers));
     rsx! {
         div { class: "shell",
-            nav { class: "rail",
-                div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
-                }
-            }
-            section { class: "stage",
+            crate::rail::BandRail { show_band: true }
+            main { class: "stage thread-stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Loomed" }
+                AppLink { to: Route::Inbox {}, class: "back-link", "Back to Inbox" }
                 header { class: "thread-header",
-                    p { class: "thread-header-title",
+                    p { class: "scope-label private", "Private conversation" }
+                    h1 { class: "thread-header-title",
                         span { class: "tick" }
                         {title}
                     }
@@ -222,6 +222,9 @@ pub fn ThreadView(
                         }
                     }
                 }
+                if !error().is_empty() {
+                    p { class: "banner late", role: "alert", "{error}" }
+                }
                 form {
                     class: "compose",
                     onsubmit: move |e| {
@@ -230,19 +233,27 @@ pub fn ThreadView(
                         if text.trim().is_empty() {
                             return;
                         }
-                        if transmit(&circle_send, &text).is_ok() {
-                            messages.set(messages_for(&circle_send));
-                            draft.set(String::new());
+                        match transmit(&circle_send, &text) {
+                            Ok(_) => {
+                                messages.set(messages_for(&circle_send));
+                                draft.set(String::new());
+                                error.set(String::new());
+                            }
+                            Err(err) => error.set(err.to_string()),
                         }
                     },
                     input {
                         r#type: "text",
                         name: "compose",
-                        placeholder: "transmit",
+                        placeholder: "Write a message",
+                        aria_label: "Message",
                         value: draft,
                         oninput: move |e| draft.set(e.value()),
                     }
-                    button { r#type: "submit", "send" }
+                    button { r#type: "submit",
+                        crate::icons::Icon { glyph: crate::icons::Glyph::Send }
+                        "Send"
+                    }
                 }
             }
         }

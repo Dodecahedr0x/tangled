@@ -2,19 +2,19 @@
 version: 1
 slug: "apps-reed-assets-app-css"
 primary_target: "apps/reed/assets/app.css"
-related_targets: ["apps/loomed/assets/app.css","apps/weft/assets/app.css"]
+related_targets: ["apps/commons.css", "apps/loomed/assets/app.css", "apps/weft/assets/app.css", "crates/tangled-provider/src/commons.css"]
 ---
 
 ## Direction contract
 
-THESIS: Reed, Loomed, and Weft are one departure sheet. The card feed and the docs-site copper rail are refused.
+THESIS: One approachable Commons family, with familiar layouts tailored to public reading, private conversation, public network inspection, and hosted account management. The user chose a full redesign and selected Commons.
 
-OWN-WORLD: White ground, black hairline rules, tabular figures, red `#e30613` only as the late mark. Words, not icons. A row is the control.
+OWN-WORLD: Evergreen navigation, pale leaf selection, cool light canvas, white reading and form surfaces, native UI sans, 8px controls and restrained dividers. See apps/DESIGN.md for runtime tokens.
 
-STORY: Someone reads the public feed, a private thread, or a knot’s peers the way they read a timetable: time, name, status. They compose, search, and set the knot on that same sheet.
+STORY: Read and publish in Reed, message privately in Loomed, inspect scoped observations in Weft, and manage provider custody. Device and host identities stay distinct.
 
-FIRST VIEWPORT: Reed home. A left column of words: Reed, Home with a red square, Discover, Compose, Search, Settings, Identity. The sheet columns are Time, Author, Post. A red line, “Cannot reach knot”, appears only when the probe fails.
+FIRST VIEWPORT: A green navigation rail, clear page heading and scope, task-specific reading surface, and a stable identity/host anchor. Reed leads with Following/Discover and a public composer. Mobile reflows to one task column with reachable navigation.
 
-FORM: Swiss railway timetable, first on the grounded list. Seed d21139d5.
+FORM: Commons, civic library identity; user-selected first grounded candidate, seed:bf8b0fd667c575c6. Stable identity/host anchor and quiet reply connectors.
 
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance

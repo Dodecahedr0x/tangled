@@ -38,19 +38,20 @@ pub fn TopologyView(
         document::Script { src: TOPO_JS }
         div { class: "shell",
             BandRail { show_refresh: true, on_refresh }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Weft" }
                 if knot_unreachable {
                     div { class: "banner", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
                 }
-                p { class: "page-title",
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Topology"
                 }
                 if let Some(view) = view.as_ref() {
                     Graph { view: view.clone() }
                     ul { class: "topo-legend",
-                        li { "Black fill — configured knot" }
-                        li { "Black line — advertised public peers" }
+                        li { "Dark node — configured knot" }
+                        li { "Solid lines — advertised public peers" }
                         li { "Small nodes — hosted public identities" }
                     }
                 } else {
@@ -100,6 +101,23 @@ fn Graph(view: NetworkView) -> Element {
                 p { class: "field-label", "Selection" }
                 div { id: "weft-topo-detail",
                     p { class: "muted", "Hover or click a node." }
+                }
+            }
+        }
+        section { class: "public-nodes",
+            h2 { "Public nodes" }
+            p { class: "muted", "Keyboard-accessible details from the same observed public snapshot." }
+            for knot in view.knots.iter() {
+                details {
+                    summary { "{knot.url}" }
+                    p { class: "did", "{knot.did}" }
+                    p { if knot.reachable { "Reachable at observation" } else { "Unreachable at observation" } }
+                    if let Some(stats) = knot.stats.as_ref() {
+                        p { "Public records: {stats.counts.records}" }
+                        for identity in stats.topology.hosted.iter() {
+                            p { class: "did", "Hosted public identity: {identity.did}" }
+                        }
+                    }
                 }
             }
         }
