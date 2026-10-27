@@ -24,7 +24,7 @@ class Element {
     if (this.tagName === 'select' && this._value === undefined) return (this.children.find(node => node.selected) || this.children[0])?.value || '';
     return this._value || '';
   }
-  set value(value) { this._value = String(value); }
+  set value(value) { this._value = String(value); if (this.type === 'file' && value === '') this.files = []; }
   get classList() { return { add: token => { this.className += ` ${token}`; }, remove: token => { this.className = this.className.split(' ').filter(value => value !== token).join(' '); } }; }
 }
 function el(tag, attrs = {}, ...children) {
@@ -58,10 +58,11 @@ function setup(initial = []) {
   const data = new Map(initial.map(record => [record.uri, clone(record)]));
   const calls = [], downloads = [], notices = [];
   const ctx = { calls, downloads, notices, pending: [], failNext: null, session: { did: 'did:sol:test' }, selection: {},
-    guard: () => false, discard: true, confirmations: 0, copied: [],
+    guard: () => false, discard: true, confirmations: 0, copied: [], links: [],
     setNavigationGuard(check) { ctx.guard = check; },
     confirmDiscard() { if (!ctx.guard()) return true; ctx.confirmations++; return ctx.discard; },
     copyRecordLink(view, uri) { ctx.copied.push({ view, uri }); },
+    updateRecordLink(view, uri) { ctx.links.push({ view, uri }); },
     notify: (...args) => notices.push(args),
     download: (...args) => downloads.push(args),
     run(control, task) {
@@ -536,4 +537,89 @@ test('Initial links verify the exact record returned before offering record acti
     await mount(root, ctx); assert.match(root.textContent, /unavailable/i);
     assert.equal(walk(root).some(node => node.tagName === 'button' && node.textContent === 'Copy link'), false);
   }
+});
+
+
+test('Unsent append text and selected attachments guard pane changes and survive other note updates', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note', attachments: [{ name: 'old.bin', cid: 'old-cid' }] });
+  const other = record('pub.tangled.note', 'two', { title: 'Other', text: 'Other body', state: 'note' });
+  const { root, ctx, data } = setup([saved, other]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+  let reads = 0;
+  const file = { name: 'pending.bin', type: 'application/octet-stream', size: 1, arrayBuffer: async () => { reads++; return Uint8Array.of(7).buffer; } };
+  const chosenFile = control(root, 'File to attach');
+  control(root, 'Text to append').value = 'Unsent append'; assert.equal(ctx.guard(), true);
+  ctx.discard = false;
+  for (const label of ['New note', 'New draft', 'Capture to self inbox', 'Other', 'Create from saved item', 'Delete note']) {
+    await click(root, label, ctx); assert.equal(control(root, 'Text to append').value, 'Unsent append', label);
+  }
+  control(root, 'Text to append').value = ''; assert.equal(ctx.guard(), false);
+  chosenFile.files = [file]; assert.equal(ctx.guard(), true);
+  await click(root, 'Other', ctx); assert.equal(control(root, 'File to attach'), chosenFile);
+  control(root, 'Text to append').value = 'Unsent append'; control(root, 'Text').value = 'Main edit';
+  await submitForm(root, 'Save note', ctx);
+  assert.equal(control(root, 'Text to append').value, 'Unsent append');
+  assert.equal(control(root, 'File to attach'), chosenFile); assert.equal(chosenFile.files[0], file);
+  assert.equal(ctx.guard(), true); assert.equal(reads, 0, 'Only Attach reads selected file bytes');
+  await click(root, 'Remove attachment', ctx);
+  assert.equal(control(root, 'Text to append').value, 'Unsent append'); assert.equal(control(root, 'File to attach'), chosenFile);
+  await submitForm(root, 'Append to note', ctx);
+  assert.equal(data.get(saved.uri).body.text, 'Main edit\nUnsent append');
+  assert.equal(control(root, 'Text to append').value, ''); assert.equal(control(root, 'File to attach'), chosenFile);
+  assert.equal(ctx.guard(), true); assert.equal(reads, 0);
+  control(root, 'Text to append').value = 'Another pending append';
+  await submitForm(root, 'Attach file', ctx);
+  assert.equal(reads, 1); assert.equal(chosenFile.files.length, 0);
+  assert.equal(control(root, 'Text to append').value, 'Another pending append'); assert.equal(ctx.guard(), true);
+  await submitForm(root, 'Append to note', ctx); assert.equal(ctx.guard(), false);
+});
+
+test('Pending append and attach disable their own input and failures retain auxiliary edits', async () => {
+  for (const action of ['append', 'attach']) {
+    const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note' });
+    const { root, ctx } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+    const append = control(root, 'Text to append'), fileInput = control(root, 'File to attach');
+    const file = { name: 'file.bin', type: 'application/octet-stream', size: 1, arrayBuffer: async () => Uint8Array.of(4).buffer };
+    append.value = 'Pending append'; fileInput.files = [file];
+    const api = ctx.api; let release; let gate = new Promise(resolve => { release = resolve; });
+    ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === action) await gate; return api(feature, payload); };
+    ctx.failNext = `notes:${action}`;
+    const label = action === 'append' ? 'Append to note' : 'Attach file';
+    const ownInput = action === 'append' ? append : fileInput;
+    let form = findButton(root, label); while (form.tagName !== 'form') form = form.parentElement;
+    await form.fire('submit'); await new Promise(setImmediate);
+    assert.equal(ownInput.disabled, true); assert.equal(ctx.guard(), true);
+    release(); await settle(ctx);
+    assert.equal(ownInput.disabled, false); assert.equal(append.value, 'Pending append'); assert.equal(fileInput.files[0], file);
+    assert.equal(control(root, 'Text to append'), append); assert.equal(control(root, 'File to attach'), fileInput);
+    assert.equal(ctx.guard(), true);
+    await submitForm(root, label, ctx);
+    assert.equal(ownInput.disabled, false);
+    if (action === 'append') { assert.equal(append.value, ''); assert.equal(fileInput.files[0], file); }
+    else { assert.equal(fileInput.files.length, 0); assert.equal(append.value, 'Pending append'); }
+  }
+});
+
+
+test('Successful explicit record selections update the address, while list refreshes do not', async () => {
+  for (const [mount, view, collection, refresh] of [[mountLibrary, 'library', 'pub.tangled.note', 'Search'], [mountCapture, 'capture', 'pub.tangled.capture', 'Apply filters'], [mountNotes, 'notes', 'pub.tangled.note', 'Apply filters']]) {
+    const one = record(collection, 'one', { title: 'One', text: 'First', state: 'note', kind: 'text', tags: [] });
+    const two = record(collection, 'two', { title: 'Two', text: 'Second', state: 'note', kind: 'text', tags: [] });
+    const { root, ctx } = setup([one, two]); ctx.selection = { uri: one.uri }; await mount(root, ctx);
+    ctx.links.length = 0;
+    await click(root, 'Two', ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    await submitForm(root, refresh, ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    if (view === 'notes') {
+      control(root, 'Text to append').value = 'Unsent'; ctx.discard = false;
+      await click(root, 'One', ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    }
+  }
+});
+
+test('Saving a newly created note updates its record address only after success', async () => {
+  const { root, ctx, data } = setup(); await mountNotes(root, ctx);
+  control(root, 'Text').value = 'New note'; ctx.failNext = 'notes:create'; await submitForm(root, 'Create note', ctx);
+  assert.deepEqual(ctx.links, []);
+  await submitForm(root, 'Create note', ctx);
+  const saved = [...data.values()][0]; assert.deepEqual(ctx.links, [{ view: 'notes', uri: saved.uri }]);
+  await submitForm(root, 'Save note', ctx); assert.equal(ctx.links.length, 1);
 });

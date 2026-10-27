@@ -192,7 +192,7 @@ export async function mountLibrary(root, ctx) {
       if (ticket !== revision) return;
       current = { record, text };
       renderReader(current);
-      if (reveal) revealSelection(reader);
+      if (reveal) { ctx.updateRecordLink?.('library', record.uri); revealSelection(reader); }
     } catch (error) {
       if (ticket !== revision) return;
       current = null;
@@ -363,7 +363,7 @@ export async function mountCapture(root, ctx) {
       for (const row of list.children) row.classList.remove('selected');
       const index = records.findIndex(record => record.uri === uri);
       if (index >= 0) list.children[index]?.classList.add('selected');
-      if (reveal) revealSelection(reader);
+      if (reveal) { ctx.updateRecordLink?.('capture', selected.uri); revealSelection(reader); }
     } catch (error) {
       if (ticket === readerTicket) replace(reader, empty('Could not read this saved item', error.message || String(error), button('Try again', () => void open(uri))));
     }
@@ -460,7 +460,7 @@ export async function mountNotes(root, ctx) {
   function startNote(record = null, initialState = 'note', reveal = false) {
     if (!discard()) return;
     clearConversion(); renderEditor(record, initialState); renderList();
-    if (reveal) revealSelection(editor);
+    if (reveal) { ctx.updateRecordLink?.('notes', record.uri); revealSelection(editor); }
   }
   const stateFilter = select([['', 'All notes'], ['note', 'Notes'], ['draft', 'Drafts'], ['inbox', 'Self inbox'], ['due', 'Due reminders']]);
   const query = input('', { type: 'search', placeholder: 'Find a note' });
@@ -485,7 +485,7 @@ export async function mountNotes(root, ctx) {
     renderList(); listStatus.textContent = '';
   }
 
-  function renderEditor(record = null, initialState = 'note', draft = null) {
+  function renderEditor(record = null, initialState = 'note', draft = null, auxiliary = null) {
     selected = record;
     const generation = ++editorRevision;
     const body = record?.body || {};
@@ -496,32 +496,40 @@ export async function mountNotes(root, ctx) {
     const snapshot = () => ({ title: title.value, text: text.value, state: state.value, reminder: reminder.value });
     const baseline = { title: body.title || '', text: body.text || '', state: body.state || initialState, reminder: localDate(body.reminderAt) };
     let pending = false;
-    noteDirty = () => pending || Object.entries(baseline).some(([key, value]) => snapshot()[key] !== value);
-    registerGuard();
     // Capture the live controls after every awaited refresh, so typing during a
     // request remains in the editor and is compared against the saved response.
-    async function updateNote(task, savedSnapshot = null, append = '') {
+    async function updateNote(task, savedSnapshot = null, append = '', submittedControl = null) {
       if (pending) throw new Error('Wait for the current note update to finish.');
       pending = true;
+      if (submittedControl) submittedControl.disabled = true;
       try {
         const updated = await task();
+        if (submittedControl) submittedControl.value = '';
         try { await loadList(); }
         finally {
           if (generation === editorRevision && editor.isConnected !== false) {
             const live = snapshot();
             if (append) live.text = `${live.text}${live.text ? '\n' : ''}${append}`;
             const unchanged = savedSnapshot && Object.keys(live).every(key => live[key] === savedSnapshot[key]);
-            renderEditor(updated, 'note', unchanged ? null : live); renderList();
+            renderEditor(updated, 'note', unchanged ? null : live, { file: attachFile, append: appendText }); renderList();
+            if (!record) ctx.updateRecordLink?.('notes', updated.uri);
           }
         }
-      } finally { pending = false; }
+      } finally {
+        pending = false;
+        if (submittedControl) submittedControl.disabled = false;
+      }
     }
     const noteStatus = status(), save = submit(record ? 'Save note' : 'Create note');
     const attachments = el('div', { class: 'stack' });
-    const attachFile = input('', { type: 'file' });
+    // Reuse native controls across updates: a selected FileList cannot be
+    // restored by assigning a filename, and must stay private and unread here.
+    const attachFile = auxiliary?.file || input('', { type: 'file' });
     const attachStatus = status(), attach = submit('Attach file');
-    const appendText = textarea('', { rows: 3, required: true });
+    const appendText = auxiliary?.append || textarea('', { rows: 3, required: true });
     const appendStatus = status(), append = submit('Append to note');
+    noteDirty = () => pending || !!appendText.value || !!attachFile.files?.length || Object.entries(baseline).some(([key, value]) => snapshot()[key] !== value);
+    registerGuard();
     const clearReminder = button('Clear reminder', () => { reminder.value = ''; reminder.focus(); });
     const remove = button('Delete note', () => void run(ctx, remove, noteStatus, async () => {
       if (!discard()) return;
@@ -554,7 +562,7 @@ export async function mountNotes(root, ctx) {
       }, field('Title (optional)', title), field('Text', text), el('div', { class: 'form-grid' }, field('Keep as', state), field('Reminder', reminder, 'Reminders appear in Due reminders when this app is opened; no background notification is sent.')), clearReminder),
       record ? el('details', { class: 'detail' }, el('summary', { text: 'Append text' }), formWith(append, appendStatus, ctx, async () => {
         const appended = appendText.value;
-        await updateNote(() => ctx.api('notes', { action: 'append', rkey: keyOf(record), text: appended }), null, appended); ctx.notify('Text appended.');
+        await updateNote(() => ctx.api('notes', { action: 'append', rkey: keyOf(record), text: appended }), null, appended, appendText); ctx.notify('Text appended.');
       }, field('Text to append', appendText, 'Added after the existing text on a new line.'))) : null,
       record ? el('details', { class: 'detail' }, el('summary', { text: `Attachments (${body.attachments?.length || 0})` }), attachments,
         formWith(attach, attachStatus, ctx, async () => {
@@ -562,7 +570,7 @@ export async function mountNotes(root, ctx) {
           await updateNote(async () => {
             const bytes = await fileBytes(chosen);
             return ctx.api('notes', { action: 'attach', rkey: keyOf(record), name: chosen.name, mime: chosen.type || 'application/octet-stream', bytes });
-          }); ctx.notify('File attached privately.');
+          }, null, '', attachFile); ctx.notify('File attached privately.');
         }, field('File to attach', attachFile, 'Up to 16 MiB. Removing an attachment reference does not erase earlier signed revisions.'))) : hint('Save this note to attach files or append text.'),
       body.provenance ? el('details', { class: 'detail' }, el('summary', { text: 'Original source' }), reference(body.provenance), hint('This note preserves the source revision used when it was created.')) : null,
       record ? reference(record) : null, record ? el('div', { class: 'actions' }, copyLink(ctx, 'notes', record, noteStatus), remove) : null);
@@ -623,6 +631,7 @@ export async function mountNotes(root, ctx) {
             const live = { title: title.value, state: state.value, text: text.value, reminder: '' };
             const unchanged = Object.keys(submitted).every(key => live[key] === submitted[key]);
             clearConversion(); renderEditor(updated, 'note', unchanged ? null : live); renderList();
+            ctx.updateRecordLink?.('notes', updated.uri);
           }
         }
       } finally { converting = false; }
@@ -647,7 +656,7 @@ export async function mountNotes(root, ctx) {
       const target = linkedTarget(ctx, ctx.selection.uri, 'pub.tangled.note');
       const record = checkLinkedRecord(target, await ctx.api('records', { action: 'get', collection: target.collection, rkey: target.rkey }));
       if (generation !== editorRevision || editor.isConnected === false || !discard()) return;
-      renderEditor(record); renderList(); revealSelection(editor);
+      renderEditor(record); renderList(); ctx.updateRecordLink?.('notes', record.uri); revealSelection(editor);
     } catch (error) {
       if (generation !== editorRevision || editor.isConnected === false) return;
       noteDirty = () => false; registerGuard();
