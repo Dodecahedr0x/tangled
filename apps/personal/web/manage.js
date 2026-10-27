@@ -186,14 +186,27 @@ export async function mountDevices(root, ctx) {
   try { await refresh(); } catch (error) { message(notice, `${error.message} Use Refresh recovery status to retry.`, true); }
 }
 
-function sourceHints(body) {
-  const found = [];
-  function walk(value, path, depth) {
-    if (depth > 4 || found.length >= 30) return;
-    if (typeof value === 'string' && (/blob|cid|source|url|link/i.test(path))) found.push([path, value]);
-    else if (value && typeof value === 'object') Object.entries(value).forEach(([key, item]) => walk(item, path ? `${path}.${key}` : key, depth + 1));
+function safeWebLink(value) {
+  if (typeof value !== 'string' || /[\u0000-\u0020\u007f]/.test(value)) return '';
+  try {
+    const url = new URL(value);
+    return ['https:', 'http:'].includes(url.protocol) && url.hostname && !url.username && !url.password ? value : '';
+  } catch { return ''; }
+}
+
+// Recognize only documented top-level fields. Unknown profiles remain explicit.
+function sharingProfile(record) {
+  const body = record.body || {};
+  const blob = typeof body.blob === 'string' ? body.blob : '';
+  const savedText = blob && ((record.collection === 'pub.tangled.capture' && body.kind === 'article' && body.mime === 'text/plain') ||
+    (record.collection === 'pub.tangled.article' && (!body.mime || body.mime === 'text/plain'))) ? blob : '';
+  let attachments = [];
+  if (record.collection === 'pub.tangled.note' && Array.isArray(body.attachments)) {
+    attachments = body.attachments.filter(item => item && typeof item.cid === 'string' && typeof item.name === 'string').map(item => ({ cid: item.cid, name: item.name, mime: typeof item.mime === 'string' ? item.mime : '' }));
+  } else if (record.collection === 'pub.tangled.capture' && ['file', 'screenshot'].includes(body.kind) && blob) {
+    attachments = [{ cid: blob, name: typeof body.title === 'string' && body.title ? body.title : body.kind === 'screenshot' ? 'Saved screenshot' : 'Saved file', mime: typeof body.mime === 'string' ? body.mime : '' }];
   }
-  walk(body, '', 0); return found;
+  return { savedText, attachments, link: safeWebLink(body.url) };
 }
 
 export async function mountPublish(root, ctx) {
@@ -234,7 +247,19 @@ export async function mountPublish(root, ctx) {
     const cid = input('text', { placeholder: 'Attachment CID', spellcheck: false });
     const name = input('text', { placeholder: 'Original attachment', maxLength: 4096 });
     const attachments = [], attachmentList = el('div', { class: 'stack' });
-    const state = { link, textBlob, attachments };
+    const profile = sharingProfile(record);
+    const includeText = input('checkbox', { checked: !!profile.savedText });
+    const includeLink = input('checkbox');
+    const originals = profile.attachments.map(item => ({ ...item, control: input('checkbox') }));
+    [includeText, includeLink, ...originals.map(item => item.control)].forEach(control => control.addEventListener('change', invalidate));
+    const state = { link, textBlob, attachments, selection() {
+      const selectedAttachments = [...originals.filter(item => item.control.checked).map(({ cid, name }) => ({ cid, name })), ...attachments.map(item => ({ ...item }))];
+      const uniqueAttachments = [...new Map(selectedAttachments.map(item => [item.cid, item])).values()];
+      if (uniqueAttachments.length > 32) throw new Error(`Choose at most 32 attachments for ${recordTitle(record)}.`);
+      const chosenText = textBlob.value.trim() || (includeText.checked ? profile.savedText : '');
+      const chosenLink = link.value.trim() || (includeLink.checked ? profile.link : '');
+      return { ...(chosenLink ? { link: chosenLink } : {}), ...(chosenText ? { textBlob: chosenText } : {}), ...(uniqueAttachments.length ? { attachments: uniqueAttachments } : {}) };
+    } };
     const add = button('Add this attachment', () => {
       if (!cid.value.trim()) { ctx.notify('Enter an attachment CID to add it.', 'error'); return; }
       if (attachments.length >= 32) { ctx.notify('Each item can include at most 32 attachments.', 'error'); return; }
@@ -244,13 +269,16 @@ export async function mountPublish(root, ctx) {
       attachmentList.append(row);
     });
     link.addEventListener('input', invalidate); textBlob.addEventListener('input', invalidate);
-    const hints = sourceHints(record.body || {});
-    state.node = el('details', { class: 'detail' }, el('summary', { text: 'Optional links, text and attachments' }),
-      p('Only the plain title, text and description are copied by default. Original source fields below are private unless you explicitly add a link, text blob or attachment.'),
-      hints.length ? metadata(hints) : p('No source or attachment fields found. You can still supply a known local attachment CID.'),
-      field('Include this web link', link, 'Optional HTTP or HTTPS link. No network request is made.'),
-      field('Use this UTF-8 text blob', textBlob, 'Optional. Replaces inline text with these exact local bytes.'),
-      field('Attachment CID to include', cid), field('Attachment download name', name), add, attachmentList);
+    const known = el('div', { class: 'stack' });
+    if (profile.savedText) known.append(check(includeText, 'Include saved article text'), el('p', { class: 'hint', text: 'Selecting this article includes its complete saved plain-text body by default. Uncheck to share only its inline title, text and description.' }));
+    if (originals.length) known.append(el('p', { class: 'hint', text: 'Original files are excluded unless you choose them. Included files become shareable downloads.' }), ...originals.map(item => el('div', {}, check(item.control, `Include ${item.name}`), item.mime ? el('p', { class: 'hint', text: item.mime }) : null)));
+    if (profile.link) known.append(check(includeLink, 'Include original web link'), el('p', { class: 'hint', text: profile.link }));
+    state.node = el('div', { class: 'stack' }, known,
+      el('details', { class: 'detail' }, el('summary', { text: 'Advanced sharing references' }),
+        p('For third-party formats, explicitly supply a known local text or attachment CID. These fields do not inspect nested private source data. An advanced text or link value overrides the named selection above.'),
+        field('Include this web link', link, 'Optional HTTP or HTTPS link. No network request is made.'),
+        field('Use this UTF-8 text blob', textBlob, 'Optional. Replaces inline text with these exact local bytes.'),
+        field('Attachment CID to include', cid), field('Attachment download name', name), add, attachmentList));
     options.set(record.uri, state); return state;
   }
   function renderList() {
@@ -266,7 +294,7 @@ export async function mountPublish(root, ctx) {
       const details = recordOptions(record);
       return el('article', { class: 'item' }, chosen, el('div', { class: 'item-main' }, el('h3', { class: 'item-title', text: recordTitle(record) }),
         el('div', { class: 'meta' }, el('span', { text: record.collection }), el('span', { text: ['public', 'pub'].includes(record.vis) ? 'Public source' : 'Private source' })),
-        el('p', { text: typeof record.body?.text === 'string' ? record.body.text.slice(0, 220) : typeof record.body?.description === 'string' ? record.body.description.slice(0, 220) : 'Open optional details to inspect source fields.' }), details.node));
+        el('p', { text: typeof record.body?.text === 'string' ? record.body.text.slice(0, 220) : typeof record.body?.description === 'string' ? record.body.description.slice(0, 220) : 'Choose any saved content below. Advanced references are optional.' }), details.node));
     }));
     if (!shown.length) list.append(empty(records.length ? 'No matching records' : 'No records to share', records.length ? 'Try another title or collection.' : 'Save content to your library before creating a selected public copy.', !records.length ? button('Open library', () => ctx.navigate('library')) : null));
     count.textContent = `${selected.size} selected (maximum 256)`;
@@ -280,7 +308,7 @@ export async function mountPublish(root, ctx) {
       const request = { action: 'render', title: title.value, description: description.value, ...(siteUrl.value.trim() ? { siteUrl: siteUrl.value.trim() } : {}), confirmPublish: true,
         records: [...selected.values()].map(record => {
           const extra = options.get(record.uri);
-          return { collection: record.collection, rkey: record.rkey, ...(extra?.link.value.trim() ? { link: extra.link.value.trim() } : {}), ...(extra?.textBlob.value.trim() ? { textBlob: extra.textBlob.value.trim() } : {}), ...(extra?.attachments.length ? { attachments: extra.attachments.map(item => ({ ...item })) } : {}) };
+          return { collection: record.collection, rkey: record.rkey, ...extra?.selection() };
         }) };
       const requestRevision = revision;
       const result = await ctx.api('publish', request);

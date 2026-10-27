@@ -136,3 +136,63 @@ test('Recovery sync requires an explicit import decision and clears secrets on s
   control(root, 'Recovery passphrase').value = 'strong password here'; await action(root, 'Sync newer copy').fire('click');
   assert.ok(ctx.calls.some(([path]) => path === 'backups/sync')); assert.equal(control(root, 'Recovery passphrase').value, ''); assert.match(root.textContent, /History diverged/);
 });
+
+const capturedArticle = { ...record, uri: 'tangled://owner/pub.tangled.capture/article', collection: 'pub.tangled.capture', rkey: 'article', body: { kind: 'article', title: 'Saved article', mime: 'text/plain', blob: 'b-article-text', url: 'https://example.org/original', source: { private: { cid: 'b-hidden-original' } } } };
+const attachedNote = { ...record, uri: 'tangled://owner/pub.tangled.note/note', collection: 'pub.tangled.note', rkey: 'note', body: { title: 'Note with diagram', text: 'Inline note', attachments: [{ cid: 'b-diagram', name: 'diagram.png', mime: 'image/png' }] } };
+function selectRecord(root, title) { return find(root, node => node.attributes['aria-label']?.startsWith(`Select ${title} from `)); }
+async function selectAndShare(root, title) { const chosen = selectRecord(root, title); chosen.checked = true; await chosen.fire('change'); checkbox(root, 'Share these selected items').checked = true; }
+
+test('Selecting a saved article includes its named text by default without copying original URLs or hidden fields', async () => {
+  const root = new Element('section'); const ctx = context(async feature => feature === 'records' ? { records: [capturedArticle, attachedNote] } : { html: '<p>Article body</p>', rss: '<rss/>', count: 1 });
+  await mountPublish(root, ctx);
+  assert.equal(checkbox(root, 'Include saved article text').checked, true);
+  await selectAndShare(root, 'Saved article'); await form(root, 'Preview selected content').fire('submit');
+  assert.deepEqual(ctx.calls.at(-1)[1].records, [{ collection: 'pub.tangled.capture', rkey: 'article', textBlob: 'b-article-text' }]);
+  assert.ok(!root.textContent.includes('b-hidden-original')); assert.ok(!JSON.stringify(ctx.calls.at(-1)).includes('b-diagram'));
+  const includeText = checkbox(root, 'Include saved article text'); includeText.checked = false; await includeText.fire('change');
+  assert.equal(checkbox(root, 'I reviewed this preview. Create or update a separate public copy under this name.').disabled, true);
+  await form(root, 'Preview selected content').fire('submit'); assert.ok(!ctx.calls.at(-1)[1].records[0].textBlob);
+  const includeLink = checkbox(root, 'Include original web link'); includeLink.checked = true; await includeLink.fire('change');
+  await form(root, 'Preview selected content').fire('submit'); assert.equal(ctx.calls.at(-1)[1].records[0].link, capturedArticle.body.url);
+});
+
+test('Named note attachments and captured files stay excluded until explicitly checked and invalidate previews', async () => {
+  const file = { ...record, uri: 'tangled://owner/pub.tangled.capture/file', collection: 'pub.tangled.capture', rkey: 'file', body: { kind: 'file', title: 'report.pdf', mime: 'application/pdf', blob: 'b-file' } };
+  const root = new Element('section'); const ctx = context(async feature => feature === 'records' ? { records: [attachedNote, file] } : { html: '<p>Preview</p>', rss: '<rss/>', count: 2 });
+  await mountPublish(root, ctx); assert.equal(checkbox(root, 'Include diagram.png').checked, false); assert.equal(checkbox(root, 'Include report.pdf').checked, false);
+  await selectAndShare(root, 'Note with diagram'); await selectAndShare(root, 'report.pdf'); await form(root, 'Preview selected content').fire('submit');
+  assert.ok(ctx.calls.at(-1)[1].records.every(item => !item.attachments));
+  const diagram = checkbox(root, 'Include diagram.png'); diagram.checked = true; await diagram.fire('change');
+  assert.ok(!all(root).some(node => node.tagName === 'IFRAME'));
+  await form(root, 'Preview selected content').fire('submit'); assert.deepEqual(ctx.calls.at(-1)[1].records[0].attachments, [{ cid: 'b-diagram', name: 'diagram.png' }]);
+  diagram.checked = false; await diagram.fire('change'); await form(root, 'Preview selected content').fire('submit'); assert.ok(!ctx.calls.at(-1)[1].records[0].attachments);
+  const original = checkbox(root, 'Include report.pdf'); original.checked = true; await original.fire('change'); await form(root, 'Preview selected content').fire('submit'); assert.deepEqual(ctx.calls.at(-1)[1].records[1].attachments, [{ cid: 'b-file', name: 'report.pdf' }]);
+});
+
+test('Canonical article profile gets named text selection while future profiles retain advanced explicit references', async () => {
+  const article = { ...record, uri: 'tangled://owner/pub.tangled.article/canonical', collection: 'pub.tangled.article', rkey: 'canonical', body: { title: 'Canonical article', blob: 'b-canonical' } };
+  const root = new Element('section'); const ctx = context(async feature => feature === 'records' ? { records: [article] } : { html: '<p>Preview</p>', rss: '<rss/>', count: 1 });
+  await mountPublish(root, ctx); await selectAndShare(root, 'Canonical article'); await form(root, 'Preview selected content').fire('submit');
+  assert.equal(ctx.calls.at(-1)[1].records[0].textBlob, 'b-canonical');
+  control(root, 'Use this UTF-8 text blob').value = 'b-explicit-override'; await control(root, 'Use this UTF-8 text blob').fire('input');
+  await form(root, 'Preview selected content').fire('submit'); assert.equal(ctx.calls.at(-1)[1].records[0].textBlob, 'b-explicit-override');
+});
+
+test('Changing a named saved-text selection while rendering rejects the stale preview', async () => {
+  const root = new Element('section'); let finish;
+  const ctx = context(async feature => feature === 'records' ? { records: [capturedArticle] } : new Promise(resolve => { finish = resolve; }));
+  await mountPublish(root, ctx); await selectAndShare(root, 'Saved article');
+  const pending = form(root, 'Preview selected content').fire('submit'); await settle();
+  const include = checkbox(root, 'Include saved article text'); include.checked = false; await include.fire('change'); finish({ html: '<p>Previously selected article</p>' }); await pending;
+  assert.ok(!all(root).some(node => node.tagName === 'IFRAME')); assert.equal(action(root, 'Create or update public publication').disabled, true);
+});
+
+test('Unknown or non-text article profiles never infer original attachments or text', async () => {
+  const unknown = { ...record, body: { title: 'Future profile', blob: 'b-unknown', attachments: [{ cid: 'b-private', name: 'Private original' }], source: { cid: 'b-nested-private' }, url: 'https://user:secret@example.org/' } };
+  const binaryArticle = { ...record, collection: 'pub.tangled.article', rkey: 'binary', uri: 'tangled://owner/pub.tangled.article/binary', body: { title: 'Binary article', mime: 'application/octet-stream', blob: 'b-binary' } };
+  const root = new Element('section'); const ctx = context(async feature => feature === 'records' ? { records: [unknown, binaryArticle] } : { html: '<p>Preview</p>', count: 2 });
+  await mountPublish(root, ctx); await selectAndShare(root, 'Future profile'); await selectAndShare(root, 'Binary article');
+  await form(root, 'Preview selected content').fire('submit');
+  assert.ok(ctx.calls.at(-1)[1].records.every(item => !item.textBlob && !item.attachments && !item.link));
+  assert.ok(!root.textContent.includes('b-nested-private')); assert.ok(!root.textContent.includes('user:secret'));
+});
