@@ -1,3 +1,10 @@
+---
+title: Personal device continuity
+slug: personal-devices
+description: Verify encrypted recovery copies and transfer signed owner state explicitly.
+order: 15
+---
+
 # Own-device continuity
 
 The `tangled-personal devices` command transfers a complete owner repository using an encrypted file. Recovery works in a fresh directory without the original installation: the file includes both owner identity seeds, the signed repository CAR, and all local owner attachment bytes, including blobs not yet referenced by a record. Restored records keep their Tangled URIs, CIDs, and owner DID. A restored installation can sign subsequent writes.

@@ -19,6 +19,7 @@ normative requirements, use the [specs](../spec/00-abstract.md).
 | [Hosting and identity](./hosting-and-identity.md) | Key custody, handles, account storage, and host moves | [Identifiers](../spec/04-identifiers.md), [migration](../spec/17-migration.md) |
 | [Records and sync](./records-and-sync.md) | Records, blobs, commits, incremental pull, and failure states | [Data model](../spec/06-data-model.md), [sync](../spec/11-sync.md) |
 | [Privacy and circles](./privacy-and-circles.md) | Fetch authorization, encrypted content, group keys, and metadata | [Visibility](../spec/08-visibility.md), [circles](../spec/10-circles.md) |
+| [A node for one person](./personal.md) | Capture, search, notes, feeds, agents, recovery, publishing and source organization | Extensible signed collection contracts for any client |
 | [Apps](./apps.md) | Reed, Loomed, Weft, host selection, and the shared archive | [Use cases](../spec/20-use-cases.md) |
 | [Social imports](./social-imports.md) | Archive formats, reconciliation, browsing, recovery, and migration | Application feature; distinct from public protocol bridges |
 | [Live connectors](./connectors.md) | Source sign-in, ingest tokens, checkpoints, and coverage limits | Account-scoped archive ingestion |

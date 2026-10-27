@@ -1,3 +1,5 @@
+mod delegation;
+pub(crate) mod replica;
 use crate::Result;
 use serde_json::{json, Value};
 use std::fs::{File, OpenOptions};

@@ -1,3 +1,10 @@
+---
+title: Capture and read later
+slug: personal-capture
+description: Save supplied content privately and read it offline through interoperable records.
+order: 11
+---
+
 # Capture and read later
 
 The `capture` workflow saves private signed `pub.tangled.capture` records. Article bodies and attachments use content-addressed blobs; notes use inline plain text. Source metadata stays attached to the saved item. It works offline with supplied content; it does not fetch or extract remote pages itself.

@@ -1,3 +1,10 @@
+---
+title: Personal agent workspace
+slug: personal-agents
+description: Issue signed scoped grants and retain cited agent results and receipts.
+order: 14
+---
+
 # Personal agent workspace
 
 This local owner-side service gives an external agent a real Tangled capability for a single collection. The agent creates and keeps its own identity key; grants never contain the owner's key. No model integration or purchased API is needed. Records, grants, revocations, and activity receipts are signed Tangled records. Private visibility means capability-gated access, not encryption from the local operator.

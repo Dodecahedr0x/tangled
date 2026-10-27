@@ -1,3 +1,10 @@
+---
+title: Personal reading feeds
+slug: personal-feeds
+description: Ingest RSS and Atom with private subscriptions and portable reading state.
+order: 13
+---
+
 # Personal reading feeds
 
 The `tangled-personal` feeds commands keep subscriptions, RSS/Atom imports, and reading state in signed generic Tangled records. All records use `cap` visibility. Private capability gating does not imply encryption from the local host operator. There is no subscription fetch, scheduler, source write, or HTML execution in this version.

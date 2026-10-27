@@ -25,30 +25,64 @@ fn run() -> Result<(), String> {
             "--data" | "--input" => {
                 let flag = &args[index];
                 index += 1;
-                let value = args.get(index).ok_or_else(|| format!("Missing value for {flag}"))?;
-                if flag == "--data" { data = value.into(); } else { input_file = Some(PathBuf::from(value)); }
+                let value = args
+                    .get(index)
+                    .ok_or_else(|| format!("Missing value for {flag}"))?;
+                if flag == "--data" {
+                    data = value.into();
+                } else {
+                    input_file = Some(PathBuf::from(value));
+                }
             }
             value if value.starts_with('-') => return Err(format!("Unknown option: {value}")),
             value => {
-                if feature.replace(value.to_string()).is_some() { return Err("Supply exactly one feature; send request JSON on stdin".into()); }
+                if feature.replace(value.to_string()).is_some() {
+                    return Err("Supply exactly one feature; send request JSON on stdin".into());
+                }
             }
         }
         index += 1;
     }
     let feature = feature.ok_or("Missing feature")?;
-    if !["info","records","memory","capture","notes","feeds","agents","devices","publish","connections"].contains(&feature.as_str()) {
+    if ![
+        "info",
+        "records",
+        "memory",
+        "capture",
+        "notes",
+        "feeds",
+        "agents",
+        "devices",
+        "publish",
+        "connections",
+    ]
+    .contains(&feature.as_str())
+    {
         return Err(format!("Unknown feature: {feature}"));
     }
-    let input = if feature == "info" { json!({}) } else {
+    let input = if feature == "info" {
+        json!({})
+    } else {
         const MAX_REQUEST: u64 = 64 * 1024 * 1024;
-        let reader: Box<dyn Read> = match input_file { Some(path) => Box::new(std::fs::File::open(path).map_err(|e|e.to_string())?),None => Box::new(std::io::stdin()) };
+        let reader: Box<dyn Read> = match input_file {
+            Some(path) => Box::new(std::fs::File::open(path).map_err(|e| e.to_string())?),
+            None => Box::new(std::io::stdin()),
+        };
         let mut bytes = Vec::new();
-        reader.take(MAX_REQUEST + 1).read_to_end(&mut bytes).map_err(|e|e.to_string())?;
-        if bytes.len() as u64 > MAX_REQUEST { return Err("Request exceeds 64 MiB".into()); }
-        serde_json::from_slice::<Value>(&bytes).map_err(|e|format!("Invalid JSON request: {e}"))?
+        reader
+            .take(MAX_REQUEST + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > MAX_REQUEST {
+            return Err("Request exceeds 64 MiB".into());
+        }
+        serde_json::from_slice::<Value>(&bytes).map_err(|e| format!("Invalid JSON request: {e}"))?
     };
     let mut store = Store::open(&data)?;
-    let output = execute(&feature,&mut store,input)?;
-    println!("{}",serde_json::to_string(&output).map_err(|e|e.to_string())?);
+    let output = execute(&feature, &mut store, input)?;
+    println!(
+        "{}",
+        serde_json::to_string(&output).map_err(|e| e.to_string())?
+    );
     Ok(())
 }

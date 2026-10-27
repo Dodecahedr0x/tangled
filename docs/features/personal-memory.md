@@ -1,3 +1,10 @@
+---
+title: Personal memory
+slug: personal-memory
+description: Search authorized records and keep portable saved searches, collections and annotations.
+order: 10
+---
+
 # Searchable personal memory
 
 `memory::execute(&mut Store, input)` searches the authorized current signed records in a local Tangled repository, including collections created by other applications. It returns each source record's stable `uri` and current exact-version `cid`, a title, a UTF-8-safe snippet and a deterministic score. Imports remain their original records; search creates no synthetic users or activity. Tombstones are excluded by Store. No network request occurs.

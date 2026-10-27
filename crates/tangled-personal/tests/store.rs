@@ -87,3 +87,48 @@ fn owner_can_read_attachment_before_linking_it_to_record() {
     let cid = store.put_blob(b"unlinked", "text/plain").unwrap();
     assert_eq!(store.get_blob(&cid).unwrap(), b"unlinked");
 }
+
+#[test]
+fn generic_protocol_client_reads_public_and_cannot_read_private_records() {
+    use tangled::http::{KnotRequest, Method};
+    let dir = tempfile::tempdir().unwrap();
+    let did;
+    {
+        let mut store = Store::open(dir.path()).unwrap();
+        did = store.did();
+        store
+            .put(
+                "pub.example.alternativeApp",
+                "private",
+                json!({"text":"private","extensions":{"other":true}}),
+                "cap",
+            )
+            .unwrap();
+        store
+            .put(
+                "pub.example.alternativeApp",
+                "public",
+                json!({"text":"public"}),
+                "public",
+            )
+            .unwrap();
+    }
+    let mut client = tangled::KnotEngine::open(dir.path(), &did).unwrap();
+    for (key, status) in [("private", 401), ("public", 200)] {
+        let result = client
+            .handle(&KnotRequest {
+                method: Method::Get,
+                path: "/xrpc/tangled.sync.getRecord".into(),
+                query: vec![
+                    ("did".into(), did.clone()),
+                    ("collection".into(), "pub.example.alternativeApp".into()),
+                    ("rkey".into(), key.into()),
+                ],
+                headers: vec![],
+                body: None,
+                content_type: None,
+            })
+            .unwrap();
+        assert_eq!(result.status, status);
+    }
+}

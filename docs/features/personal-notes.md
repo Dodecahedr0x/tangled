@@ -1,3 +1,10 @@
+---
+title: Notes and self inbox
+slug: personal-notes
+description: Private notes, drafts, reminders and attachments with original source evidence.
+order: 12
+---
+
 # Private notes and a self inbox
 
 The `tangled-personal` notes module stores signed `pub.tangled.note` records in the owner's repository. Notes, drafts, self-inbox captures, attachments and reminders use capability-gated (`cap`) visibility. Access controls do not encrypt notes from a local or custodial operator. An application using the generic Store API can read these records without adopting a particular frontend.
