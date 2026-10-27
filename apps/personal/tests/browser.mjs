@@ -48,9 +48,13 @@ try {
   await disconnected.waitForFunction(() => typeof window.BroadcastChannel === 'function' && document.querySelector('#view'));
   await disconnected.goto(launch);
   await disconnected.waitForFunction(() => document.querySelector('#library-status')?.textContent.includes('Connected'));
+  await disconnected.getByRole('link', { name: 'Notes', exact: true }).click();
+  await disconnected.getByRole('heading', { name: 'Notes', level: 1, exact: true }).waitFor();
+  await disconnected.getByLabel('Text', { exact: true }).fill('Keep this draft during reconnect');
   await disconnected.waitForTimeout(2200);
+  assert.equal(await disconnected.getByLabel('Text', { exact: true }).inputValue(), 'Keep this draft during reconnect');
   assert.match(await disconnected.locator('#library-status').textContent(), /Connected/);
-  assert.equal(await disconnected.evaluate(() => location.hash), '#library');
+  assert.equal(await disconnected.evaluate(() => location.hash), '#notes');
   await disconnected.evaluate(() => sessionStorage.setItem('tangled-personal.session', '0'.repeat(64)));
   await disconnected.reload();
   await disconnected.getByRole('button', { name: 'Reconnect', exact: true }).waitFor();
@@ -174,7 +178,7 @@ try {
       await go(label);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
       assert.equal(overflow, false, `${label} overflows a mobile viewport`);
-      if (label === 'Notes') { await click('Weekend plans'); await page.getByLabel('Text', { exact: true }).filter({ visible: true }).waitFor(); await page.screenshot({ path: path.join(screenshots, 'personal-mobile.png'), fullPage: true }); }
+      if (label === 'Notes') { await click('Weekend plans'); await page.getByLabel('Text', { exact: true }).filter({ visible: true }).waitFor(); await page.waitForFunction(() => document.activeElement?.contains(document.querySelector('textarea')) && document.activeElement.getBoundingClientRect().top < 2); await page.screenshot({ path: path.join(screenshots, 'personal-mobile.png') }); }
     }
   }
   assert.deepEqual(errors, []);

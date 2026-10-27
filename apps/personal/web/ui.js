@@ -47,3 +47,12 @@ export function timeLabel(timestamp) {
   const date = new Date(typeof timestamp === 'number' ? timestamp : String(timestamp));
   return Number.isNaN(date.valueOf()) ? String(timestamp) : new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
+
+// A stacked detail pane can sit below a long result list. Reveal it only after
+// the person explicitly chooses an item; refreshes must preserve their place.
+export function revealSelection(node) {
+  if (!window.matchMedia('(max-width: 760px)').matches || !node.isConnected) return;
+  node.tabIndex = -1;
+  node.focus({ preventScroll: true });
+  node.scrollIntoView({ block: 'start', behavior: 'instant' });
+}

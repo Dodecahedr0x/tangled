@@ -27,6 +27,7 @@ function consumeLaunchLink() {
 }
 consumeLaunchLink();
 let ready = false;
+let bootGeneration = 0;
 const peers = typeof BroadcastChannel === 'function' ? new BroadcastChannel('tangled-personal-tabs-v1') : null;
 let noticeTimer;
 const notice = document.querySelector('#notice');
@@ -114,8 +115,10 @@ peers?.addEventListener('message', async event => {
   } catch { /* Only a currently authenticated tab may connect another same-origin tab. */ }
 });
 async function boot() {
+  const generation = ++bootGeneration;
   if (!token) {
     const peerToken = await peerSession();
+    if (generation !== bootGeneration) return;
     if (!token && peerToken) { token = peerToken; sessionStorage.setItem(tokenKey, token); }
   }
   if (!token) {
@@ -123,8 +126,8 @@ async function boot() {
     document.querySelector('#library-status').textContent = 'Launch link required';
     return;
   }
-  try { await ctx.refreshSession(); ready = true; await route(); }
-  catch (error) { ready = false; if (error.status === 401) { token = ''; sessionStorage.removeItem(tokenKey); } panel.replaceChildren(empty('Your library is not connected', error.message, button('Reconnect', boot))); notify(error.message, 'error'); }
+  try { await ctx.refreshSession(); if (generation !== bootGeneration) return; ready = true; await route(); }
+  catch (error) { if (generation !== bootGeneration) return; ready = false; if (error.status === 401) { token = ''; sessionStorage.removeItem(tokenKey); } panel.replaceChildren(empty('Your library is not connected', error.message, button('Reconnect', boot))); notify(error.message, 'error'); }
 }
 document.querySelector('.skip-link').addEventListener('click', event => { event.preventDefault(); document.querySelector('#workspace').focus(); });
 window.addEventListener('hashchange', () => { if (consumeLaunchLink()) { ready = false; boot(); } else route(); });

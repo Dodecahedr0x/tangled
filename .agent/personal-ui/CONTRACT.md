@@ -48,10 +48,12 @@ CSS vocabulary supplied by root: .toolbar,.stack,.split,.pane,.list,.item,.item-
 
 ## Visual contract
 
-Mode Operate. Extend current app world: white #fff, paper #f7f7f5, black #191919, neutral text #626262, borders #d9d9d4, accent #d32323 sparingly for active/primary/focus. 224px word-based sidebar, 64px top chrome, ruled rows and a useful reader; mobile navigation wraps horizontally. Comfortable 15px system/Fira Sans UI, serif plain-text reader optional. No hero/dashboard metrics, icon-card grid, gradients, emoji icons, raw protocol internals in everyday flow. All controls functional; data stays private by default. Storage custody and irreversible/public copy decisions explained at action.
+Mode Operate. Extend current app world: white #fff, paper #f7f7f5, black #191919, neutral text #626262, borders #d9d9d4, accent #d32323 sparingly for active/primary/focus. 224px word-based sidebar, 64px top chrome, ruled rows and a useful reader; mobile navigation scrolls horizontally. Comfortable 15px system/Fira Sans UI, serif plain-text reader optional. No hero/dashboard metrics, icon-card grid, gradients, emoji icons, raw protocol internals in everyday flow. All controls functional; data stays private by default. Storage custody and irreversible/public copy decisions explained at action.
 
 ## Validation / boundaries
 
 Each feature owner: browser module + meaningful tests if self-contained, own doc additions if needed, commit only assigned module/tests. Test with real backend through browser when available; parent owns full Playwright matrix at desktop/mobile + independent code/design review. Backend owner covers HTTP auth/Origin/Host, request limits, persistence, backup wrappers, API interoperability integration tests and CLI server start. Shared Rust target cannot be used concurrently across worktrees; backend may use /tmp/tangled-ui-server-target then parent validates same code sequentially. Frontend agents do not build Rust duplicates.
 
 All main checkout pending user work preserved; never edit /Users/dode/Documents/network/tangled. Root later performs backed-up master merge. Do not spawn extra agents or ask user mid-build. State reasonable defaults in your report. Do not publish/deploy or authorize real external accounts.
+
+Shared helper `revealSelection(node)` moves focus and scroll to a connected detail pane only below 760px after an explicit item selection. Mounts, saves, filters and refreshes preserve position.
