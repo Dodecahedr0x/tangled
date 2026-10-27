@@ -56,14 +56,20 @@ if (role === 'grandchild') {
       for await (const chunk of request) body += chunk;
       const path = new URL(request.url, 'http://localhost').pathname;
       log('request', { method: request.method, path, body });
-      if (role === 'tangled-personal' && path === '/api/session') {
+      if (role === 'tangled-personal' && path.startsWith('/api/') && request.headers['x-tangled-session'] !== token) {
+        response.writeHead(401);
+        response.end();
+      } else if (role === 'tangled-personal' && path === '/api/v1/session') {
         response.writeHead(200, { 'content-type': 'application/json', 'set-cookie': 'tangled_session=fixture; HttpOnly; SameSite=Strict; Path=/' });
         response.end(JSON.stringify({ ok: true }));
       } else if (role === 'tangled-personal' && path.startsWith('/api/')) {
         response.writeHead(200, { 'content-type': 'application/json' });
-        response.end(JSON.stringify({ ok: true, id: 'fixture-id', record: { id: 'fixture-id' }, records: [], items: [], subscriptions: [], sources: [] }));
+        response.end(JSON.stringify({ ok: true, id: 'fixture-id', record: { id: 'fixture-id' }, records: [], imported: 2, items: [{ id: 'fixture-source' }], subscriptions: [], sources: [] }));
+      } else if (role === 'tangled-provider' && path === '/posts' && request.headers.cookie !== 'tangled_account=fixture') {
+        response.writeHead(403);
+        response.end();
       } else if (role === 'tangled-provider' && request.method === 'POST' && ['/signup', '/posts'].includes(path)) {
-        response.writeHead(303, { location: '/', 'set-cookie': 'provider_session=fixture; HttpOnly; Path=/' });
+        response.writeHead(303, { location: '/', 'set-cookie': 'tangled_account=fixture; HttpOnly; Path=/' });
         response.end();
       } else {
         response.writeHead(200, { 'content-type': 'text/html' });

@@ -53,7 +53,7 @@ async function setup(t, { settings = {}, flags = [], omit = [], noOpen = true, n
   let result;
   let exitPromise;
   const events = async () => (await readFile(eventsPath, 'utf8')).trim().split('\n').filter(Boolean).map(JSON.parse);
-  const ownedPids = async () => (await events()).filter(e => e.event === 'start').map(e => e.pid);
+  const ownedPids = async () => [...new Set((await events()).flatMap(e => e.event === 'start' ? [e.pid] : e.event === 'grandchild' ? [e.child] : []))];
   t.after(async () => {
     if (child && !result) child.kill('SIGKILL');
     // Only PIDs recorded by this fixture, never system-wide name/port matching.
@@ -103,6 +103,10 @@ for (const stop of ['Enter', 'EOF', 'SIGINT', 'SIGTERM', 'SIGHUP']) {
     const demo = await setup(t);
     const child = demo.run();
     await demo.ready();
+    await demo.until(async () => {
+      const started = (await demo.events()).filter(e => e.event === 'start').map(e => e.role);
+      return [...runtime, ...seeds].every(role => started.includes(role));
+    }, 'all runtime processes to start');
     const roles = (await demo.events()).filter(e => e.event === 'start').map(e => e.role);
     for (const role of [...runtime, ...seeds]) assert.ok(roles.includes(role), `${role} was not started`);
     assert.ok(!roles.includes('open') && !roles.includes('xdg-open'), '--no-open launched a browser opener');
