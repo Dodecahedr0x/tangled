@@ -3,12 +3,12 @@
 Goal: `just demo` starts the complete local setup with sample data, opens the interfaces and owns cleanup until the user exits.
 Architecture: Node 22 standard-library supervisor calls existing binaries/seeders and the same Personal/provider APIs. Each run uses a fresh private directory under .data/local-demo; existing profiles are untouched. Seven default runtime processes: knot, Personal, provider, docs, Reed, Loomed, Weft. Browser openers are short-lived and never own the user's browser.
 
-- [ ] Root: add tested scripts/local-demo.mjs supervisor, just recipe and README usage.
-- [ ] Seed agent: scripts/local-demo-seed.mjs and tests/local-demo-seed.test.mjs, only existing Personal/provider APIs and ordinary records.
-- [ ] Lifecycle agent: tests/local-demo.test.mjs and tests/fixtures/local-demo-tool.mjs fake tools; validate real child/grandchild cleanup, no killing port occupants, startup failures, EOF/Enter/signals and desktop exit.
-- [ ] Integrate, run fake-stack tests plus real services/sample content in no-desktop mode, build desktop binaries and verify their launch/lifecycle when available.
-- [ ] Independent review of process ownership and secret/data isolation; fix findings.
-- [ ] Preserve current pending main changes, merge master and verify combined files.
+- [x] Root: add tested scripts/local-demo.mjs supervisor, just recipe and README usage.
+- [x] Seed agent: scripts/local-demo-seed.mjs and tests/local-demo-seed.test.mjs, only existing Personal/provider APIs and ordinary records.
+- [x] Lifecycle agent: tests/local-demo.test.mjs and tests/fixtures/local-demo-tool.mjs fake tools; validate real child/grandchild cleanup, no killing port occupants, startup failures, EOF/Enter/signals and desktop exit.
+- [x] Integrate, run fake-stack tests plus real services/sample content in no-desktop mode, build desktop binaries and verify their launch/lifecycle when available.
+- [x] Independent review of process ownership and secret/data isolation; fix findings.
+- [x] Preserve current pending main changes, merge master and verify combined files.
 
 Supervisor flags: --no-open (no browser openers), --no-desktop (skip native app build/start), --skip-build (use existing binaries/site deps), --port-offset N (add N to defaults 3000/8788/8787/4321), --data-root DIR (parent of private fresh run-* directory), --help. macOS/Linux process-group ownership; refuse unsupported platforms explicitly. Node and npm already needed for docs; no new npm dependencies.
 
