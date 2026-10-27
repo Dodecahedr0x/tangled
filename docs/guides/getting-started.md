@@ -48,8 +48,10 @@ must be verified separately.
 
 With a local knot running, use `just reed`, `just loomed`, or `just weft` for the
 desktop clients. Desktop builds need the native dependencies required by Dioxus.
-The `just reed-demo`, `just loomed-demo`, and `just weft-demo` recipes seed local
-examples; inspect the [recipes](../../justfile) for lifecycle and port details.
+Use `just demo` to build, seed and open the complete local stack. Press Enter or
+Ctrl-C to stop its processes. See the [root README](../../README.md#run-the-complete-local-setup)
+for prerequisites and options, or `just demo --help`. The optional `just weft-seed`
+starts a three-knot topology on ports 3000–3002; run `just weft` separately.
 
 Browser builds use `TANGLED_KNOT` as their configured default host. Desktop builds
 default to `http://127.0.0.1:3000`. A seeded demo does not prove cross-knot pull,

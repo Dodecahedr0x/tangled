@@ -1,9 +1,9 @@
-//! Local mock Mastodon/ActivityPub peer for `just reed-ap-demo-mock`.
+//! Local mock Mastodon/ActivityPub peer for `just reed-ap-seed http://127.0.0.1:3000 --create-local --mock`.
 //!
 //! Serves WebFinger + actor + outbox (fetched-key path) and POSTs signed
 //! `Create(Note)` to a knot inbox. CI never needs the public internet.
 //!
-//! The default demo (`just reed-ap-demo`) follows a real Mastodon account and
+//! The live seeder (`just reed-ap-seed`) follows a real Mastodon account and
 //! pulls its public outbox. Use this mock when you want a loopback peer.
 
 use std::net::SocketAddr;

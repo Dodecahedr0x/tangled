@@ -314,7 +314,7 @@ pub struct ApSeedReport {
     pub records: usize,
 }
 
-/// Default public Mastodon account for `just reed-ap-demo`. Override with
+/// Default public Mastodon account for `just reed-ap-seed`. Override with
 /// `REED_AP_ACCT` or `reed-ap-seed --acct`.
 pub const DEFAULT_AP_ACCT: &str = "acct:Gargron@mastodon.social";
 
@@ -367,7 +367,7 @@ pub async fn run_ap_acct(opts: SeedOpts, acct: String) -> Result<ApSeedReport> {
     })
 }
 
-/// Loopback mock peer (inbox POST). Used by `just reed-ap-demo-mock`.
+/// Loopback mock peer (inbox POST). Used by `just reed-ap-seed http://127.0.0.1:3000 --create-local --mock`.
 #[cfg(not(target_arch = "wasm32"))]
 pub async fn run_ap_mock(opts: SeedOpts) -> Result<ApSeedReport> {
     let sync = Sync::http(KnotUrl(opts.knot.clone()))?;

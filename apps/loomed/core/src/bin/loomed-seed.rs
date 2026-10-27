@@ -1,8 +1,8 @@
 //! Seed a running local knot with inbound chat so Loomed is not an empty inbox.
 //!
 //! ```text
-//! just seed
-//! just seed knot=http://127.0.0.1:3000
+//! just loomed-seed
+//! just loomed-seed http://127.0.0.1:3000
 //! cargo run -p loomed-core --bin loomed-seed -- --knot http://127.0.0.1:3000
 //! ```
 //!

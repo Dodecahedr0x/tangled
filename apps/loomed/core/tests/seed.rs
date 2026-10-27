@@ -1,4 +1,4 @@
-//! Offline tests for `just seed` / `loomed-seed`.
+//! Offline tests for `just loomed-seed` / `loomed-seed`.
 //!
 //! Full HTTP seeding needs a running knot (`just knot`). This file covers
 //! keys/path errors and the same wrap + SIWS + send + poll path as

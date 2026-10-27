@@ -186,17 +186,14 @@ LOOMED_HOME=.data/apps/loomed cargo run -p loomed-core --bin loomed-seed -- \
 Reed gets sample profiles, posts and follows. Loomed gets DMs and a three-person
 group. `--create-local` creates missing keys and retains existing ones.
 
-For standalone demos, the [justfile](justfile) also provides:
+The [justfile](justfile) groups commands into **Demo**, **Run**, **Seed** and
+**Checks**. Use `just demo` for the managed, seeded stack; the old per-app demo
+recipes have been replaced by this single entry point. Run `just --list` to see
+individual development commands.
 
-| Command | What it starts |
-| --- | --- |
-| `just reed-demo` | A knot, sample social data and Reed. |
-| `just loomed-demo` | A knot, sample conversations and Loomed. |
-| `just weft-demo` | Three knots on **3000–3002**, sample posts and Weft. |
-
-Run those demo recipes **instead of** the shared knot above: they manage their
-own knot processes and need port 3000. Run one demo at a time; its knot processes
-stop when the demo exits.
+For an optional three-knot network topology, run `just weft-seed` and `just weft`
+in separate terminals. This uses ports **3000–3002**, so stop the shared knot or
+managed demo first. Press **Ctrl-C** in the seed terminal to stop the cluster.
 
 ### Stop and restart
 

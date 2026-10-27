@@ -14,7 +14,7 @@
 //! Inbound replies from Mastodon still need `--public-url` and a reachable
 //! knot inbox. Outbound Create to the instance inbox is still attempted.
 //!
-//! `--mock` keeps the loopback peer path (`just reed-ap-demo-mock`).
+//! `--mock` keeps the loopback peer path (`just reed-ap-seed http://127.0.0.1:3000 --create-local --mock`).
 
 use std::process;
 

@@ -77,23 +77,28 @@ Inbox `Create{Note}` writes attested `sys.foreign` (rkey = BLAKE3(`activitypub||
 
 Disable the facade: `cargo run -p tangled-knot --no-default-features`.
 
-### Local demo (real Mastodon outbox)
+### Seed a local knot from a Mastodon outbox
+
+Start `just knot` in one terminal. In another, seed the same Reed profile used
+by `just reed`, then open Reed:
 
 ```bash
-just reed-ap-demo
+just reed-seed http://127.0.0.1:3000 --create-local
+just reed-ap-seed http://127.0.0.1:3000 --create-local --acct acct:user@instance
+just reed
 ```
 
-Starts this knot (ActivityPub on, loopback fetch allowed for local advertised URLs), writes Reed keys via `reed-seed --create-local`, follows **`acct:Gargron@mastodon.social`**, GETs that actor’s public **outbox** (and first page), and opens Reed. After Refresh, Home and Discover show real federated posts. No mock Mastodon process.
-
-Override the account (must be a public `acct:user@instance` with a public outbox):
+The ActivityPub seed follows the public account, fetches its actor and public
+outbox (including the first page), and imports posts. Refresh Reed to see them.
+Omit `--acct` to use `REED_AP_ACCT` or the helper's default account. For local
+inbox fixtures without public internet, use:
 
 ```bash
-REED_AP_ACCT=acct:Mastodon@mastodon.social just reed-ap-demo
-# or
-just reed-ap-seed --acct acct:user@instance
+just reed-ap-seed http://127.0.0.1:3000 --create-local --mock
 ```
 
-`just reed-demo` stays Tangled-only. `just reed-ap-demo-mock` keeps the old loopback peer (inbox POST, no public internet).
+`just demo` provides the managed local sample stack; ActivityPub seeding remains
+an explicit, separate command. The old per-app demo recipes were removed.
 
 Resolve (`GET /xrpc/tangled.ap.resolve`) does WebFinger + actor fetch, then pulls the outbox. HTTP signatures are required only for inbox POST; outbox GET is public. CI never hits the public internet (`cargo test --workspace`). Live pull: `REED_AP_LIVE=1 cargo test -p tangled-knot --test ap live_mastodon_outbox_pull -- --ignored --nocapture`.
 
