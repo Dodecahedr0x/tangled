@@ -5,6 +5,8 @@ const rows = value => Array.isArray(value) ? value : value.records;
 const keyOf = record => record.rkey || record.uri.split('/').pop();
 const message = () => el('p', { class: 'inline-status', role: 'status', 'aria-live': 'polite' });
 const meta = text => el('p', { class: 'meta', text });
+const focus = node => { if (node?.isConnected && !node.disabled) node.focus({ preventScroll: true }); };
+const focusAvailable = source => !document.activeElement?.isConnected || document.activeElement === document.body || document.activeElement === source;
 
 export async function mountToday(root, ctx) {
   const sections = [];
@@ -47,7 +49,28 @@ export async function mountToday(root, ctx) {
     const list = el('ul', { class: 'list' }), summary = meta(''), loadingStatus = message(), actionStatus = message();
     const changes = el('div', { class: 'stack' });
     const state = { definition, records: null, generation: 0, mutating: false, undo: [] };
-    const refresh = button(`Refresh ${definition.title.toLowerCase()}`, () => ctx.run(refresh, load));
+    let listControls = new Map(), changeControls = new Map();
+    const refresh = button(`Refresh ${definition.title.toLowerCase()}`, async () => {
+      if (refresh.disabled) return;
+      const restoreFocus = document.activeElement === refresh;
+      await ctx.run(refresh, load);
+      if (restoreFocus && focusAvailable(refresh)) focus(refresh);
+    });
+
+    function firstRecord() { return listControls.values().next().value || refresh; }
+    function replaceControls(container, previous, next, nodes) {
+      const active = document.activeElement;
+      const focused = [...previous].find(([, control]) => control === active);
+      container.replaceChildren(...nodes);
+      // A request owns its initiating control until its final render. Preserve any
+      // other control the person has chosen in the meantime by its record identity.
+      if (focused && active !== state.focusSource) {
+        const [key] = focused, same = next.get(key);
+        const openKey = typeof key === 'string' ? key.replace(/:action$/, ':open') : `${key.record.uri}:open`;
+        focus(same && !same.disabled ? same : next.get(openKey) || listControls.get(openKey) || firstRecord());
+      }
+      return next;
+    }
 
     function renderList() {
       if (!state.records) return;
@@ -55,65 +78,78 @@ export async function mountToday(root, ctx) {
       summary.textContent = state.records.length > LIMIT
         ? `Showing first ${LIMIT}${definition.feature === 'feeds' ? '; more are available in Reading.' : ` of ${state.records.length}. Open ${definition.view === 'notes' ? 'Notes' : 'Capture'} to see all.`}`
         : `${state.records.length} ${state.records.length === 1 ? 'item' : 'items'}`;
-      if (!visible.length) {
-        list.replaceChildren(el('li', {}, empty(definition.emptyTitle, definition.emptyText)));
-        return;
-      }
-      list.replaceChildren(...visible.map(record => {
+      const next = new Map();
+      const nodes = visible.map(record => {
         const open = button(recordTitle(record), () => ctx.navigate(definition.view, { uri: record.uri }));
         open.className += ' item-title';
         const action = button(definition.action, () => change(action, record));
         action.disabled = state.mutating;
+        next.set(`${record.uri}:open`, open); next.set(`${record.uri}:action`, action);
         return el('li', { class: 'item' },
           el('div', { class: 'item-main' }, open, meta(definition.detail(record))),
           el('div', { class: 'actions' }, action));
-      }));
+      });
+      if (!visible.length) nodes.push(el('li', {}, empty(definition.emptyTitle, definition.emptyText)));
+      const previous = listControls; listControls = next;
+      replaceControls(list, previous, next, nodes);
     }
 
     function renderChanges() {
-      changes.replaceChildren(...state.undo.map(change => {
+      const next = new Map();
+      const nodes = state.undo.map(change => {
         const undo = button(definition.undo, () => perform(undo, async () => {
           await ctx.api(definition.feature, definition.restore(change.record));
           state.undo = state.undo.filter(entry => entry !== change);
-          renderChanges();
           await refreshRelated();
           actionStatus.textContent = `Change undone: ${recordTitle(change.record)}.`;
           ctx.notify('Change undone.');
-        }));
+        }, () => listControls.get(`${change.record.uri}:open`) || firstRecord()));
         undo.disabled = state.mutating;
+        next.set(change, undo);
         return el('div', { class: 'item' },
           el('div', { class: 'item-main' }, meta(`${definition.success}: ${recordTitle(change.record)}`)),
           el('div', { class: 'actions' }, undo));
-      }));
+      });
+      const previous = changeControls; changeControls = next;
+      replaceControls(changes, previous, next, nodes);
     }
 
-    async function perform(control, task) {
-      if (state.mutating) return;
+    async function perform(control, task, successTarget) {
+      if (state.mutating || control.disabled) return;
+      // Shared run disables the button immediately, which can blur it in browsers.
+      const restoreFocus = document.activeElement === control;
+      const sourceKey = [...listControls, ...changeControls].find(([, node]) => node === control)?.[0];
+      let succeeded = false;
+      state.mutating = true;
+      state.focusSource = restoreFocus ? control : null;
       return ctx.run(control, async () => {
-        state.mutating = true;
         actionStatus.textContent = '';
-        try { await task(); }
+        try { await task(); succeeded = true; }
         catch (error) {
           actionStatus.textContent = `${error.message || error} Try the action again.`;
           throw error;
         } finally {
+          const mayRestore = restoreFocus && focusAvailable(control);
           state.mutating = false;
           renderList(); renderChanges();
+          state.focusSource = null;
+          if (mayRestore) focus(succeeded ? successTarget() : listControls.get(sourceKey) || changeControls.get(sourceKey) || firstRecord());
         }
       });
     }
 
     async function change(control, record) {
+      const entry = { record };
       return perform(control, async () => {
         await ctx.api(definition.feature, definition.change(record));
         // Only changed standard fields are sent back; extension data stays in the repository.
-        state.undo.push({ record });
+        state.undo.push(entry);
         state.records = state.records.filter(item => item.uri !== record.uri);
-        renderList(); renderChanges();
+        renderList();
         await refreshRelated();
         actionStatus.textContent = `${definition.success}. You can undo this change below while Today remains open.`;
         ctx.notify(`${definition.success}.`);
-      });
+      }, () => changeControls.get(entry));
     }
 
     async function refreshRelated() {
@@ -141,9 +177,10 @@ export async function mountToday(root, ctx) {
 
     state.load = load;
     state.node = el('section', { class: 'stack today-section', 'aria-label': definition.title },
-      el('div', { class: 'toolbar' }, el('h2', { class: 'section-title', text: definition.title }),
+      el('div', { class: 'toolbar' },
+        el('div', { class: 'today-title' }, el('h2', { class: 'section-title', text: definition.title }), summary),
         button(definition.open, () => ctx.navigate(definition.view)), refresh),
-      summary, loadingStatus, list, actionStatus, changes);
+      loadingStatus, list, actionStatus, changes);
     sections.push(state);
     return state.node;
   }
