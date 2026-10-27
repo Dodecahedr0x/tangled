@@ -1,4 +1,4 @@
-import { el, field, button, empty, recordTitle, timeLabel } from './ui.js';
+import { el, field, button, empty, recordTitle, timeLabel, revealSelection } from './ui.js';
 
 const MAX_FILE = 16 * 1024 * 1024;
 const rows = value => Array.isArray(value) ? value : (value?.records || []);
@@ -159,7 +159,7 @@ export async function mountLibrary(root, ctx) {
     if (current) renderReader(current);
   }
 
-  async function openResult(hit) {
+  async function openResult(hit, reveal = false) {
     const ticket = ++revision;
     replace(reader, hint('Opening record…'));
     detailStatus.textContent = '';
@@ -170,6 +170,7 @@ export async function mountLibrary(root, ctx) {
       if (ticket !== revision) return;
       current = { record, text };
       renderReader(current);
+      if (reveal) revealSelection(reader);
     } catch (error) {
       if (ticket !== revision) return;
       current = null;
@@ -234,7 +235,7 @@ export async function mountLibrary(root, ctx) {
       results = response.results || []; total = response.total || 0;
       resultSummary.textContent = `${total} ${total === 1 ? 'record' : 'records'}${total ? ` · ${offset + 1}–${Math.min(offset + results.length, total)}` : ''}`;
       replace(resultList, ...(results.length ? results.map(hit => el('li', { class: `item${current?.record.uri === hit.uri ? ' selected' : ''}` },
-        el('div', { class: 'item-main' }, button(hit.title || hit.snippet?.slice(0, 90) || humanCollection(hit.collection), () => void openResult(hit)),
+        el('div', { class: 'item-main' }, button(hit.title || hit.snippet?.slice(0, 90) || humanCollection(hit.collection), () => void openResult(hit, true)),
           el('p', { class: 'meta', text: humanCollection(hit.collection) }), el('p', { text: hit.snippet || '' })))) : [empty('No matching records', 'Try fewer words or clear a filter. Save content in Capture or write a note to begin.')]));
       const previous = button('Previous', () => void run(ctx, previous, searchStatus, async () => { offset = Math.max(0, offset - 30); await search(); }));
       const next = button('Next', () => void run(ctx, next, searchStatus, async () => { offset += 30; await search(); }));
@@ -319,12 +320,12 @@ export async function mountCapture(root, ctx) {
     if (tagFilter.value.trim()) filters.tag = tagFilter.value.trim();
     records = rows(await ctx.api('capture', filters));
     count.textContent = `${records.length} saved ${records.length === 1 ? 'item' : 'items'}`;
-    replace(list, ...(records.length ? records.map(record => itemRow(record, selected?.uri === record.uri, () => void open(record.uri),
+    replace(list, ...(records.length ? records.map(record => itemRow(record, selected?.uri === record.uri, () => void open(record.uri, true),
       [record.body.kind, record.body.read ? 'Read' : 'Unread', record.body.starred ? 'Starred' : '', tagsText(record.body)].filter(Boolean).join(' · '))) : [empty('No saved items', 'Save a web link, supplied article text, a file, or a screenshot above. Clear filters to see everything.')]));
     listStatus.textContent = '';
   }
 
-  async function open(uri) {
+  async function open(uri, reveal = false) {
     const ticket = ++readerTicket;
     replace(reader, hint('Opening saved item…'));
     try {
@@ -338,6 +339,7 @@ export async function mountCapture(root, ctx) {
       for (const row of list.children) row.classList.remove('selected');
       const index = records.findIndex(record => record.uri === uri);
       if (index >= 0) list.children[index]?.classList.add('selected');
+      if (reveal) revealSelection(reader);
     } catch (error) {
       if (ticket === readerTicket) replace(reader, empty('Could not read this saved item', error.message || String(error), button('Try again', () => void open(uri))));
     }
@@ -435,7 +437,7 @@ export async function mountNotes(root, ctx) {
     const needle = query.value.trim().toLocaleLowerCase();
     const filtered = records.filter(record => `${recordTitle(record)} ${record.body.text || ''}`.toLocaleLowerCase().includes(needle));
     count.textContent = `${filtered.length} ${filtered.length === 1 ? 'note' : 'notes'}`;
-    replace(list, ...(filtered.length ? filtered.map(record => itemRow(record, selected?.uri === record.uri, () => { selected = record; renderEditor(record); renderList(); },
+    replace(list, ...(filtered.length ? filtered.map(record => itemRow(record, selected?.uri === record.uri, () => { selected = record; renderEditor(record); renderList(); revealSelection(editor); },
       [record.body.state, record.body.reminderAt != null ? `Reminder: ${timeLabel(record.body.reminderAt * 1000)}` : '', record.body.attachments?.length ? `${record.body.attachments.length} attachments` : ''].filter(Boolean).join(' · '))) : [empty('No notes here yet', 'Write a note, keep a draft, or capture an idea in your self inbox. Clear filters to see other notes.')]));
   }
 

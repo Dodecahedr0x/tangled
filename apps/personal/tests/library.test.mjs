@@ -42,8 +42,9 @@ function field(label, control, hint = '') { control.testLabel = label; return el
 function button(label, onClick, kind = 'secondary') { return el('button', { type: 'button', text: label, onClick, class: kind }); }
 function empty(title, description, action) { return el('section', {}, title, description, action); }
 const recordTitle = record => record.body?.title || record.body?.name || record.body?.text?.slice(0, 80) || record.collection || 'Untitled';
-globalThis.__libraryTestUi = { el, field, button, empty, recordTitle, timeLabel: value => new Date(value).toISOString() };
-const source = (await readFile(new URL('../web/library.js', import.meta.url), 'utf8')).replace(/import \{[^\n]+\} from '\.\/ui\.js';/, 'const { el, field, button, empty, recordTitle, timeLabel } = globalThis.__libraryTestUi;');
+const reveals = [];
+globalThis.__libraryTestUi = { el, field, button, empty, recordTitle, timeLabel: value => new Date(value).toISOString(), revealSelection: node => reveals.push(node) };
+const source = (await readFile(new URL('../web/library.js', import.meta.url), 'utf8')).replace(/import \{[^\n]+\} from '\.\/ui\.js';/, 'const { el, field, button, empty, recordTitle, timeLabel, revealSelection } = globalThis.__libraryTestUi;');
 const { mountLibrary, mountCapture, mountNotes } = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
 const walk = root => [root, ...root.children.filter(node => node instanceof Element).flatMap(walk)];
 const control = (root, label) => { const result = walk(root).find(node => node.testLabel === label); assert.ok(result, `Missing field: ${label}`); return result; };
@@ -284,4 +285,80 @@ test('A capture text decoding error keeps original download and metadata actions
   assert.deepEqual([...ctx.downloads[0][1]], [255, 0]);
   assert.ok(findButton(root, 'Mark read'));
   assert.ok(findButton(root, 'Delete saved item'));
+});
+
+test('Library reveals only a completed explicit list selection, never organizers or refreshed results', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Selected source', text: 'Source text', state: 'note' });
+  const { root, ctx } = setup([saved]);
+  const start = reveals.length;
+  await mountLibrary(root, ctx);
+  assert.equal(reveals.length, start, 'Mount must keep its position');
+  await click(root, 'Selected source', ctx);
+  assert.equal(reveals.length, start + 1);
+  assert.equal(reveals.at(-1)['aria-label'], 'Selected library record');
+  control(root, 'Annotation').value = 'An annotation';
+  await submitForm(root, 'Save annotation', ctx);
+  await submitForm(root, 'Search', ctx);
+  assert.equal(reveals.length, start + 1, 'Annotation save and result refresh must keep their position');
+});
+
+test('Capture reveals list selections but not updates, filter refreshes or newly saved items', async () => {
+  const saved = record('pub.tangled.capture', 'one', { title: 'Saved text', text: 'Content', kind: 'text', tags: [], read: false });
+  const { root, ctx } = setup([saved]);
+  const start = reveals.length;
+  await mountCapture(root, ctx);
+  assert.equal(reveals.length, start);
+  await click(root, 'Saved text', ctx);
+  assert.equal(reveals.length, start + 1);
+  assert.equal(reveals.at(-1)['aria-label'], 'Saved item reader');
+  await click(root, 'Mark read', ctx);
+  await submitForm(root, 'Apply filters', ctx);
+  control(root, 'Title').value = 'Edited';
+  await submitForm(root, 'Save changes', ctx);
+  control(root, 'What are you saving?').value = 'text'; await control(root, 'What are you saving?').fire('change');
+  control(root, 'Title (optional)').value = 'Another saved item';
+  control(root, 'Saved text').value = 'New supplied content';
+  await submitForm(root, 'Save item', ctx);
+  assert.equal(reveals.length, start + 1, 'Save/update/filter flows must keep their position');
+});
+
+test('Notes reveals only list selection and keeps editor actions in place', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Existing note', text: 'Content', state: 'note' });
+  const { root, ctx } = setup([saved]);
+  const start = reveals.length;
+  await mountNotes(root, ctx);
+  assert.equal(reveals.length, start);
+  await click(root, 'Existing note', ctx);
+  assert.equal(reveals.length, start + 1);
+  assert.equal(reveals.at(-1)['aria-label'], 'Note editor');
+  control(root, 'Text').value = 'Edited';
+  await submitForm(root, 'Save note', ctx);
+  await submitForm(root, 'Apply filters', ctx);
+  await click(root, 'New draft', ctx);
+  await submitForm(root, 'Create note', ctx);
+  assert.equal(reveals.length, start + 1, 'Save/filter/new-draft flows must keep their position');
+});
+
+test('Library and Capture ignore stale asynchronous selections when revealing readers', async () => {
+  for (const [mount, collection, feature] of [[mountLibrary, 'pub.tangled.note', 'records'], [mountCapture, 'pub.tangled.capture', 'capture']]) {
+    const first = record(collection, 'first', { title: 'First selection', text: 'First body', kind: 'text', state: 'note', tags: [] });
+    const second = record(collection, 'second', { title: 'Second selection', text: 'Second body', kind: 'text', state: 'note', tags: [] });
+    const { root, ctx } = setup([first, second]);
+    const start = reveals.length;
+    await mount(root, ctx);
+    const api = ctx.api;
+    let resolveFirst;
+    const delay = new Promise(resolve => { resolveFirst = resolve; });
+    ctx.api = async (target, payload) => {
+      if (target === feature && payload.action === 'get' && (payload.rkey === 'first' || payload.uri === first.uri)) await delay;
+      return api(target, payload);
+    };
+    await click(root, 'First selection', ctx);
+    assert.equal(reveals.length, start, 'Pending selections do not reveal an incomplete reader');
+    await click(root, 'Second selection', ctx);
+    assert.equal(reveals.length, start + 1);
+    resolveFirst(); await settle(ctx);
+    assert.equal(reveals.length, start + 1, 'Late responses cannot reveal a stale selection');
+    assert.ok(reveals.at(-1).textContent.includes('Second body'));
+  }
 });
