@@ -37,8 +37,8 @@ Existing docs/guides/recovery.md required missing frontmatter; parent added only
 Logs in /tmp/tangled-solo-*.log. Shared concurrent target paths caused false artifacts initially; workers switched private. Parent final target /tmp/tangled-solo-integration-target. Do not rely on initial shared-target baseline failure as current result.
 Smoke script /tmp/tangled-solo-smoke.py exercises8 command workflows, article/feed search, static export and encrypted restore; run AFTER fix merge against rebuilt binary.
 
-## Final integration phase
+## Complete
 
-All eight features and consolidated review fixes integrated; no residual independent review blockers. Source identity canonicalization f63efe2 checked against JSON preserve-order builds and independent JavaScript vectors. Final integration checks:540 workspace tests passed,7 ignored;99 personal nextest passed with no leak;strict workspace lint/format passed;docs86 pages/3473 links passed;8-workflow CLI smoke passed.
+Merged master13b50d49620e2e4f3e37cf9e1a973e0d8e0c7620. All eight features, consolidated correctness/durability fixes, independent re-review, and canonical cross-client identity vectors are integrated. Actual master with preserved pending work passed613 workspace tests (7 ignored),99 personal nextest,strict workspace lint, formatting,8-workflow CLI smoke, and actual docs build/link checks (88 pages/3556 links).
 
-Next: private latest-master pending-file/index backup; authorized local merge; restore and hash-verify all100 pending paths (Cargo.lock independent3way); validate real master; archive remaining integration/fix worktrees. See VALIDATION.md.
+All100 original pending paths and staging verified after tests:99 byte-identical plus independent Cargo.lock three-way merge, no extra pending paths. Preservation stash81bd5a8818d54a0853a460d0b92fba9c9a73862f retained. Native worktree snapshots retain source branches; integration checkout archived; desktop primary review-fix checkout retained and synchronized with committed master. No unfinished feature/review nodes. See VALIDATION.md and docs/features/personal.md for limits.

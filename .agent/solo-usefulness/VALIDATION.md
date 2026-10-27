@@ -31,4 +31,17 @@ Source/feed ingestion accepts supplied content; no new live source authorization
 
 ## Preservation and final integration
 
-Original master checkout has100 pending paths, with only Cargo.lock overlapping this branch. The final merge will retain a private byte/index backup and named recovery stash, then compare all original pending files (and an independent three-way merge for Cargo.lock) after restoration. Actual master validation and preservation results are recorded after integration.
+Merged locally into master at `13b50d49620e2e4f3e37cf9e1a973e0d8e0c7620` (integration branch7e977cf). No push/deployment.
+
+All100 original pending paths and the original unstaged index were restored.99 paths remained byte-identical; Cargo.lock matches an independently computed three-way merge. A post-test audit confirmed the same100 pending paths, no unexpected pending paths, and unchanged staging. A private preservation copy and named recovery stash81bd5a8818d54a0853a460d0b92fba9c9a73862f remain available for this local session.
+
+Actual merged master was tested WITH those pending changes present:
+
+- `cargo test --workspace --offline --locked`:613 passed,0 failed,7 ignored across98 suites.
+- Strict workspace all-target Clippy:passed.
+- Personal nextest:99 passed,0 skipped, no leak.
+- Personal formatting check:passed.
+- Actual-master8-workflow CLI smoke:passed.
+- Fresh Astro content sync, docs tests/build/link checks:passed;88 HTML pages and3556 local links plus raw assets/search output checked.
+
+All eight source feature worktrees were archived recoverably after integration. The integration checkout is also archived. The desktop marks the review-fix checkout as its primary checkout and refuses to archive it; that checkout is retained and synchronized with committed master. User-facing limits are unchanged from the operating-limits section above.
