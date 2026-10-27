@@ -24,7 +24,11 @@ if (role === 'cargo') {
   process.exit(91);
 }
 if (role === 'npm' && args.includes('ci')) { log('unexpected-build'); process.exit(91); }
-if (['open', 'xdg-open'].includes(role)) process.exit(0);
+if (['open', 'xdg-open'].includes(role)) {
+  if (!control().openerStaysAlive) process.exit(0);
+  setInterval(() => {}, 1000);
+  await new Promise(() => {});
+}
 if (role.endsWith('-seed')) {
   process.stdin.resume();
   if (control().seedFailure === role) process.exit(23);

@@ -89,8 +89,11 @@ async function setup(t, { settings = {}, flags = [], omit = [], noOpen = true, n
       })]);
     } finally { clearTimeout(timer); }
   };
-  const cleaned = async () => {
-    const pids = await ownedPids();
+  const cleaned = async ({ excludeOpeners = false } = {}) => {
+    const openerPids = excludeOpeners
+      ? (await events()).filter(e => e.event === 'start' && ['open', 'xdg-open'].includes(e.role)).map(e => e.pid)
+      : [];
+    const pids = (await ownedPids()).filter(pid => !openerPids.includes(pid));
     const deadline = Date.now() + 5000;
     while (Date.now() < deadline && pids.some(alive)) await delay(30);
     assert.deepEqual(pids.filter(alive), [], `owned processes leaked\n${output}`);
@@ -134,6 +137,22 @@ test('default launch opens interfaces and creates private isolated data', { time
   child.stdin.end();
   assert.equal((await demo.exited()).code, 0, demo.output());
   await demo.cleaned();
+});
+
+test('a persistent browser opener survives shutdown without blocking readiness', { timeout: 30000 }, async t => {
+  const demo = await setup(t, { noOpen: false, settings: { openerStaysAlive: true } });
+  const child = demo.run();
+  await demo.ready();
+  await demo.until(async () => (await demo.events()).filter(e =>
+    e.event === 'start' && ['open', 'xdg-open'].includes(e.role)).length === 3, 'three browser openers');
+  const openerPids = (await demo.events()).filter(e =>
+    e.event === 'start' && ['open', 'xdg-open'].includes(e.role)).map(e => e.pid);
+  assert.ok(openerPids.every(alive), 'persistent browser opener exited before supervisor shutdown');
+  child.stdin.end();
+  assert.equal((await demo.exited()).code, 0, demo.output());
+  await demo.cleaned({ excludeOpeners: true });
+  assert.ok(openerPids.every(alive), 'supervisor killed a browser opener during cleanup');
+  // setup teardown kills these test-owned fake browsers after this assertion.
 });
 
 test('--no-desktop starts only HTTP services and seeds', { timeout: 30000 }, async t => {
