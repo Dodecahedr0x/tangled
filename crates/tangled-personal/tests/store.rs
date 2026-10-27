@@ -80,3 +80,10 @@ fn invalid_inputs_and_incompatible_foreign_backup_do_not_mutate_store() {
         "keep"
     );
 }
+
+#[test]
+fn owner_can_read_attachment_before_linking_it_to_record() {
+    let mut store = Store::memory();
+    let cid = store.put_blob(b"unlinked", "text/plain").unwrap();
+    assert_eq!(store.get_blob(&cid).unwrap(), b"unlinked");
+}

@@ -228,7 +228,7 @@ impl Store {
             "/xrpc/tangled.sync.getBlob",
             vec![("did".into(), did), ("cid".into(), cid.into())],
             None,
-            "repo/read",
+            "blob/get",
         )?;
         response.error_if_not_ok().map_err(err)?;
         if Cid::raw(&response.body).to_string() != cid {
