@@ -1,5 +1,7 @@
 mod delegation;
+mod import;
 pub(crate) mod replica;
+mod transaction;
 use crate::Result;
 use serde_json::{json, Value};
 use std::fs::{File, OpenOptions};
@@ -26,6 +28,7 @@ impl Store {
         let lock = private_file(&path.join("personal.lock"), false)?;
         lock.try_lock()
             .map_err(|_| "Repository is in use by another personal client".to_string())?;
+        transaction::recover(path)?;
         let identity_path = path.join("identity.json");
         let identity = match std::fs::read(&identity_path) {
             Ok(bytes) => {
@@ -78,6 +81,19 @@ impl Store {
             path: None,
             _lock: None,
         }
+    }
+
+    pub(crate) fn contains_key(&self, collection: &str, rkey: &str) -> bool {
+        self.engine
+            .tips
+            .contains_key(&(self.did(), collection.into(), rkey.into()))
+    }
+
+    pub(crate) fn text_blob(&self, cid: &str, limit: usize) -> Option<&str> {
+        let bytes = self.engine.blobs.get(&(self.did(), cid.into()))?;
+        (bytes.len() <= limit)
+            .then(|| std::str::from_utf8(bytes).ok())
+            .flatten()
     }
 
     pub fn did(&self) -> String {
@@ -160,6 +176,20 @@ impl Store {
         }
         let did = self.did();
         let key = (did.clone(), collection.to_string(), rkey.to_string());
+        // The reference filesystem backend escapes ':' as '_'. Distinct protocol
+        // keys may therefore alias one durable tip path. Reject before even the
+        // schema-blob write; in-memory repositories have no such path limitation.
+        if self.path.is_some() {
+            let segment = |value: &str| value.replace(['/', '\\', ':'], "_");
+            if self.engine.tips.keys().any(|existing| {
+                existing.0 == did
+                    && existing != &key
+                    && segment(&existing.1) == segment(collection)
+                    && segment(&existing.2) == segment(rkey)
+            }) {
+                return Err("Filesystem backend cannot store distinct record keys with colliding escaped paths".into());
+            }
+        }
         let prev: Vec<_> = self.engine.tips.get(&key).cloned().into_iter().collect();
         let last_ts = self
             .engine
@@ -250,65 +280,6 @@ impl Store {
         )?;
         response.error_if_not_ok().map_err(err)?;
         Ok(response.body)
-    }
-
-    pub fn import(&mut self, bytes: &[u8]) -> Result<()> {
-        let car = tangled::car::decode(bytes).map_err(err)?;
-        if car.roots.len() != 1 {
-            return Err("Backup must have exactly one signed repository root".into());
-        }
-        let root = &car.roots[0];
-        let root_bytes = car.get(root).ok_or("Missing root commit")?;
-        let info = tangled::record::parse_commit(root_bytes).map_err(err)?;
-        if info.did != self.did() {
-            return Err("Backup belongs to a different identity; restore its owner identity into a new directory first".into());
-        }
-        if let Some(head) = self.engine.heads.get(&info.did) {
-            if head.commit == root.to_string() {
-                return Ok(());
-            }
-            let mut cursor = Some(info.clone());
-            let mut seen = std::collections::HashSet::new();
-            let mut extends = false;
-            while let Some(commit) = cursor.take() {
-                let Some(previous) = commit.prev else {
-                    break;
-                };
-                if previous == head.commit {
-                    extends = true;
-                    break;
-                }
-                if !seen.insert(previous.clone()) {
-                    return Err("Cyclic commit history".into());
-                }
-                let cid = Cid::parse(&previous).map_err(err)?;
-                let b = car
-                    .get(&cid)
-                    .or_else(|| self.engine.blocks.get(&previous).map(Vec::as_slice))
-                    .ok_or("Incomplete commit history")?;
-                cursor = Some(tangled::record::parse_commit(b).map_err(err)?);
-            }
-            if !extends {
-                return Err("Backup would roll back or fork the current repository".into());
-            }
-        }
-        // Admission is transactional: the existing engine import mutates before every
-        // possible error has been checked, so stage it entirely in memory first.
-        let mut candidate = self.engine.clone();
-        candidate.data_dir = None;
-        let request = self.make_request(
-            Method::Post,
-            "/xrpc/tangled.repo.import",
-            vec![("force".into(), "true".into())],
-            Some(bytes.to_vec()),
-            "repo/write",
-        )?;
-        let response = candidate.handle(&request).map_err(err)?;
-        response.error_if_not_ok().map_err(err)?;
-        candidate.data_dir = self.path.clone();
-        candidate.persist().map_err(err)?;
-        self.engine = candidate;
-        Ok(())
     }
 
     fn request(

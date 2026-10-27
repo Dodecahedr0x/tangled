@@ -124,7 +124,7 @@ impl Store {
     }
 
     pub(crate) fn restore_contents(contents: &BackupContents, destination: &Path) -> Result<Value> {
-        let mut staged = Self::verify_contents(contents)?;
+        let staged = Self::verify_contents(contents)?;
         // create_dir is deliberately atomic and refuses any existing directory or symlink.
         std::fs::create_dir(destination).map_err(|_| {
             "Restore requires a fresh destination directory with an existing parent"
@@ -149,9 +149,7 @@ impl Store {
         file.write_all(&identity).map_err(err)?;
         file.sync_all().map_err(err)?;
         let mut target = Self::open(destination)?;
-        staged.engine.data_dir = Some(destination.to_path_buf());
-        staged.engine.persist().map_err(err)?;
-        target.engine = staged.engine;
+        target.publish_candidate(staged.engine)?;
         Ok(target.continuity_status())
     }
 
@@ -180,9 +178,7 @@ impl Store {
             candidate.engine.blocks.insert(cid.clone(), bytes.clone());
             candidate.engine.blobs.insert((did, cid), bytes);
         }
-        candidate.engine.data_dir = self.path.clone();
-        candidate.engine.persist().map_err(err)?;
-        self.engine = candidate.engine;
+        self.publish_candidate(candidate.engine)?;
         Ok(self.continuity_status())
     }
 }
@@ -198,6 +194,43 @@ fn decode_seed(value: &str) -> Result<[u8; 32]> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sync_filesystem_failure_preserves_old_head_on_reopen() {
+        let mut source = Store::memory();
+        source
+            .put("pub.tangled.note", "one", json!({"text":"old"}), "cap")
+            .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let initial = source.backup_contents().unwrap();
+        let destination = dir.path().join("restored");
+        Store::restore_contents(&initial, &destination).unwrap();
+        let mut target = Store::open(&destination).unwrap();
+        let heads = std::fs::read(destination.join("heads.json")).unwrap();
+        let new = source
+            .put("pub.tangled.note", "one", json!({"text":"new"}), "cap")
+            .unwrap();
+        let obstruction = destination
+            .join("repos")
+            .join(source.did().replace(['/', '\\', ':'], "_"))
+            .join("collections/pub.tangled.note/one")
+            .join(format!("{}.json", new["cid"].as_str().unwrap()));
+        std::fs::create_dir(&obstruction).unwrap();
+        assert!(target
+            .sync_contents(&source.backup_contents().unwrap())
+            .is_err());
+        assert_eq!(
+            std::fs::read(destination.join("heads.json")).unwrap(),
+            heads
+        );
+        drop(target);
+        std::fs::remove_dir(obstruction).unwrap();
+        let mut reopened = Store::open(&destination).unwrap();
+        assert_eq!(
+            reopened.get("pub.tangled.note", "one").unwrap()["body"]["text"],
+            "old"
+        );
+    }
 
     #[test]
     fn rejects_identity_and_attachment_corruption_before_restore() {

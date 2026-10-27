@@ -219,7 +219,7 @@ fn tags(body: &Value) -> Vec<String> {
         .collect()
 }
 
-fn visible_text(record: &Value) -> String {
+fn visible_text(store: &Store, record: &Value) -> String {
     let body = &record["body"];
     if record["vis"] == "sealed" || body["encrypted"] == true {
         return String::new();
@@ -233,7 +233,75 @@ fn visible_text(record: &Value) -> String {
     if let Some(values) = body["tags"].as_array() {
         parts.extend(values.iter().filter_map(Value::as_str));
     }
-    parts.join("\n")
+    // Adapt only known content shapes. Arbitrary blobs and nested objects may
+    // contain credentials, ciphertext or binary attachments.
+    const MAX_TEXT_BYTES: usize = 256 * 1024;
+    if record["collection"] == "pub.tangled.capture"
+        && body["kind"] == "article"
+        && body["mime"] == "text/plain"
+    {
+        if let Some(text) = body["blob"]
+            .as_str()
+            .and_then(|cid| store.text_blob(cid, MAX_TEXT_BYTES))
+        {
+            parts.push(text);
+        }
+    }
+    let mut text = String::new();
+    for part in parts {
+        let remaining = MAX_TEXT_BYTES.saturating_sub(text.len());
+        let mut end = part.len().min(remaining);
+        while !part.is_char_boundary(end) {
+            end -= 1;
+        }
+        text.push_str(&part[..end]);
+        if text.len() == MAX_TEXT_BYTES {
+            break;
+        }
+        text.push('\n');
+    }
+    if record["collection"] == "pub.tangled.feedItem" {
+        if let (Some(content), Some(kind)) = (body["body"].as_str(), body["bodyType"].as_str()) {
+            if content.len() <= MAX_TEXT_BYTES && matches!(kind, "text" | "html") {
+                text.push_str(&if kind == "html" {
+                    plain_feed_text(content)
+                } else {
+                    content.to_string()
+                });
+            }
+        }
+    }
+    text
+}
+
+// HTML is source data: discard markup, attributes and script/style contents.
+// Return only plain text; consumers must render snippets as textContent.
+fn plain_feed_text(input: &str) -> String {
+    let mut output = String::new();
+    let mut rest = input;
+    while let Some(start) = rest.find('<') {
+        output.push_str(&rest[..start]);
+        let Some(end) = rest[start..].find('>') else {
+            return output;
+        };
+        let tag = rest[start + 1..start + end].trim().to_ascii_lowercase();
+        rest = &rest[start + end + 1..];
+        let name = tag.split_whitespace().next().unwrap_or("");
+        if matches!(name, "script" | "style") {
+            let close = format!("</{name}");
+            let Some(close_at) = rest
+                .as_bytes()
+                .windows(close.len())
+                .position(|window| window.eq_ignore_ascii_case(close.as_bytes()))
+            else {
+                return output;
+            };
+            rest = &rest[close_at..];
+        }
+        output.push(' ');
+    }
+    output.push_str(rest);
+    output
 }
 
 fn source_matches(record: &Value, filter: &str) -> bool {
@@ -297,7 +365,7 @@ fn search(store: &mut Store, args: &Map<String, Value>) -> Result<Value> {
         if record["vis"] == "sealed" || record["body"]["encrypted"] == true {
             continue;
         }
-        let mut searchable = visible_text(record);
+        let mut searchable = visible_text(store, record);
         let mut record_tags = tags(&record["body"]);
         for annotation in annotations
             .get(record["uri"].as_str().unwrap_or(""))
@@ -305,7 +373,7 @@ fn search(store: &mut Store, args: &Map<String, Value>) -> Result<Value> {
             .flatten()
         {
             searchable.push('\n');
-            searchable.push_str(&visible_text(annotation));
+            searchable.push_str(&visible_text(store, annotation));
             record_tags.extend(tags(&annotation["body"]));
         }
         if searchable.trim().is_empty() {

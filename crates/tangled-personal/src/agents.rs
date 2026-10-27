@@ -82,7 +82,7 @@ fn delegated(store: &mut Store, mut args: Value) -> Result<Value> {
     }
     let receipt_key =
         hex::encode(blake3::hash(&[cap.aud.as_bytes(), &inv.nonce].concat()).as_bytes());
-    if store.get(ACTIVITY, &receipt_key).is_ok() {
+    if store.contains_key(ACTIVITY, &receipt_key) {
         return Err("Agent invocation nonce was already used".into());
     }
     let (mut output, citations) = if action == "search" {
@@ -114,7 +114,7 @@ fn delegated(store: &mut Store, mut args: Value) -> Result<Value> {
         // This local owner-side service signs the authorized result, never gives
         // its root signing key to the agent, and always uses private visibility.
         let rkey = text(&args, "rkey")?;
-        if store.get(collection, rkey).is_ok() {
+        if store.contains_key(collection, rkey) {
             return Err(
                 "Agent results must use a new record key; existing records cannot be overwritten"
                     .into(),

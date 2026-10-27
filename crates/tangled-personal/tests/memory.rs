@@ -210,3 +210,107 @@ fn validates_optional_metadata_and_excludes_encrypted_content() {
     )
     .is_err());
 }
+
+#[test]
+fn indexes_capture_article_blobs_and_feed_item_bodies_with_exact_evidence() {
+    let mut store = Store::memory();
+    let article = tangled_personal::capture::execute(
+        &mut store,
+        json!({"action":"save","kind":"article","title":"Article","text":"uniquebodyterm 東京"}),
+    )
+    .unwrap();
+    let result = execute(
+        &mut store,
+        json!({"action":"search","query":"uniquebodyterm"}),
+    )
+    .unwrap();
+    assert_eq!(result["total"], 1);
+    assert_eq!(result["results"][0]["uri"], article["uri"]);
+    assert_eq!(result["results"][0]["cid"], article["cid"]);
+    assert!(result["results"][0]["snippet"]
+        .as_str()
+        .unwrap()
+        .contains("uniquebodyterm"));
+    tangled_personal::feeds::execute(
+        &mut store,
+        json!({"action":"subscribe","url":"https://example.org/feed"}),
+    )
+    .unwrap();
+    let feed = tangled_personal::feeds::execute(&mut store, json!({"action":"ingest","url":"https://example.org/feed","xml":"<rss><channel><item><guid>id1</guid><title>Feed title</title><description>&lt;p&gt;uniquefeedbodyterm&lt;/p&gt;</description></item></channel></rss>"})).unwrap();
+    let result = execute(
+        &mut store,
+        json!({"action":"search","query":"uniquefeedbodyterm"}),
+    )
+    .unwrap();
+    assert_eq!(result["total"], 1);
+    assert_eq!(result["results"][0]["cid"], feed["items"][0]["cid"]);
+    let snippet = result["results"][0]["snippet"].as_str().unwrap();
+    assert!(snippet.contains("uniquefeedbodyterm"));
+    assert!(!snippet.contains('<'));
+}
+
+#[test]
+fn known_content_adapters_exclude_credentials_binary_encryption_and_html_code() {
+    let mut store = Store::memory();
+    let secret = store.put_blob(b"credentialneedle", "text/plain").unwrap();
+    let binary = store.put_blob(&[0xff, 0xfe], "text/plain").unwrap();
+    let oversized = store
+        .put_blob("oversizedneedle".repeat(20000).as_bytes(), "text/plain")
+        .unwrap();
+    for (key, collection, body) in [
+        ("unknown", "org.example.file", json!({"blob":secret})),
+        (
+            "attachment",
+            "pub.tangled.capture",
+            json!({"kind":"file","mime":"text/plain","blob":secret}),
+        ),
+        (
+            "wrong-mime",
+            "pub.tangled.capture",
+            json!({"kind":"article","mime":"application/octet-stream","blob":secret}),
+        ),
+        (
+            "encrypted",
+            "pub.tangled.capture",
+            json!({"kind":"article","mime":"text/plain","blob":secret,"encrypted":true}),
+        ),
+        (
+            "binary",
+            "pub.tangled.capture",
+            json!({"kind":"article","mime":"text/plain","blob":binary}),
+        ),
+        (
+            "oversized",
+            "pub.tangled.capture",
+            json!({"kind":"article","mime":"text/plain","blob":oversized}),
+        ),
+        (
+            "rich",
+            "pub.tangled.feedItem",
+            json!({"body":"credentialneedle","bodyType":"credential"}),
+        ),
+        (
+            "html",
+            "pub.tangled.feedItem",
+            json!({"body":"<script>credentialneedle</script><style>credentialneedle</style><p data-key='credentialneedle'>safe visiblefeedword</p>","bodyType":"html"}),
+        ),
+    ] {
+        store.put(collection, key, body, "cap").unwrap();
+    }
+    for query in ["credentialneedle", "oversizedneedle"] {
+        assert_eq!(
+            execute(&mut store, json!({"action":"search","query":query})).unwrap()["total"],
+            0
+        );
+    }
+    let found = execute(
+        &mut store,
+        json!({"action":"search","query":"visiblefeedword"}),
+    )
+    .unwrap();
+    assert_eq!(found["total"], 1);
+    assert!(!found["results"][0]["snippet"]
+        .as_str()
+        .unwrap()
+        .contains('<'));
+}

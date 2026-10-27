@@ -305,3 +305,46 @@ fn receipts_retain_verifiable_signed_invocations() {
         out["receipt"]["body"]["invocation"]
     );
 }
+
+#[test]
+fn write_only_agent_cannot_resurrect_tombstoned_owner_keys() {
+    let mut s = Store::memory();
+    let a = Identity::generate();
+    s.put(
+        "pub.tangled.note",
+        "deleted",
+        json!({"text":"owner"}),
+        "cap",
+    )
+    .unwrap();
+    s.remove("pub.tangled.note", "deleted").unwrap();
+    let g = grant(&mut s, &a, "write", 3600);
+    let input = request(
+        &s,
+        &a,
+        &g,
+        json!({"action":"write","collection":"pub.tangled.note","rkey":"deleted","body":{"summary":"resurrect"}}),
+    );
+    assert!(execute(&mut s, input).is_err());
+    assert!(s.get("pub.tangled.note", "deleted").is_err());
+}
+
+#[test]
+fn deleting_a_receipt_does_not_enable_invocation_replay() {
+    let mut s = Store::memory();
+    let a = Identity::generate();
+    let g = grant(&mut s, &a, "read", 3600);
+    let input = request(
+        &s,
+        &a,
+        &g,
+        json!({"action":"search","collection":"pub.tangled.note","query":""}),
+    );
+    let output = execute(&mut s, input.clone()).unwrap();
+    s.remove(
+        "pub.tangled.agent.activity",
+        output["receipt"]["rkey"].as_str().unwrap(),
+    )
+    .unwrap();
+    assert!(execute(&mut s, input).is_err());
+}

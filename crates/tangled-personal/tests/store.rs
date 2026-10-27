@@ -132,3 +132,211 @@ fn generic_protocol_client_reads_public_and_cannot_read_private_records() {
         assert_eq!(result.status, status);
     }
 }
+
+fn replica(source: &std::path::Path, destination: &std::path::Path) -> Store {
+    std::fs::write(
+        destination.join("identity.json"),
+        std::fs::read(source.join("identity.json")).unwrap(),
+    )
+    .unwrap();
+    Store::open(destination).unwrap()
+}
+
+#[test]
+fn import_uses_signed_mst_tips_independent_of_car_order() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut source = Store::open(source_dir.path()).unwrap();
+    source
+        .put("pub.tangled.note", "one", json!({"text":"old"}), "cap")
+        .unwrap();
+    let latest = source
+        .put(
+            "pub.tangled.note",
+            "one",
+            json!({"text":"new","extension":{"keep":true}}),
+            "cap",
+        )
+        .unwrap();
+    let mut car = tangled::car::decode(&source.export().unwrap()).unwrap();
+    car.blocks.reverse();
+    let mut target = replica(source_dir.path(), target_dir.path());
+    target.import(&tangled::car::encode(&car).unwrap()).unwrap();
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["cid"],
+        latest["cid"]
+    );
+    drop(target);
+    let mut target = Store::open(target_dir.path()).unwrap();
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["body"],
+        latest["body"]
+    );
+}
+
+#[test]
+fn import_rejects_missing_signed_mst_and_record_closures_before_changing_head() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut source = Store::open(source_dir.path()).unwrap();
+    let first = source
+        .put("pub.tangled.note", "one", json!({"text":"old"}), "cap")
+        .unwrap();
+    source
+        .put("pub.tangled.note", "one", json!({"text":"new"}), "cap")
+        .unwrap();
+    let car = tangled::car::decode(&source.export().unwrap()).unwrap();
+    let mut target = replica(source_dir.path(), target_dir.path());
+    let mut incomplete = car.clone();
+    incomplete
+        .blocks
+        .retain(|(_, bytes)| tangled::record::parse_commit(bytes).is_ok());
+    assert!(target
+        .import(&tangled::car::encode(&incomplete).unwrap())
+        .is_err());
+    incomplete = car.clone();
+    incomplete
+        .blocks
+        .retain(|(cid, _)| cid.to_string() != first["cid"].as_str().unwrap());
+    assert!(
+        target
+            .import(&tangled::car::encode(&incomplete).unwrap())
+            .is_err(),
+        "historical signed MST record is required"
+    );
+    assert!(target.list(None).unwrap().is_empty());
+    target.import(&tangled::car::encode(&car).unwrap()).unwrap();
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["body"]["text"],
+        "new"
+    );
+}
+
+#[test]
+fn import_filesystem_failure_preserves_durable_head_and_content() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut source = Store::open(source_dir.path()).unwrap();
+    let mut target = replica(source_dir.path(), target_dir.path());
+    source
+        .put("pub.tangled.note", "one", json!({"text":"old"}), "cap")
+        .unwrap();
+    target.import(&source.export().unwrap()).unwrap();
+    let before = std::fs::read(target_dir.path().join("heads.json")).unwrap();
+    let new = source
+        .put("pub.tangled.note", "one", json!({"text":"new"}), "cap")
+        .unwrap();
+    let obstruction = target_dir
+        .path()
+        .join("repos")
+        .join(source.did().replace(['/', '\\', ':'], "_"))
+        .join("collections/pub.tangled.note/one")
+        .join(format!("{}.json", new["cid"].as_str().unwrap()));
+    std::fs::create_dir(&obstruction).unwrap();
+    assert!(target.import(&source.export().unwrap()).is_err());
+    assert_eq!(
+        std::fs::read(target_dir.path().join("heads.json")).unwrap(),
+        before
+    );
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["body"]["text"],
+        "old"
+    );
+    drop(target);
+    std::fs::remove_dir(obstruction).unwrap();
+    let mut target = Store::open(target_dir.path()).unwrap();
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["body"]["text"],
+        "old"
+    );
+    target.import(&source.export().unwrap()).unwrap();
+    assert_eq!(
+        target.get("pub.tangled.note", "one").unwrap()["body"]["text"],
+        "new"
+    );
+}
+
+#[test]
+fn import_keeps_uncommitted_signed_record_blocks_out_of_current_records() {
+    let source_dir = tempfile::tempdir().unwrap();
+    let target_dir = tempfile::tempdir().unwrap();
+    let mut source = Store::open(source_dir.path()).unwrap();
+    let current = source
+        .put(
+            "pub.tangled.note",
+            "one",
+            json!({"text":"committed"}),
+            "cap",
+        )
+        .unwrap();
+    let identity_json: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(source_dir.path().join("identity.json")).unwrap())
+            .unwrap();
+    let identity = tangled::Identity::from_seeds(
+        hex::decode(identity_json["ed25519"].as_str().unwrap())
+            .unwrap()
+            .try_into()
+            .unwrap(),
+        hex::decode(identity_json["x25519"].as_str().unwrap())
+            .unwrap()
+            .try_into()
+            .unwrap(),
+    );
+    let mut unsigned = current.clone();
+    for key in ["cid", "uri", "sig"] {
+        unsigned.as_object_mut().unwrap().remove(key);
+    }
+    unsigned["rkey"] = json!("uncommitted");
+    let rogue = tangled::record::sign_json_record(identity.signing_key(), &unsigned).unwrap();
+    let mut car = tangled::car::decode(&source.export().unwrap()).unwrap();
+    car.blocks.push((rogue.cid, rogue.signed_cbor));
+    let mut target = replica(source_dir.path(), target_dir.path());
+    target.import(&tangled::car::encode(&car).unwrap()).unwrap();
+    assert_eq!(target.list(None).unwrap().len(), 1);
+    assert!(target.get("pub.tangled.note", "uncommitted").is_err());
+}
+
+#[test]
+fn persistent_writes_reject_escaped_key_collisions_before_mutation() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut store = Store::open(dir.path()).unwrap();
+    let first = store
+        .put(
+            "pub.tangled.note",
+            "a:b",
+            json!({"text":"keep colon key"}),
+            "cap",
+        )
+        .unwrap();
+    let heads = std::fs::read(dir.path().join("heads.json")).unwrap();
+    assert!(store
+        .put(
+            "pub.tangled.note",
+            "a_b",
+            json!({"text":"collision"}),
+            "cap"
+        )
+        .is_err());
+    assert_eq!(std::fs::read(dir.path().join("heads.json")).unwrap(), heads);
+    assert_eq!(
+        store.get("pub.tangled.note", "a:b").unwrap()["cid"],
+        first["cid"]
+    );
+    assert!(store.get("pub.tangled.note", "a_b").is_err());
+    drop(store);
+    let mut reopened = Store::open(dir.path()).unwrap();
+    assert_eq!(
+        reopened.get("pub.tangled.note", "a:b").unwrap()["cid"],
+        first["cid"]
+    );
+    assert!(reopened.get("pub.tangled.note", "a_b").is_err());
+    reopened.remove("pub.tangled.note", "a:b").unwrap();
+    assert!(reopened
+        .put(
+            "pub.tangled.note",
+            "a_b",
+            json!({"text":"collision with tombstone"}),
+            "cap"
+        )
+        .is_err());
+}
