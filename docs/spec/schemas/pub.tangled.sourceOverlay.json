@@ -1,0 +1,90 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.sourceOverlay.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "pub.tangled.sourceOverlay",
+  "description": "Private local organization for one source item. A reply draft is a preview only; it is never a source send queue.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "target"
+  ],
+  "properties": {
+    "target": {
+      "type": "string",
+      "pattern": "^tangled://did:"
+    },
+    "bookmarked": {
+      "type": "boolean"
+    },
+    "note": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    },
+    "reply": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "source",
+        "account",
+        "recipient",
+        "conversation",
+        "inReplyTo",
+        "kind",
+        "text",
+        "targetUri",
+        "targetCid",
+        "status"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "account": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recipient": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inReplyTo": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1
+        },
+        "targetUri": {
+          "type": "string",
+          "minLength": 1
+        },
+        "targetCid": {
+          "type": "string",
+          "minLength": 1
+        },
+        "conversation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "const": "draft"
+        }
+      }
+    }
+  }
+}
