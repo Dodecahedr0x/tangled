@@ -1,0 +1,7 @@
+flowchart TB
+  P["Personal · :8788<br/>Private library and daily workflows"] --> PD[(".data/personal")]
+  A["Reed · Loomed · Weft<br/>Desktop windows"] --> K["Knot · :3000<br/>Protocol API"] --> KD[(".data/local-knot")]
+  H["Provider · :8787<br/>Accounts and private archives"] --> HD[(".data/provider")]
+  D["Documentation · :4321<br/>Guides, feature docs and specification"]
+  X["Independently built apps"] -. "authorized local API" .-> P
+  X -. "open protocol API" .-> K
