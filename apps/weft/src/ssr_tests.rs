@@ -194,3 +194,50 @@ fn lookup_shows_identity_hit() {
     assert!(h.contains("alice.sol"));
     assert!(h.contains("public records"));
 }
+
+#[test]
+fn commons_overview_explains_observed_public_scope() {
+    let s = html(filled_overview);
+    assert!(s.contains("<h1"), "overview needs a real heading: {s}");
+    assert!(
+        s.contains("advertised public peers"),
+        "never imply global counts: {s}"
+    );
+    assert!(
+        s.contains("Read-only"),
+        "explorer must not imply write access: {s}"
+    );
+}
+
+#[test]
+fn capture_commons_weft_views() {
+    let Ok(dir) = std::env::var("TANGLED_DESIGN_CAPTURE_DIR") else {
+        return;
+    };
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, root) in [
+        ("weft-overview", filled_overview as fn() -> Element),
+        ("weft-topology", filled_topo),
+        ("weft-lookup", lookup_identity),
+        ("weft-empty", empty_overview),
+    ] {
+        std::fs::write(std::path::Path::new(&dir).join(format!("{name}.html")), format!("<!doctype html><html lang=\"en\"><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>{name}</title><style>{}</style><p class=\"fixture-note\">Synthetic test data · server-rendered Rust view</p>{}</html>", crate::app_style(), html(root))).unwrap();
+    }
+}
+
+#[test]
+fn topology_has_keyboard_accessible_public_node_details() {
+    let s = html(filled_topo);
+    assert!(
+        s.contains("<details"),
+        "public nodes need keyboard-accessible details: {s}"
+    );
+    assert!(
+        s.contains("<summary"),
+        "each node needs a selectable label: {s}"
+    );
+    assert!(
+        s.contains("Public nodes"),
+        "text view must be discoverable: {s}"
+    );
+}

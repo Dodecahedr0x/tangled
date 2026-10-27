@@ -22,18 +22,18 @@ pub fn Settings() -> Element {
     let mut knot = use_signal(|| initial);
     rsx! {
         div { class: "shell",
-            nav { class: "rail",
-                div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
-                }
-            }
-            section { class: "stage stage-pad",
-                p { class: "brand", "Knot" }
+            crate::rail::BandRail { show_band: true }
+            main { class: "stage stage-pad", id: "main-content",
+                crate::suite::SuiteBar { current: "Loomed" }
+                AppLink { to: Route::Inbox {}, class: "back-link", "Back to Inbox" }
+                h1 { class: "page-title", "Host settings" }
                 p { a { href: personal_url, "Open Personal" } }
                 p { class: "muted", "Your library, notes, reading, recovery, and publishing. Start Personal on this computer to connect." }
                 p { a { href: archive_url, "Your private archive & connections" } }
                 p { class: "muted", "Browse imported conversations and media in your host account. Source participants are not invited to Tangled." }
+                label { r#for: "host-url", "Host URL" }
                 input {
+                    id: "host-url",
                     r#type: "url",
                     placeholder: "https://knot.example",
                     value: knot,

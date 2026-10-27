@@ -112,6 +112,11 @@ pub fn load_keys() -> Option<LoomedKeys> {
     }
 }
 
+pub fn apply_onboard_keys(ui: &mut Ui, keys: &LoomedKeys) {
+    persist_keys(keys);
+    ui.did = Some(keys.did().as_str());
+}
+
 pub fn persist_keys(keys: &LoomedKeys) {
     #[cfg(not(target_arch = "wasm32"))]
     {

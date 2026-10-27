@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T13:35:38.336571+00:00",
+  "title": "Design System: Tangled Commons applications",
+  "extensions": {
+    "colorMeta": {
+      "rail": {
+        "role": "primary",
+        "displayName": "Evergreen"
+      },
+      "leaf": {
+        "role": "primary",
+        "displayName": "Leaf selection"
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Cool canvas"
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "White reading surface"
+      }
+    },
+    "motion": [
+      {
+        "name": "feedback",
+        "value": "background-color 150ms ease-out, color 150ms ease-out",
+        "purpose": "Buttons and app navigation, only when reduced motion is not requested."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile-max",
+        "value": "650px"
+      },
+      {
+        "name": "shared-compact-max",
+        "value": "1000px"
+      },
+      {
+        "name": "reed-context-hidden-max",
+        "value": "1200px"
+      },
+      {
+        "name": "weft-topology-stack-max",
+        "value": "1100px"
+      },
+      {
+        "name": "provider-compact-max",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Application primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "html": "<button class=\"ds-button\">Save host</button>",
+      "css": ".ds-button{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:14px;line-height:1.4;font-weight:550;min-height:44px;padding:9px 15px;border:1px solid var(--rail,#153e38);border-radius:8px;background:var(--rail,#153e38);color:#fff;cursor:pointer}.ds-button:hover{background:#25594e}.ds-button:focus-visible{outline:3px solid #427c6e;outline-offset:3px}.ds-button:disabled{opacity:.55;cursor:default}@media(prefers-reduced-motion:no-preference){.ds-button{transition:background-color 150ms ease-out,color 150ms ease-out}}",
+      "description": "Shared app action; provider uses its documented padding/weight variant."
+    },
+    {
+      "name": "Application secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "html": "<button class=\"ds-button ds-secondary\">Cancel</button>",
+      "css": ".ds-button{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:14px;line-height:1.4;font-weight:550;min-height:44px;padding:9px 15px;border:1px solid var(--rail,#153e38);border-radius:8px;background:var(--rail,#153e38);color:#fff;cursor:pointer}.ds-button:hover{background:#25594e}.ds-button:focus-visible{outline:3px solid #427c6e;outline-offset:3px}.ds-button:disabled{opacity:.55;cursor:default}@media(prefers-reduced-motion:no-preference){.ds-button{transition:background-color 150ms ease-out,color 150ms ease-out}}.ds-secondary{background:#fff;color:var(--rail,#153e38);border-color:var(--hairline-strong,#a4b6aa)}.ds-secondary:hover{background:#eef4ef}",
+      "description": "Bounded supporting action."
+    },
+    {
+      "name": "Host field",
+      "kind": "input",
+      "refersTo": "field",
+      "html": "<label class=\"ds-field\" for=\"ds-host\">Host URL<input id=\"ds-host\" type=\"url\" value=\"http://localhost:3000\"></label>",
+      "css": ".ds-field{display:flex;flex-direction:column;gap:7px;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:14px;font-weight:550;color:var(--text,#203b35)}.ds-field input{font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:16px;min-height:44px;width:100%;padding:10px 12px;border:1px solid var(--hairline-strong,#a4b6aa);border-radius:7px;background:#fff;color:var(--text,#203b35)}.ds-field input:focus-visible{outline:3px solid #427c6e;outline-offset:3px}",
+      "description": "Visible label and wrapping fluid control."
+    },
+    {
+      "name": "Current application navigation",
+      "kind": "nav",
+      "refersTo": "navigation-current",
+      "html": "<nav class=\"ds-nav\" aria-label=\"Application\"><a aria-current=\"page\" href=\"#home\">Home</a><a href=\"#settings\">Host settings</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:7px;padding:20px;background:var(--rail,#153e38);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;}.ds-nav a{display:flex;align-items:center;min-height:46px;padding:11px 14px;border-radius:8px;color:#e2eee8;font-size:14px;font-weight:550;text-decoration:none}.ds-nav a:hover{background:#2a5048;color:#fff}.ds-nav a[aria-current=page]{background:var(--leaf,#d8edc8);color:var(--rail,#153e38)}.ds-nav a:focus-visible{outline:3px solid #427c6e;outline-offset:3px}@media(max-width:650px){.ds-nav{flex-direction:row;flex-wrap:wrap}.ds-nav a{min-height:44px;font-size:13px}}",
+      "description": "Distinct from suite/account ownership."
+    },
+    {
+      "name": "Private scope",
+      "kind": "chip",
+      "refersTo": "scope-private",
+      "html": "<span class=\"ds-scope\">Private conversation</span>",
+      "css": ".ds-scope{display:inline-flex;padding:4px 9px;border-radius:5px;background:#eeeaf6;color:#574675;font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:12px;line-height:1.55}",
+      "description": "Text carries scope alongside color."
+    },
+    {
+      "name": "Task panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "html": "<section class=\"ds-panel\"><h1 class=\"ds-title\">Host settings</h1><p>Choose the host this app uses.</p></section>",
+      "css": ".ds-panel{padding:24px;border:1px solid var(--hairline,#dce5df);border-radius:10px;background:#fff;color:var(--text,#203b35);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif;font-size:16px;line-height:1.55}.ds-panel .ds-title{font-size:29px;font-weight:650;line-height:1.25;letter-spacing:-.7px;margin:0 0 4px}.ds-panel p{margin:0}@media(max-width:650px){.ds-panel{padding:19px}.ds-panel .ds-title{font-size:26px}}",
+      "description": "Flat, bounded task surface."
+    }
+  ],
+  "narrative": {
+    "northStar": "Commons",
+    "overview": "**Creative North Star: Commons.** Evergreen navigation, leaf selection, white reading surfaces, native UI sans, and a stable identity/host anchor make the application family approachable. Names and tasks lead; protocol identifiers remain available and wrap safely.\n\nThis is the runtime application authority: shared CSS is `apps/commons.css`, content layouts are in each app\u2019s `assets/app.css`, and provider styles are in `crates/tangled-provider/src/commons.css`. The root DESIGN.md continues to govern the documentation website. Prototype snapshots under `docs/design/commons` are design history, not the current runtime contract. This record is derived from implementation code; it does not claim browser or visual inspection.\n\n**Key Characteristics:** readable density; flat divided surfaces; native controls; explicit key custody and observation scope. The frontmatter records observed values; `.impeccable/design.json` adds motion and breakpoint metadata.",
+    "keyCharacteristics": [
+      "Readable density",
+      "Flat divided surfaces",
+      "Native controls",
+      "Explicit key custody and observation scope"
+    ],
+    "rules": [
+      {
+        "name": "The Scope Rule",
+        "body": "Selection never substitutes for public/private labels, key custody, host address, or the explorer\u2019s public observation scope.",
+        "section": "colors"
+      },
+      {
+        "name": "The Visible Focus Rule",
+        "body": "Keep the 3px focus outline and 3px offset, skip links, labeled fields, current/pressed states, and readable disclosures.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do preserve native type, readable spacing, visible focus, wrapping identifiers, and custody anchors at narrow widths.",
+      "Do distinguish real observations, unavailable data, and explicitly labeled fixtures.",
+      "Do preserve current route/component architecture and application-specific measures."
+    ],
+    "donts": [
+      "Don\u2019t apply the documentation site\u2019s copper/slate/Fira system to these applications.",
+      "Don\u2019t infer global network scope, shared sign-in, key transfer, or delivery guarantees from visual grouping.",
+      "Don\u2019t use prototype-only copy or claim this code-derived record was visually inspected."
+    ]
+  }
+}

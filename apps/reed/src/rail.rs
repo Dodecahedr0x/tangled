@@ -12,13 +12,21 @@ pub fn BandRail(
     #[props(default)] on_refresh: EventHandler<()>,
     #[props(default)] self_did: String,
 ) -> Element {
+    let context = try_use_context::<Signal<crate::state::Ui>>();
+    let host = context.map(|s| s().knot).unwrap_or_default();
+    let self_did = if self_did.is_empty() {
+        context.and_then(|s| s().did).unwrap_or_default()
+    } else {
+        self_did
+    };
     rsx! {
-        nav { class: "rail",
+        nav { class: "rail", aria_label: "Application navigation",
             div { class: "rail-head",
                 div { class: "brand",
                     span { class: "tick" }
                     "Reed"
                 }
+                p { class: "rail-description", "A place for public conversation" }
                 if show_tune {
                     label { class: "tune-wrap",
                         Icon { glyph: Glyph::Search }
@@ -73,6 +81,11 @@ pub fn BandRail(
                         span { "Refresh" }
                     }
                 }
+            }
+            div { class: "identity-anchor",
+                strong { "Keys on this device" }
+                if !self_did.is_empty() { code { "{self_did}" } } else { AppLink { to: Route::Onboard {}, "Set up your identity" } }
+                if !host.is_empty() { code { "{host}" } }
             }
         }
     }

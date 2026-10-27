@@ -280,7 +280,12 @@ async fn signup(State(p): State<Arc<Provider>>, Form(form): Form<SignupForm>) ->
             let posts = feed(&p);
             (
                 StatusCode::BAD_REQUEST,
-                Html(page::welcome(Some(&err.to_string()), &posts)),
+                Html(page::welcome_with_values(
+                    Some(&err.to_string()),
+                    &posts,
+                    &form.name,
+                    &form.email,
+                )),
             )
                 .into_response()
         }
@@ -300,7 +305,7 @@ async fn login(State(p): State<Arc<Provider>>, Form(form): Form<LoginForm>) -> R
             if let Err(err) = accounts::insert_session(&lock_db(&p), &token, account.id, exp) {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    Html(page::login(Some(&err.to_string()))),
+                    Html(page::login_with_email(Some(&err.to_string()), &form.email)),
                 )
                     .into_response();
             }
@@ -308,7 +313,7 @@ async fn login(State(p): State<Arc<Provider>>, Form(form): Form<LoginForm>) -> R
         }
         Err(err) => (
             StatusCode::UNAUTHORIZED,
-            Html(page::login(Some(&err.to_string()))),
+            Html(page::login_with_email(Some(&err.to_string()), &form.email)),
         )
             .into_response(),
     }
@@ -339,11 +344,12 @@ async fn create_post(
     let text = form.text.trim();
     if text.is_empty() || text.len() > 2000 {
         let posts = feed(&p);
-        return Html(page::home(
+        return Html(page::home_with_draft(
             &account.display_name,
             &account.did,
             Some("Write a post, up to 2000 characters."),
             &posts,
+            &form.text,
         ))
         .into_response();
     }
@@ -359,11 +365,12 @@ async fn create_post(
         let posts = feed(&p);
         return (
             StatusCode::BAD_GATEWAY,
-            Html(page::home(
+            Html(page::home_with_draft(
                 &account.display_name,
                 &account.did,
                 Some(&err),
                 &posts,
+                &form.text,
             )),
         )
             .into_response();

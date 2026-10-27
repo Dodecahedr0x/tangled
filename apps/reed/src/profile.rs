@@ -54,8 +54,9 @@ pub fn ProfileView(
     rsx! {
         div { class: "shell",
             BandRail { self_did }
-            section { class: "stage",
-                p { class: "page-title",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
+                h1 { class: "page-title",
                     span { class: "tick" }
                     "Profile"
                 }

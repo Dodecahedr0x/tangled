@@ -34,9 +34,10 @@ pub fn Settings() -> Element {
                     }
                 },
             }
-            section { class: "stage",
+            main { class: "stage", id: "main-content",
+                crate::suite::SuiteBar { current: "Reed" }
                 div { class: "stage-panel",
-                    p { class: "page-title",
+                    h1 { class: "page-title",
                         span { class: "tick" }
                         "Settings"
                     }
