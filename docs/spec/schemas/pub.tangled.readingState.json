@@ -1,0 +1,41 @@
+{
+  "$id": "https://tangled.protocol/schemas/pub.tangled.readingState.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": true,
+  "title": "pub.tangled.readingState",
+  "description": "Private user reading state, stored separately from imported feed evidence. Canonical record key equals the referenced feedItem record key. Unknown extension properties survive partial updates. Missing state means unread, unstarred, and no item tags.",
+  "required": [
+    "v",
+    "item",
+    "read",
+    "starred",
+    "tags"
+  ],
+  "properties": {
+    "v": {
+      "const": 1
+    },
+    "item": {
+      "type": "string",
+      "pattern": "^tangled://",
+      "description": "Stable signed record URI, never an HTTP source identity."
+    },
+    "read": {
+      "type": "boolean"
+    },
+    "starred": {
+      "type": "boolean"
+    },
+    "tags": {
+      "type": "array",
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128
+      }
+    }
+  }
+}
