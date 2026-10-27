@@ -322,6 +322,7 @@ pub fn default_ap_acct() -> String {
     std::env::var("REED_AP_ACCT").unwrap_or_else(|_| DEFAULT_AP_ACCT.into())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 const AP_DEMO_NOTES: &[&str] = &[
     "hello from the mock mastodon — this Note is federated",
     "second toot: Home and Discover fill after Refresh",
@@ -367,6 +368,7 @@ pub async fn run_ap_acct(opts: SeedOpts, acct: String) -> Result<ApSeedReport> {
 }
 
 /// Loopback mock peer (inbox POST). Used by `just reed-ap-demo-mock`.
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn run_ap_mock(opts: SeedOpts) -> Result<ApSeedReport> {
     let sync = Sync::http(KnotUrl(opts.knot.clone()))?;
     sync.probe().await?;

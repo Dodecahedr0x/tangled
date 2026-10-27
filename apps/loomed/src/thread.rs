@@ -6,7 +6,7 @@ use loomed_core::{
 use crate::labels::{
     group_subtitle, infer_recipients, member_count, peer_display, recipient_label, PeerLabel,
 };
-use crate::paths::{knot_path, replica_dir};
+use crate::paths::replica_dir;
 use crate::state::{load_keys, messages_for, Ui};
 use crate::{AppLink, Route};
 
@@ -82,8 +82,7 @@ fn try_drain(outbox: &mut Outbox) {
     if outbox.is_empty() {
         return;
     }
-    let knot = std::fs::read_to_string(knot_path()).unwrap_or_default();
-    let knot = knot.trim().to_string();
+    let knot = crate::state::read_knot();
     if knot.is_empty() {
         return;
     }
@@ -158,7 +157,7 @@ pub fn ThreadView(
         div { class: "shell",
             nav { class: "rail",
                 div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "band" }
+                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
                 }
             }
             section { class: "stage",

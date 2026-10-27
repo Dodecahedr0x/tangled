@@ -590,7 +590,7 @@ mod tests {
     #[test]
     fn wrapping_vector_is_not_live_rfc9420_bytes() {
         let v: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../spec/vectors/mls-welcome-commit.json"
+            "../../../docs/spec/vectors/mls-welcome-commit.json"
         ))
         .unwrap();
         let welcome = hex::decode(v["welcome_record"]["payload_hex"].as_str().unwrap()).unwrap();

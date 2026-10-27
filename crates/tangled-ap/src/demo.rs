@@ -53,6 +53,13 @@ pub struct MockPeer {
     key: RsaPrivateKey,
     seq: AtomicU64,
     notes: Arc<Mutex<Vec<(String, String)>>>,
+    server_task: tokio::task::JoinHandle<()>,
+}
+
+impl Drop for MockPeer {
+    fn drop(&mut self) {
+        self.server_task.abort();
+    }
 }
 
 /// Result of a signed inbox `Create(Note)`.
@@ -87,7 +94,7 @@ impl MockPeer {
             .route("/users/{name}/outbox", get(outbox))
             .route("/users/{name}/avatar.png", get(avatar))
             .with_state(state);
-        tokio::spawn(async move {
+        let server_task = tokio::spawn(async move {
             let _ = axum::serve(listener, app).await;
         });
         Ok(Self {
@@ -97,6 +104,7 @@ impl MockPeer {
             key,
             seq: AtomicU64::new(1),
             notes,
+            server_task,
         })
     }
 
@@ -346,5 +354,24 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    #[tokio::test]
+    async fn dropping_peer_releases_listener() {
+        let peer = MockPeer::bind("lifecycle").await.unwrap();
+        let address = peer.addr;
+        assert!(tokio::net::TcpStream::connect(address).await.is_ok());
+        drop(peer);
+        tokio::time::timeout(std::time::Duration::from_secs(1), async {
+            loop {
+                if let Ok(listener) = tokio::net::TcpListener::bind(address).await {
+                    drop(listener);
+                    break;
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .expect("dropping MockPeer must release its listening socket");
     }
 }

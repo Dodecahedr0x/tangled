@@ -12,18 +12,30 @@ fn hosting(did: &str) -> MockKnot {
 
 #[tokio::test]
 async fn local_stats_counts_public_records() {
-    let did = "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs";
-    let engine = Arc::new(Mutex::new(hosting(did)));
+    let identity = tangled::identity::Identity::from_seeds([205; 32], [206; 32]);
+    let did = identity.did_string();
+    let mut knot = hosting(&did);
+    knot.register_identity(&identity);
+    let engine = Arc::new(Mutex::new(knot));
     let client = KnotClient::mock_shared(engine.clone());
     client
         .put_record(&PutRecordRequest {
-            record: serde_json::json!({
-                "v": 1,
-                "collection": "pub.tangled.post",
-                "rkey": "p1",
-                "vis": "public",
-                "body": { "text": "hi" }
-            }),
+            record: tangled::record::sign_json_record(
+                identity.signing_key(),
+                &serde_json::json!({
+                    "v": 1,
+                    "author": did,
+                    "type": tangled::cid::Cid::dag_cbor(b"pub.tangled.post").to_string(),
+                    "ts": 1,
+                    "prev": [],
+                    "collection": "pub.tangled.post",
+                    "rkey": "p1",
+                    "vis": "public",
+                    "body": { "text": "hi" }
+                }),
+            )
+            .unwrap()
+            .json,
         })
         .await
         .unwrap();
@@ -54,22 +66,34 @@ async fn assemble_edges_to_advertised_peers() {
 
 #[tokio::test]
 async fn lookup_did_returns_identity() {
-    let did = "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs";
-    let engine = Arc::new(Mutex::new(hosting(did)));
+    let identity = tangled::identity::Identity::from_seeds([207; 32], [208; 32]);
+    let did = identity.did_string();
+    let mut knot = hosting(&did);
+    knot.register_identity(&identity);
+    let engine = Arc::new(Mutex::new(knot));
     KnotClient::mock_shared(engine.clone())
         .put_record(&PutRecordRequest {
-            record: serde_json::json!({
-                "v": 1,
-                "collection": "pub.tangled.post",
-                "rkey": "p1",
-                "vis": "public",
-                "body": { "text": "hi" }
-            }),
+            record: tangled::record::sign_json_record(
+                identity.signing_key(),
+                &serde_json::json!({
+                    "v": 1,
+                    "author": did,
+                    "type": tangled::cid::Cid::dag_cbor(b"pub.tangled.post").to_string(),
+                    "ts": 1,
+                    "prev": [],
+                    "collection": "pub.tangled.post",
+                    "rkey": "p1",
+                    "vis": "public",
+                    "body": { "text": "hi" }
+                }),
+            )
+            .unwrap()
+            .json,
         })
         .await
         .unwrap();
     let ex = Explorer::mock(engine);
-    match ex.lookup(did).await.unwrap() {
+    match ex.lookup(&did).await.unwrap() {
         LookupHit::Identity {
             did: got, records, ..
         } => {

@@ -88,6 +88,8 @@ pub struct KnotEngine {
     pub signing_keys: HashMap<String, [u8; 32]>,
     /// Peer knot URLs learned from other knots' `describe.peers`. Not advertised.
     pub learned_peers: Vec<String>,
+    /// CID-only private archive erasure fences; replayed from the durable fence file.
+    pub private_archive_erasure_cids: std::collections::HashSet<String>,
 }
 
 /// Test and in-process alias — same engine the server runs.
@@ -475,6 +477,22 @@ impl KnotEngine {
         })
     }
 
+    /// Current `sys.id` `pubkey`, if one is stored. Absent means the DID key still signs.
+    fn operational_pubkey(&self, did: &str) -> Option<[u8; 32]> {
+        let cid = self
+            .tips
+            .get(&(did.to_string(), "sys.id".into(), "self".into()))?;
+        let rec = self.stored.iter().rev().find(|r| {
+            &r.cid == cid
+                && r.did == did
+                && r.collection == "sys.id"
+                && r.rkey == "self"
+                && !r.deleted
+        })?;
+        let body = rec.record.get("body")?;
+        crate::identity::parse_sys_id_key32(body.get("pubkey")?)
+    }
+
     fn sys_id_cid(&self, did: &str) -> Option<String> {
         self.tips
             .get(&(did.to_string(), "sys.id".into(), "self".into()))
@@ -542,6 +560,194 @@ impl KnotEngine {
             return Ok(());
         };
         persist_engine(self, dir)
+    }
+
+    /// Remove host-retained private import ciphertext, including historical revisions.
+    /// Signed historical commits/MST nodes retain opaque CIDs, never the removed payload.
+    /// The CID-only fence is replayed on restart before the engine becomes available.
+    pub fn erase_private_archive(
+        &mut self,
+        owner: &str,
+        record_cids: &[String],
+        blob_cids: &[String],
+    ) -> Result<()> {
+        use std::collections::HashSet;
+        let records: HashSet<_> = record_cids.iter().cloned().collect();
+        for rec in self.stored.iter().filter(|r| records.contains(&r.cid)) {
+            if rec.did != owner
+                || rec.vis != "sealed"
+                || ![
+                    "app.tangled.import.object",
+                    "app.tangled.import.file",
+                    "app.tangled.import.batch",
+                    "app.tangled.import.key",
+                ]
+                .contains(&rec.collection.as_str())
+            {
+                return Err(Error::Transport(
+                    "Erasure may only remove the owner's private import records".into(),
+                ));
+            }
+        }
+        // Persist intent before removing any file. Retried/restarted erasure is idempotent.
+        if let Some(dir) = &self.data_dir {
+            let path = dir.join("private-archive-erasures.json");
+            let mut fences: Vec<(String, Vec<String>, Vec<String>)> = if path.exists() {
+                read_json(&path)?
+            } else {
+                Vec::new()
+            };
+            if let Some((_, old_records, old_blobs)) =
+                fences.iter_mut().find(|(did, _, _)| did == owner)
+            {
+                old_records.extend(record_cids.iter().cloned());
+                old_records.sort();
+                old_records.dedup();
+                old_blobs.extend(blob_cids.iter().cloned());
+                old_blobs.sort();
+                old_blobs.dedup();
+            } else {
+                fences.push((owner.into(), record_cids.to_vec(), blob_cids.to_vec()));
+            }
+            let temp = dir.join("private-archive-erasures.pending");
+            let bytes = serde_json::to_vec(&fences).map_err(|e| Error::Transport(e.to_string()))?;
+            use std::io::Write;
+            let mut file = std::fs::File::create(&temp).map_err(fs_err)?;
+            file.write_all(&bytes).map_err(fs_err)?;
+            file.sync_all().map_err(fs_err)?;
+            std::fs::rename(&temp, &path).map_err(fs_err)?;
+            std::fs::File::open(dir)
+                .and_then(|f| f.sync_all())
+                .map_err(fs_err)?;
+        }
+        let removed = self
+            .stored
+            .iter()
+            .filter(|r| r.did == owner && records.contains(&r.cid))
+            .cloned()
+            .collect::<Vec<_>>();
+        self.stored
+            .retain(|r| r.did != owner || !records.contains(&r.cid));
+        self.tips
+            .retain(|(did, _, _), cid| did != owner || !records.contains(cid));
+        self.records
+            .retain(|(did, _, _), r| did != owner || !records.contains(&record_cid(&r.record)));
+        self.put_records
+            .retain(|r| r["author"].as_str() != Some(owner) || !records.contains(&record_cid(r)));
+        // Never remove shared chunks still referenced by any retained record or another owner.
+        let blobs = blob_cids
+            .iter()
+            .filter(|cid| {
+                !self
+                    .stored
+                    .iter()
+                    .any(|r| r.did == owner && json_contains_str(&r.record, cid))
+            })
+            .cloned()
+            .collect::<HashSet<_>>();
+        self.private_archive_erasure_cids
+            .extend(records.iter().cloned());
+        self.private_archive_erasure_cids.extend(
+            blobs
+                .iter()
+                .filter(|cid| {
+                    !self
+                        .blobs
+                        .keys()
+                        .any(|(did, other)| did != owner && other == *cid)
+                        && !self
+                            .stored
+                            .iter()
+                            .any(|r| r.did != owner && json_contains_str(&r.record, cid))
+                })
+                .cloned(),
+        );
+        self.blobs
+            .retain(|(did, cid), _| did != owner || !blobs.contains(cid));
+        self.blob_types
+            .retain(|(did, cid), _| did != owner || !blobs.contains(cid));
+        for cid in records.iter().chain(blobs.iter()) {
+            if !self.blobs.keys().any(|(_, other)| other == cid)
+                && (records.contains(cid)
+                    || !self
+                        .stored
+                        .iter()
+                        .any(|r| json_contains_str(&r.record, cid)))
+            {
+                self.blocks.remove(cid);
+            }
+        }
+        self.msts.remove(owner);
+        let mut mst = Mst::default();
+        for ((did, collection, rkey), cid) in &self.tips {
+            if did == owner {
+                let key = sync::mst_key(collection, rkey);
+                if let Ok(cid) = Cid::parse(cid) {
+                    mst.insert(key.as_bytes(), cid).ok();
+                }
+            }
+        }
+        if let Ok(pairs) = mst.block_pairs_string_cids() {
+            for (cid, bytes) in pairs {
+                self.blocks.insert(cid.to_string(), bytes);
+            }
+        }
+        // During a normal erase the owner key is present. Startup replay can retain the
+        // previous signed head as opaque history until the owner's next signed write.
+        if !removed.is_empty() && self.signing_keys.contains_key(owner) {
+            let data = mst
+                .root_cid_string_cids()
+                .map_err(|e| Error::Transport(e.to_string()))?;
+            let prev = self
+                .heads
+                .get(owner)
+                .and_then(|h| Cid::parse(&h.commit).ok());
+            let clock = self.rev.entry(owner.into()).or_insert(0);
+            *clock += 1;
+            let rev = crate::identity::tid_from_parts(*clock, 0);
+            let unsigned = record::unsigned_commit(owner, &data, &rev, prev.as_ref());
+            let sealed = record::seal_commit(&self.commit_signing_key(owner), &unsigned)
+                .map_err(|e| Error::Transport(e.to_string()))?;
+            self.blocks
+                .insert(sealed.cid.to_string(), sealed.signed_cbor);
+            self.heads.insert(
+                owner.into(),
+                GetHeadResponse {
+                    did: owner.into(),
+                    commit: sealed.cid.to_string(),
+                    rev,
+                    knot: self.knot_uri(owner),
+                    data: data.to_string(),
+                },
+            );
+        }
+        self.msts.insert(owner.into(), mst);
+        // Refresh surviving record proofs after removing the private MST leaves.
+        let tips = self.tips.clone();
+        for ((did, collection, rkey), cid) in tips {
+            if did == owner {
+                if let Some(rec) = self.stored.iter().find(|r| r.did == owner && r.cid == cid) {
+                    self.records
+                        .insert((did, collection, rkey), self.record_response(rec));
+                }
+            }
+        }
+        if let Some(dir) = &self.data_dir {
+            remove_erased_repo_files(
+                &dir.join("repos").join(safe_seg(owner)).join("collections"),
+                &records,
+            )?;
+            // Also remove orphaned block files from an interrupted prior erasure.
+            for cid in &blobs {
+                remove_erased_file(&dir.join("blobs").join(safe_seg(owner)).join(safe_seg(cid)))?;
+            }
+            for cid in records.iter().chain(blobs.iter()) {
+                if !self.blocks.contains_key(cid) {
+                    remove_erased_file(&dir.join("blocks").join(safe_seg(cid)))?;
+                }
+            }
+        }
+        self.persist()
     }
 
     /// Spec 11: public collections need no cap on subscribe; others do.
@@ -783,7 +989,18 @@ impl KnotEngine {
             .and_then(|v| v.get("prev").and_then(|p| p.as_str()).map(str::to_string));
         self.put_records.push(parsed.record.clone());
         let record = parsed.record;
-        if let Err(e) = verify_put_signature(&record) {
+        if record
+            .get("sig")
+            .and_then(serde_json::Value::as_str)
+            .is_none()
+        {
+            return api_error(
+                400,
+                "InvalidSignature",
+                "putRecord requires a signed record",
+            );
+        }
+        if let Err(e) = self.verify_put_signature(&record) {
             return api_error(400, "InvalidSignature", &e.to_string());
         }
         let collection = record
@@ -831,7 +1048,7 @@ impl KnotEngine {
 
     /// Replica ingest: store a verified record without write-cap / ConcurrentHeads gates.
     pub fn ingest_record(&mut self, record: serde_json::Value) -> Result<PutRecordResponse> {
-        if let Err(e) = verify_put_signature(&record) {
+        if let Err(e) = self.verify_put_signature(&record) {
             return Err(Error::Http {
                 status: 400,
                 error: format!("InvalidSignature: {e}"),
@@ -967,8 +1184,17 @@ impl KnotEngine {
         if let Some(obj) = unsigned.as_object_mut() {
             obj.remove("sig");
         }
-        let _ = record::validate_envelope(&unsigned);
+        if let Err(error) = record::validate_envelope(&unsigned) {
+            return api_error(400, "InvalidRequest", &error.to_string());
+        }
         let (cid, cbor) = record_cbor_and_cid(&record);
+        if self.private_archive_erasure_cids.contains(&cid) {
+            return api_error(
+                409,
+                "ArchiveErased",
+                "This private archive record was erased on this host",
+            );
+        }
         self.blocks.insert(cid.clone(), cbor);
         let stored = StoredRecord {
             did: author.clone(),
@@ -1283,8 +1509,16 @@ impl KnotEngine {
             .iter()
             .find(|(k, _)| k == "did")
             .map(|(_, v)| v.clone())
+            .or_else(|| self.session_did(req))
             .or_else(|| self.describe.as_ref().map(|d| d.did.clone()))
             .unwrap_or_else(|| "did:sol:mock".into());
+        if self.private_archive_erasure_cids.contains(&cid) {
+            return api_error(
+                409,
+                "ArchiveErased",
+                "This private archive blob was erased on this host",
+            );
+        }
         let media_type = req
             .query
             .iter()
@@ -1342,7 +1576,7 @@ impl KnotEngine {
         }
     }
 
-    fn get_blocks(&self, req: &KnotRequest) -> Result<KnotResponse> {
+    fn get_blocks(&mut self, req: &KnotRequest) -> Result<KnotResponse> {
         let body = req.body.as_deref().unwrap_or(b"{}");
         let parsed: GetBlocksRequest =
             serde_json::from_slice(body).unwrap_or(GetBlocksRequest { cids: vec![] });
@@ -1352,17 +1586,116 @@ impl KnotEngine {
         let mut missing = Vec::new();
         let mut blocks = Vec::new();
         for cid_s in &parsed.cids {
-            if let Some(bytes) = self.blocks.get(cid_s) {
-                if let Ok(cid) = Cid::parse(cid_s) {
-                    blocks.push((cid, bytes.clone()));
-                }
-            } else if let Some((_, b)) = self.blobs.iter().find(|((_, c), _)| c == cid_s) {
-                if let Ok(cid) = Cid::parse(cid_s) {
-                    blocks.push((cid, b.clone()));
-                }
-            } else {
+            let bytes = self.blocks.get(cid_s).cloned().or_else(|| {
+                self.blobs
+                    .iter()
+                    .find(|((_, cid), _)| cid == cid_s)
+                    .map(|(_, bytes)| bytes.clone())
+            });
+            let Some(bytes) = bytes else {
                 missing.push(cid_s.clone());
+                continue;
+            };
+            let Ok(cid) = Cid::parse(cid_s) else { continue };
+            let mut records: Vec<StoredRecord> = self
+                .stored
+                .iter()
+                .filter(|record| record.cid == *cid_s)
+                .cloned()
+                .collect();
+            // A partially imported/recovered record can exist in the block map
+            // before its materialized index. Its envelope still determines auth.
+            if records.is_empty() && cid.is_dag_cbor() {
+                if let Some(json) = crate::dagcbor::decode(&bytes)
+                    .ok()
+                    .and_then(|v| cbor_record_to_json(&v))
+                {
+                    if let (Some(author), Some(collection), Some(rkey)) = (
+                        json["author"].as_str(),
+                        json["collection"].as_str(),
+                        json["rkey"].as_str(),
+                    ) {
+                        records.push(StoredRecord {
+                            did: author.into(),
+                            collection: collection.into(),
+                            rkey: rkey.into(),
+                            vis: json["vis"].as_str().unwrap_or("public").into(),
+                            cid: cid_s.clone(),
+                            circle: json["circle"].as_str().map(str::to_owned),
+                            deleted: json.get("body").is_some_and(|body| body.is_null()),
+                            record: json,
+                        });
+                    }
+                }
             }
+            if !records.is_empty() {
+                // Visibility is a property of the record envelope, not merely
+                // a public record that happens to mention this CID.
+                let mut denied = None;
+                let mut allowed = false;
+                for record in &records {
+                    match self.read_denied(record, req)? {
+                        None => {
+                            allowed = true;
+                            break;
+                        }
+                        response => denied = response,
+                    }
+                }
+                if !allowed {
+                    return Ok(denied.expect("denied record has a response"));
+                }
+            } else if cid.is_raw() || self.blobs.keys().any(|(_, blob)| blob == cid_s) {
+                let mut owners = self
+                    .blobs
+                    .keys()
+                    .filter(|(_, blob)| blob == cid_s)
+                    .map(|(did, _)| did.clone())
+                    .collect::<std::collections::BTreeSet<_>>();
+                // CAR/recovery may retain a raw block only in the block map.
+                owners.extend(
+                    self.stored
+                        .iter()
+                        .filter(|record| json_contains_str(&record.record, cid_s))
+                        .map(|record| record.did.clone()),
+                );
+                let mut allowed = false;
+                for did in owners {
+                    let refs = self
+                        .stored
+                        .iter()
+                        .filter(|record| record.did == did)
+                        .map(|record| BlobRef {
+                            collection: record.collection.clone(),
+                            rkey: record.rkey.clone(),
+                            vis: record.vis.clone(),
+                            deleted: record.deleted,
+                            references_blob: json_contains_str(&record.record, cid_s),
+                            circle: record.circle.clone(),
+                        })
+                        .collect::<Vec<_>>();
+                    if getblob_auth(&refs) == BlobAuth::ServeWithoutCap
+                        || self.blob_cap_ok(req, &did, cid_s, &refs)?
+                    {
+                        allowed = true;
+                        break;
+                    }
+                }
+                if !allowed {
+                    let present = req
+                        .headers
+                        .iter()
+                        .any(|(name, _)| name.eq_ignore_ascii_case("authorization"));
+                    return api_error(
+                        if present { 403 } else { 401 },
+                        if present { "CapabilityInvalid" } else { "CapabilityRequired" },
+                        "blob is not referenced by a live public record or covered by this capability",
+                    );
+                }
+            }
+            // Version 1 deliberately keeps commit/MST proof blocks public,
+            // including sibling opaque keys/CIDs (spec 11, Get blocks).
+            blocks.push((cid, bytes));
         }
         if !missing.is_empty() {
             return json_ok(&GetBlocksResponse { missing });
@@ -1440,11 +1773,12 @@ impl KnotEngine {
                 if auth {
                     match &scope {
                         Some(s) => {
-                            if s.allows_circle_read() {
-                                r.circle.is_some()
-                                    || r.collection == "sys.circle"
-                                    || r.collection == "sys.circle.wrap"
-                                    || r.collection == "sys.circle.mls"
+                            if let capability::AuthorizedScope::Circle { owner, rkey } = s {
+                                r.circle.as_deref()
+                                    == Some(capability::circle_envelope(owner, rkey).as_str())
+                                    || (r.did == *owner
+                                        && r.collection == "sys.circle"
+                                        && r.rkey == *rkey)
                             } else {
                                 s.allows_collection(&r.collection)
                             }
@@ -1556,8 +1890,19 @@ impl KnotEngine {
             status: 400,
             error: format!("InvalidRequest: {e}"),
         })?;
-        if let Err(e) = verify_imported_commits(&car) {
+        if let Err(e) = verify_imported_commits(&car, &self.blocks) {
             return api_error(400, "InvalidSignature", &e);
+        }
+        if car
+            .blocks
+            .iter()
+            .any(|(cid, _)| self.private_archive_erasure_cids.contains(&cid.to_string()))
+        {
+            return api_error(
+                409,
+                "ArchiveErased",
+                "Repository contains private archive blocks erased on this host",
+            );
         }
         let mut imported_did: Option<String> = None;
         let mut last_commit = car.roots.first().map(|c| c.to_string()).unwrap_or_default();
@@ -1596,7 +1941,7 @@ impl KnotEngine {
                                 "DID already hosted; pass force=true",
                             );
                         }
-                        if verify_put_signature(&json).is_ok() {
+                        if self.verify_put_signature(&json).is_ok() {
                             let _ = self.store_record_opts(
                                 json,
                                 StoreOpts {
@@ -1983,7 +2328,7 @@ fn signed_cbor_bytes(unsigned: &serde_json::Value, sig: &[u8; 64]) -> Result<Vec
     crate::dagcbor::encode(&value)
 }
 
-fn verify_put_signature(record: &serde_json::Value) -> Result<()> {
+fn verify_put_signature(engine: &KnotEngine, record: &serde_json::Value) -> Result<()> {
     let mut unsigned = record.clone();
     let sig_hex = unsigned
         .as_object_mut()
@@ -1997,8 +2342,23 @@ fn verify_put_signature(record: &serde_json::Value) -> Result<()> {
         .as_slice()
         .try_into()
         .map_err(|_| Error::InvalidSignature)?;
-    let pk = record::signer_pubkey(&unsigned)?;
+    let mut pk = record::signer_pubkey(&unsigned)?;
+    // ponytail: identity signatures follow sys.id pubkey once one exists, so a
+    // host that kept the old seed cannot keep signing after a move.
+    if unsigned.get("signedBy").is_none() {
+        if let Some(author) = unsigned.get("author").and_then(|v| v.as_str()) {
+            if let Some(op) = engine.operational_pubkey(author) {
+                pk = op;
+            }
+        }
+    }
     record::verify_json_record(&pk, &unsigned, &sig)
+}
+
+impl KnotEngine {
+    fn verify_put_signature(&self, record: &serde_json::Value) -> Result<()> {
+        verify_put_signature(self, record)
+    }
 }
 
 fn presented_invocation(
@@ -2177,7 +2537,7 @@ fn mst_node_links(bytes: &[u8]) -> Vec<String> {
     push_link(v.get("l"), &mut out);
     if let Some(ents) = v.get("e").and_then(|e| e.as_array()) {
         for ent in ents {
-            push_link(ent.get("v"), &mut out);
+            // Record values are emitted separately after visibility/scope filtering.
             push_link(ent.get("t"), &mut out);
         }
     }
@@ -2200,7 +2560,10 @@ fn push_link(v: Option<&serde_json::Value>, out: &mut Vec<String>) {
     }
 }
 
-fn verify_imported_commits(car: &Car) -> std::result::Result<(), String> {
+fn verify_imported_commits(
+    car: &Car,
+    stored: &HashMap<String, Vec<u8>>,
+) -> std::result::Result<(), String> {
     let Some(root) = car.roots.first() else {
         return Ok(());
     };
@@ -2212,10 +2575,16 @@ fn verify_imported_commits(car: &Car) -> std::result::Result<(), String> {
         }
         let bytes = car
             .get(&cid)
+            .or_else(|| {
+                (cid != *root)
+                    .then(|| stored.get(&cid.to_string()).map(Vec::as_slice))
+                    .flatten()
+            })
             .ok_or_else(|| format!("missing commit block {cid}"))?;
         let info = match record::parse_commit(bytes) {
             Ok(i) => i,
-            Err(_) => return Ok(()), // ponytail: CAR without commit objects (pre-21.12)
+            Err(_) if cid == *root => return Ok(()), // Legacy CAR without commit objects.
+            Err(_) => return Err("invalid predecessor commit block".into()),
         };
         if let Ok(did) = Did::parse(&info.did) {
             record::verify_commit(&did.pubkey, &info.unsigned, &info.sig)
@@ -2306,6 +2675,48 @@ fn write_json(path: impl AsRef<Path>, v: &impl serde::Serialize) -> Result<()> {
 fn read_json<T: for<'de> serde::Deserialize<'de>>(path: &Path) -> Result<T> {
     let bytes = std::fs::read(path).map_err(fs_err)?;
     serde_json::from_slice(&bytes).map_err(|e| Error::Transport(e.to_string()))
+}
+
+fn remove_erased_file(path: &Path) -> Result<()> {
+    match std::fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(fs_err(e)),
+    }
+}
+
+fn remove_erased_repo_files(
+    path: &Path,
+    records: &std::collections::HashSet<String>,
+) -> Result<()> {
+    let entries = match std::fs::read_dir(path) {
+        Ok(entries) => entries,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(e) => return Err(fs_err(e)),
+    };
+    for entry in entries {
+        let entry = entry.map_err(fs_err)?;
+        let kind = entry.file_type().map_err(fs_err)?;
+        if kind.is_dir() {
+            remove_erased_repo_files(&entry.path(), records)?;
+        } else if kind.is_file() {
+            let name = entry.file_name();
+            let name = name.to_string_lossy();
+            let erased = name
+                .strip_suffix(".json")
+                .is_some_and(|cid| records.contains(cid))
+                || (name == "tip"
+                    && records.contains(
+                        std::fs::read_to_string(entry.path())
+                            .map_err(fs_err)?
+                            .trim(),
+                    ));
+            if erased {
+                remove_erased_file(&entry.path())?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn persist_engine(engine: &KnotEngine, dir: &Path) -> Result<()> {
@@ -2469,6 +2880,14 @@ fn load_engine(dir: &Path) -> Result<KnotEngine> {
         }
     }
     rebuild_derived(&mut e);
+    let erasures = dir.join("private-archive-erasures.json");
+    if erasures.exists() {
+        let fences: Vec<(String, Vec<String>, Vec<String>)> = read_json(&erasures)?;
+        e.data_dir = Some(dir.to_path_buf());
+        for (owner, records, blobs) in fences {
+            e.erase_private_archive(&owner, &records, &blobs)?;
+        }
+    }
     Ok(e)
 }
 
@@ -2787,17 +3206,20 @@ mod persist_tests {
                 body: Some(
                     serde_json::to_vec(&serde_json::json!({
                         "prev": "bafyr4idnotthehead0000000000000000000000000000000000000000",
-                        "record": {
+                        "record": record::sign_json_record(id.signing_key(), &serde_json::json!({
                             "v": 1, "collection": "pub.tangled.post", "rkey": "c",
                             "author": did, "vis": "public", "body": { "text": "nope" },
-                        }
+                        })).unwrap().json
                     }))
                     .unwrap(),
                 ),
                 content_type: Some("application/json".into()),
             })
             .unwrap();
-        assert_eq!(bad.status, 409);
+        assert_eq!(bad.status, 409, "{}", String::from_utf8_lossy(&bad.body));
+        let error: serde_json::Value = serde_json::from_slice(&bad.body).unwrap();
+        assert_eq!(error["error"], "ConcurrentHeads");
+        assert_eq!(error["head"], head2.commit);
         let mut cache = crate::sync::HeadCache::default();
         cache.observe(&did, &head2.commit, &head2.rev).unwrap();
         assert!(cache.observe(&did, &head1.commit, &head1.rev).is_err());
@@ -2822,6 +3244,54 @@ mod persist_tests {
     }
 
     #[test]
+    fn imported_commit_delta_requires_valid_local_predecessors_and_car_root() {
+        let identity = crate::identity::Identity::from_seeds([231; 32], [232; 32]);
+        let data = Cid::dag_cbor(b"commit-delta-data");
+        let first = record::seal_commit(
+            identity.signing_key(),
+            &record::unsigned_commit(&identity.did_string(), &data, "one", None),
+        )
+        .unwrap();
+        let second = record::seal_commit(
+            identity.signing_key(),
+            &record::unsigned_commit(&identity.did_string(), &data, "two", Some(&first.cid)),
+        )
+        .unwrap();
+        let delta = Car {
+            roots: vec![second.cid.clone()],
+            blocks: vec![(second.cid.clone(), second.signed_cbor.clone())],
+        };
+        assert!(
+            verify_imported_commits(&delta, &HashMap::new()).is_err(),
+            "missing local predecessor must fail"
+        );
+        let mut stored = HashMap::from([(first.cid.to_string(), first.signed_cbor.clone())]);
+        assert!(verify_imported_commits(&delta, &stored).is_ok());
+        let mut tampered = crate::dagcbor::decode(&first.signed_cbor).unwrap();
+        if let crate::dagcbor::Value::Map(map) = &mut tampered {
+            map.insert("sig".into(), crate::dagcbor::Value::Bytes(vec![0; 64]));
+        }
+        stored.insert(
+            first.cid.to_string(),
+            crate::dagcbor::encode(&tampered).unwrap(),
+        );
+        assert!(
+            verify_imported_commits(&delta, &stored).is_err(),
+            "tampered local predecessor signature must fail"
+        );
+        stored.insert(first.cid.to_string(), first.signed_cbor);
+        stored.insert(second.cid.to_string(), second.signed_cbor);
+        let missing_root = Car {
+            roots: vec![second.cid],
+            blocks: vec![],
+        };
+        assert!(
+            verify_imported_commits(&missing_root, &stored).is_err(),
+            "current CAR must provide its own root block"
+        );
+    }
+
+    #[test]
     fn ap_httpsig_mutated_body_rejected() {
         let id = crate::identity::Identity::from_seeds([25u8; 32], [26u8; 32]);
         let did = id.did_string();
@@ -2835,6 +3305,14 @@ mod persist_tests {
             "/inbox",
             body,
         );
+        let signed = |mut value: serde_json::Value| {
+            value["type"] = serde_json::json!(Cid::dag_cbor(b"sys.foreign").to_string());
+            value["ts"] = serde_json::json!(1_700_000_000_000u64);
+            value["prev"] = serde_json::json!([]);
+            record::sign_json_record(id.signing_key(), &value)
+                .unwrap()
+                .json
+        };
         let rec = serde_json::json!({
             "v": 1, "collection": "sys.foreign", "rkey": "ap1",
             "author": did, "vis": "public",
@@ -2860,11 +3338,20 @@ mod persist_tests {
                 path: "/xrpc/tangled.repo.putRecord".into(),
                 query: vec![],
                 headers: vec![],
-                body: Some(serde_json::to_vec(&serde_json::json!({ "record": rec })).unwrap()),
+                body: Some(
+                    serde_json::to_vec(&serde_json::json!({ "record": signed(rec) })).unwrap(),
+                ),
                 content_type: Some("application/json".into()),
             })
             .unwrap();
         assert_eq!(resp.status, 400);
+        let error: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
+        assert_eq!(error["error"], "InvalidRequest");
+        assert!(
+            error["message"].as_str().unwrap().contains("foreignProof"),
+            "{error}"
+        );
+        assert!(e.stored.iter().all(|record| record.rkey != "ap1"));
         let unattested = serde_json::json!({
             "v": 1, "collection": "sys.foreign", "rkey": "ap2",
             "author": did, "vis": "public",
@@ -2877,12 +3364,23 @@ mod persist_tests {
                 query: vec![],
                 headers: vec![],
                 body: Some(
-                    serde_json::to_vec(&serde_json::json!({ "record": unattested })).unwrap(),
+                    serde_json::to_vec(&serde_json::json!({ "record": signed(unattested) }))
+                        .unwrap(),
                 ),
                 content_type: Some("application/json".into()),
             })
             .unwrap();
         assert_eq!(resp.status, 400);
+        let error: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
+        assert_eq!(error["error"], "InvalidRequest");
+        assert!(
+            error["message"]
+                .as_str()
+                .unwrap()
+                .contains("attested: true"),
+            "{error}"
+        );
+        assert!(e.stored.iter().all(|record| record.rkey != "ap2"));
         let attested_only = serde_json::json!({
             "v": 1, "collection": "sys.foreign", "rkey": "ap3",
             "author": did, "vis": "public",
@@ -2900,12 +3398,20 @@ mod persist_tests {
                 query: vec![],
                 headers: vec![],
                 body: Some(
-                    serde_json::to_vec(&serde_json::json!({ "record": attested_only })).unwrap(),
+                    serde_json::to_vec(&serde_json::json!({ "record": signed(attested_only) }))
+                        .unwrap(),
                 ),
                 content_type: Some("application/json".into()),
             })
             .unwrap();
         assert_eq!(resp.status, 400);
+        let error: serde_json::Value = serde_json::from_slice(&resp.body).unwrap();
+        assert_eq!(error["error"], "InvalidRequest");
+        assert!(
+            error["message"].as_str().unwrap().contains("foreignProof"),
+            "{error}"
+        );
+        assert!(e.stored.iter().all(|record| record.rkey != "ap3"));
         let proof =
             crate::foreign::activitypub_foreign_proof(&id, "https://ex.example/users/a", body);
         let ok = serde_json::json!({
@@ -2924,11 +3430,13 @@ mod persist_tests {
                 path: "/xrpc/tangled.repo.putRecord".into(),
                 query: vec![],
                 headers: vec![],
-                body: Some(serde_json::to_vec(&serde_json::json!({ "record": ok })).unwrap()),
+                body: Some(
+                    serde_json::to_vec(&serde_json::json!({ "record": signed(ok) })).unwrap(),
+                ),
                 content_type: Some("application/json".into()),
             })
             .unwrap();
-        assert_eq!(resp.status, 200);
+        assert_eq!(resp.status, 200, "{}", String::from_utf8_lossy(&resp.body));
     }
 
     #[test]
@@ -2962,5 +3470,45 @@ mod persist_tests {
         let evs = loaded.events_after(Some(&did), &first, None);
         assert!(evs.iter().any(|ev| ev.ops.iter().any(|op| op.rkey == "b")));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn old_identity_key_cannot_sign_after_sys_id_rotation() {
+        let old = crate::identity::Identity::from_seeds([7u8; 32], [8u8; 32]);
+        let new = crate::identity::Identity::from_seeds([9u8; 32], [10u8; 32]);
+        let did = old.did_string();
+        let mut e = KnotEngine::hosting(&did);
+        e.register_identity(&old);
+        let post = |id: &crate::identity::Identity, rkey: &str| {
+            let unsigned = serde_json::json!({
+                "v": 1, "collection": "pub.tangled.post", "rkey": rkey,
+                "author": did.clone(), "ts": 1, "prev": [], "vis": "public",
+                "body": { "text": rkey },
+            });
+            record::sign_json_record(id.signing_key(), &unsigned)
+                .unwrap()
+                .json
+        };
+        e.ingest_record(post(&old, "before")).unwrap();
+        let rotate = serde_json::json!({
+            "v": 1, "collection": "sys.id", "rkey": "self",
+            "author": did, "ts": 2, "prev": [], "vis": "public",
+            "body": {
+                "v": 1,
+                "pubkey": hex::encode(new.pubkey_bytes()),
+                "agreement": hex::encode(new.agreement_public_bytes()),
+                "rotation": [hex::encode(new.pubkey_bytes())],
+                "recovery": [],
+                "endpoints": [{ "type": "knot", "url": "https://next.example" }],
+                "alsoKnownAs": [],
+                "bindings": [],
+            },
+        });
+        let signed = record::sign_json_record(old.signing_key(), &rotate).unwrap();
+        e.ingest_record(signed.json).unwrap();
+        let err = e.ingest_record(post(&old, "after")).unwrap_err();
+        assert!(err.to_string().contains("invalid signature"), "{err}");
+        e.signing_keys.insert(did.clone(), new.to_seeds().0);
+        e.ingest_record(post(&new, "next")).unwrap();
     }
 }

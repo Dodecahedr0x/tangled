@@ -1,8 +1,12 @@
 # tangled-knot
 
-HTTP knot: a PDS-like host for a signed MST repo. Serves the Tangled OpenAPI (`spec/http/openapi.yaml`).
+HTTP knot: a PDS-like host for a signed MST repo. Serves the Tangled OpenAPI (`docs/spec/http/openapi.yaml`).
 
 Protocol logic (CID, signatures, MST, vis, capabilities, HPKE, MLS, page CRDT, CAR, foreign_id, SIWS, handle resolve) lives in [`tangled`](../tangled/). This crate is the axum binding, a filesystem snapshot of the engine, and WebSocket `subscribe` / `loom.firehose`.
+
+## Private social archives
+
+Persistent self-hosted knots with a local `identity.json` expose the authenticated archive at `/imports`. Use the local identity’s SIWS session. Archives, original files, and media are owner-only; live helpers require a separate source/account-scoped connection token. See [social imports](../../docs/features/social-imports.md) and [connector setup](../../docs/features/connectors.md).
 
 ## Run
 

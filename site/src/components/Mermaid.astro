@@ -1,0 +1,43 @@
+<script>
+  const diagrams = Array.from(document.querySelectorAll<HTMLElement>(".mermaid"));
+  if (diagrams.length) {
+    const sources = diagrams.map((node) => node.textContent || "");
+    const { default: mermaid } = await import("mermaid");
+    let rendering = false;
+    let pending = false;
+
+    async function renderDiagrams() {
+      if (rendering) { pending = true; return; }
+      rendering = true;
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          securityLevel: "strict",
+          theme: document.documentElement.dataset.theme === "light" ? "default" : "dark",
+          fontFamily: "Arial, sans-serif",
+          suppressErrorRendering: true,
+        });
+        for (const [index, node] of diagrams.entries()) {
+          node.textContent = sources[index];
+          node.removeAttribute("data-processed");
+          try {
+            await mermaid.run({ nodes: [node] });
+          } catch (error) {
+            // Keep the source readable if one diagram cannot render.
+            node.textContent = sources[index];
+            console.error("Could not render documentation diagram", error);
+          }
+        }
+      } finally {
+        rendering = false;
+        if (pending) { pending = false; void renderDiagrams(); }
+      }
+    }
+
+    await renderDiagrams();
+    new MutationObserver(() => void renderDiagrams()).observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+  }
+</script>

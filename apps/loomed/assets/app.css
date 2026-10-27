@@ -1,11 +1,12 @@
 :root {
-  --bg: #12141a;
-  --sidebar: #0c0e12;
-  --copper: #c47a4a;
-  --text: #e6e8ee;
-  --muted: #9aa3ad;
-  --hairline: rgba(230, 232, 238, 0.08);
-  --radius: 2px;
+  --bg: #ffffff;
+  --sidebar: #ffffff;
+  --copper: #111111;
+  --text: #111111;
+  --muted: #6b6b6b;
+  --hairline: #111111;
+  --late: #e30613;
+  --radius: 0;
 }
 
 *,
@@ -22,6 +23,14 @@
   src: url("./fonts/FiraSans-Regular.woff2") format("woff2");
 }
 
+@font-face {
+  font-family: "M PLUS 1 Code";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("./fonts/MPLUS1Code-Regular.woff2") format("woff2");
+}
+
 html,
 body,
 #main {
@@ -32,9 +41,10 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: "Fira Sans", system-ui, sans-serif;
-  font-size: 14px;
-  letter-spacing: 0.02em;
+  font-family: "M PLUS 1 Code", "Fira Sans", sans-serif;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
 }
@@ -358,4 +368,448 @@ a {
   text-transform: uppercase;
   font-size: 12px;
   color: var(--copper);
+}
+
+/* Departure sheet. Words on the left, ruled columns on the right. Red is only the late mark. */
+
+::selection {
+  background: #111111;
+  color: #ffffff;
+}
+
+input,
+textarea {
+  caret-color: #111111;
+}
+
+* {
+  scrollbar-color: #111111 #ffffff;
+}
+
+:focus-visible {
+  outline: 1px solid #111111;
+  outline-offset: 2px;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(200px, 30%) minmax(0, 1fr);
+  height: 100%;
+  min-height: 100%;
+  background: #ffffff;
+  border: 1px solid #111111;
+}
+
+.rail {
+  width: auto;
+  max-width: none;
+  background: #ffffff;
+  border-right: 1px solid #111111;
+  color: #111111;
+}
+
+.rail-head {
+  min-height: 88px;
+  padding: 0 28px;
+  border-bottom: 1px solid #111111;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.brand,
+.page-title {
+  color: #111111;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 32px;
+  font-weight: 400;
+}
+
+.tick {
+  display: none;
+}
+
+.rail .icon,
+.rail-nav .icon {
+  display: none;
+}
+
+.rail-nav {
+  border-top: 0;
+  padding: 18px 0 24px;
+  gap: 4px;
+}
+
+.rail-nav a,
+.rail-nav button,
+button.ghost {
+  color: #111111;
+  font-size: 22px;
+  min-height: 44px;
+  padding: 8px 28px 8px 36px;
+  border: 0;
+  background: transparent;
+  letter-spacing: 0;
+  border-radius: 0;
+}
+
+.rail-nav a[aria-current="page"] {
+  padding-left: 16px;
+}
+
+.rail-nav a[aria-current="page"]::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  background: #e30613;
+  margin-right: 10px;
+  flex: 0 0 auto;
+}
+
+.rail-nav a:hover,
+.rail-nav button:hover,
+button.ghost:hover {
+  background: transparent;
+  color: #111111;
+}
+
+.stage {
+  background: #ffffff;
+}
+
+.stage-panel {
+  max-width: none;
+  width: 100%;
+  padding: 28px;
+}
+
+.band {
+  min-height: 88px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 28px;
+  border-bottom: 1px solid #111111;
+}
+
+.banner {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  color: #111111;
+  background: transparent;
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.banner.late {
+  color: #e30613;
+  font-size: 22px;
+  display: block;
+  max-width: 100%;
+  white-space: normal;
+  text-align: right;
+}
+
+.stage > .page-title {
+  min-height: 64px;
+  padding: 20px 28px;
+  border-bottom: 1px solid #111111;
+  font-size: 22px;
+}
+
+.sheet-cols {
+  display: grid;
+  grid-template-columns: 7.5rem 14rem minmax(0, 1fr);
+  border-bottom: 1px solid #111111;
+}
+
+.sheet-cols span {
+  padding: 16px 18px;
+  font-size: 22px;
+  border-right: 1px solid #111111;
+}
+
+.sheet-cols span:last-child {
+  border-right: 0;
+}
+
+.sheet-cols.pair,
+.conv {
+  grid-template-columns: 16rem minmax(0, 1fr);
+}
+
+.sheet .tweet {
+  display: grid;
+  grid-template-columns: 7.5rem 14rem minmax(0, 1fr);
+  border-bottom: 1px solid #111111;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+}
+
+.sheet .tweet:hover {
+  background: transparent;
+}
+
+.sheet .tweet-row,
+.sheet .tweet-body {
+  display: contents;
+}
+
+.sheet .tweet-meta {
+  display: contents;
+}
+
+.sheet .avatar-link,
+.sheet .tweet-handle,
+.sheet .tweet-sep,
+.sheet .tweet-fed,
+.sheet .tweet-ap,
+.sheet .tweet-boost {
+  display: none;
+}
+
+.sheet .tweet-time,
+.sheet .tweet-name,
+.sheet .tweet-text {
+  padding: 22px 18px;
+  min-height: 84px;
+  color: #111111;
+  font-size: 22px;
+  border-right: 1px solid #111111;
+  text-decoration: none;
+}
+
+.sheet .tweet-text {
+  border-right: 0;
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.sheet .tweet-time {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.sheet .tweet-name {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-weight: 400;
+}
+
+.sheet .tweet-text p {
+  margin: 0;
+}
+
+.sheet .tweet-quote,
+.sheet .tweet-media {
+  grid-column: 1 / -1;
+  border-radius: 0;
+}
+
+.sheet .tweet-actions {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  gap: 18px;
+  padding: 0 18px 16px;
+  border: 0;
+}
+
+.sheet .tweet-actions .icon {
+  display: none;
+}
+
+.sheet .tweet-action {
+  color: #111111;
+  border: 0;
+  background: transparent;
+  min-height: 0;
+  padding: 0;
+  font-size: 14px;
+}
+
+.verb {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.sheet .verb {
+  position: static;
+  width: auto;
+  height: auto;
+  overflow: visible;
+  clip: auto;
+}
+
+button {
+  color: #111111;
+  border: 1px solid #111111;
+  border-radius: 0;
+  background: #ffffff;
+}
+
+button:hover,
+button:active {
+  background: #111111;
+  color: #ffffff;
+}
+
+input,
+textarea,
+input[type="search"],
+input[type="text"],
+input[type="url"],
+input[type="password"] {
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid #111111;
+  border-radius: 0;
+}
+
+.tune-wrap {
+  border: 0;
+  border-bottom: 1px solid #111111;
+  border-radius: 0;
+  background: transparent;
+}
+
+.empty {
+  color: #6b6b6b;
+  padding: 28px;
+}
+
+.stage .stat-grid {
+  display: block;
+  margin: 0;
+  padding: 0;
+}
+
+.stage .stat {
+  display: grid;
+  grid-template-columns: 12rem minmax(0, 1fr);
+  border: 0;
+  border-bottom: 1px solid #111111;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 18px 28px;
+  margin: 0;
+}
+
+.stage .stat-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 22px;
+  color: #111111;
+  letter-spacing: 0;
+}
+
+.conv {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  min-height: 72px;
+  border-bottom: 1px solid #111111;
+  background: transparent;
+  color: #111111;
+  gap: 0;
+  padding: 0;
+  align-items: stretch;
+}
+
+.conv-title,
+.conv-preview {
+  padding: 20px 18px;
+}
+
+.conv-title {
+  border-right: 1px solid #111111;
+}
+
+.conv.is-active,
+.conv:hover {
+  background: transparent;
+}
+
+.late-mark {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background: #e30613;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.onboard .stage,
+.shell.onboard {
+  border-radius: 0;
+  box-shadow: none;
+  background: #ffffff;
+}
+
+.topo-canvas {
+  border-radius: 0;
+  border: 1px solid #111111;
+  background: #ffffff;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .rail {
+    width: 100%;
+    border-right: 0;
+    border-bottom: 1px solid #111111;
+  }
+
+  .rail-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    padding: 8px 12px 12px;
+  }
+
+  .rail-nav a,
+  .rail-nav button,
+  button.ghost {
+    width: auto;
+    font-size: 16px;
+    min-height: 40px;
+  }
+
+  .sheet-cols,
+  .sheet .tweet {
+    grid-template-columns: 4.5rem 6.5rem minmax(0, 1fr);
+  }
+
+  .conv {
+    grid-template-columns: 8rem minmax(0, 1fr);
+  }
+
+  .banner.late,
+  .brand {
+    font-size: 18px;
+  }
+
+  .band {
+    min-height: 56px;
+    padding: 12px 16px;
+  }
+
+  .banner.late {
+    white-space: normal;
+    text-align: right;
+  }
 }

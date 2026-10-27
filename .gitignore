@@ -4,8 +4,14 @@ dist/
 site/dist/
 site/.astro/
 site/.impeccable/
-spec/vectors/node_modules/
+docs/spec/vectors/node_modules/
 target/
 test-ledger/
 .data/
+data-provider/
 .DS_Store
+
+# Documentation downloads are generated as Astro endpoints from docs/.
+site/public/spec/
+site/public/openapi.yaml
+site/public/llms.txt

@@ -1,0 +1,24 @@
+[package]
+name = "tangled-import"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+description = "Private social activity archives and source import adapters for Tangled"
+
+[dependencies]
+argon2 = "0.5"
+base64 = "0.22"
+blake3 = "1"
+encoding_rs = "0.8"
+hex = "0.4"
+rand = "0.8"
+rusqlite = { version = "0.32", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+tangled = { path = "../tangled" }
+time = { version = "0.3", features = ["parsing", "formatting", "macros"] }
+zip = { version = "8.6", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+tempfile = "3"

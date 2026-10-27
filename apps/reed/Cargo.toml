@@ -13,7 +13,6 @@ path = "src/lib.rs"
 [[bin]]
 name = "reed"
 path = "src/main.rs"
-required-features = ["desktop"]
 
 [features]
 default = []
@@ -28,7 +27,7 @@ reed-core = { path = "core" }
 serde_json = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-dioxus-solana = "0.1"
+web-sys = { version = "0.3", features = ["Window", "Storage"] }
 
 [dev-dependencies]
 dioxus-ssr = "=0.7.10"

@@ -194,9 +194,9 @@ fn fira_sans_is_vendored() {
             && !crate::APP_CSS.contains("fonts.gstatic.com"),
         "must not hotlink Google Fonts"
     );
-    assert!(crate::APP_CSS.contains("#12141a"));
-    assert!(crate::APP_CSS.contains("#0c0e12"));
-    assert!(crate::APP_CSS.contains("#c47a4a"));
+    assert!(crate::APP_CSS.contains("#ffffff"));
+    assert!(crate::APP_CSS.contains("#111111"));
+    assert!(crate::APP_CSS.contains("#e30613"));
 }
 
 #[test]

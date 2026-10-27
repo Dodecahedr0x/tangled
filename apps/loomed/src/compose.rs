@@ -13,14 +13,11 @@ pub fn Compose() -> Element {
         div { class: "shell",
             nav { class: "rail",
                 div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "band" }
+                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
                 }
             }
             section { class: "stage stage-pad",
-                p { class: "brand",
-                    span { class: "tick" }
-                    "new"
-                }
+                p { class: "brand", "New" }
                 input {
                     r#type: "text",
                     placeholder: "did:sol or handle",

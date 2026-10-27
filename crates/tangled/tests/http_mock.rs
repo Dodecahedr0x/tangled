@@ -6,10 +6,12 @@ use tangled::http::{
 
 #[tokio::test]
 async fn mock_knot_describe_head_put() {
+    let identity = tangled::identity::Identity::from_seeds([201; 32], [202; 32]);
+    let did = identity.did_string();
     let mut knot = MockKnot {
         describe: Some(NodeDescribe {
             v: 1,
-            did: "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs".into(),
+            did: did.clone(),
             profiles: vec![
                 "knot.public".into(),
                 "knot.cap".into(),
@@ -25,9 +27,9 @@ async fn mock_knot_describe_head_put() {
         ..Default::default()
     };
     knot.heads.insert(
-        "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs".into(),
+        did.clone(),
         GetHeadResponse {
-            did: "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs".into(),
+            did: did.clone(),
             commit: "bafyr4idpxk4uaqzi6fhcvm476uhyklw3ormzhqpa6hitlcbtjkyc7czh2y".into(),
             rev: "3jzfcijpjiz00".into(),
             knot: "https://knot.example".into(),
@@ -35,6 +37,7 @@ async fn mock_knot_describe_head_put() {
         },
     );
 
+    knot.register_identity(&identity);
     let client = KnotClient::mock(knot);
     let d = client.describe().await.unwrap();
     assert_eq!(d.v, 1);
@@ -42,15 +45,21 @@ async fn mock_knot_describe_head_put() {
     assert!(d.peers.is_empty());
     assert!(client.learned_peers().is_empty());
 
-    let head = client
-        .get_head("did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs")
-        .await
-        .unwrap();
+    let head = client.get_head(&did).await.unwrap();
     assert_eq!(head.rev, "3jzfcijpjiz00");
 
     let put = client
         .put_record(&PutRecordRequest {
-            record: serde_json::json!({"v":1,"collection":"pub.tangled.post","rkey":"x","vis":"public"}),
+            record: tangled::record::sign_json_record(
+                identity.signing_key(),
+                &serde_json::json!({
+                    "v":1,"type":tangled::cid::Cid::dag_cbor(b"pub.tangled.post").to_string(),
+                    "collection":"pub.tangled.post","rkey":"x","author":did,"ts":1,
+                    "prev":[],"vis":"public","body":{"text":"hello"}
+                }),
+            )
+            .unwrap()
+            .json,
         })
         .await
         .unwrap();
@@ -168,8 +177,10 @@ async fn describe_prefers_dag_cbor_when_accept_says_so() {
 
 #[tokio::test]
 async fn node_stats_counts_public_only_and_lists_advertised_peers() {
-    let did = "did:sol:2sxknyqubWpqPSrk7Hncw1NyyySXQAoXa4HebbZV9qKs";
-    let mut knot = MockKnot::hosting(did);
+    let identity = tangled::identity::Identity::from_seeds([203; 32], [204; 32]);
+    let did = identity.did_string();
+    let mut knot = MockKnot::hosting(&did);
+    knot.register_identity(&identity);
     knot.set_public_peers(&["https://b.example".into()]);
     let client = KnotClient::mock(knot);
 
@@ -184,25 +195,43 @@ async fn node_stats_counts_public_only_and_lists_advertised_peers() {
 
     client
         .put_record(&PutRecordRequest {
-            record: serde_json::json!({
-                "v": 1,
-                "collection": "pub.tangled.post",
-                "rkey": "p1",
-                "vis": "public",
-                "body": { "text": "hi" }
-            }),
+            record: tangled::record::sign_json_record(
+                identity.signing_key(),
+                &serde_json::json!({
+                    "v": 1,
+                    "author": did,
+                    "ts": 1,
+                    "prev": [],
+                    "collection": "pub.tangled.post",
+                    "type": tangled::cid::Cid::dag_cbor(b"pub.tangled.post").to_string(),
+                    "rkey": "p1",
+                    "vis": "public",
+                    "body": { "text": "hi" }
+                }),
+            )
+            .unwrap()
+            .json,
         })
         .await
         .unwrap();
     client
         .put_record(&PutRecordRequest {
-            record: serde_json::json!({
-                "v": 1,
-                "collection": "pub.tangled.chat",
-                "rkey": "s1",
-                "vis": "sealed",
-                "body": { "text": "secret" }
-            }),
+            record: tangled::record::sign_json_record(
+                identity.signing_key(),
+                &serde_json::json!({
+                    "v": 1,
+                    "author": did,
+                    "ts": 1,
+                    "prev": [],
+                    "collection": "pub.tangled.chat",
+                    "type": tangled::cid::Cid::dag_cbor(b"pub.tangled.chat").to_string(),
+                    "rkey": "s1",
+                    "vis": "sealed",
+                    "body": { "text": "secret" }
+                }),
+            )
+            .unwrap()
+            .json,
         })
         .await
         .unwrap();

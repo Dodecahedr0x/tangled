@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Reed</title>
+  <link rel="stylesheet" href="../build/scaffold/layout.css">
+  <style>
+    @font-face {
+      font-family: "M PLUS 1 Code";
+      src: url("../../apps/reed/assets/fonts/MPLUS1Code-Regular.woff2") format("woff2");
+      font-weight: 400;
+      font-display: block;
+    }
+    html, body { margin: 0; background: #fff; }
+    body {
+      font-family: "M PLUS 1 Code", sans-serif;
+      font-variant-numeric: tabular-nums;
+      color: #111;
+    }
+    .comp-frame {
+      width: 1280px;
+      height: 720px;
+      background: #fff;
+      border: 1px solid #111;
+      box-sizing: border-box;
+    }
+    .comp-frame p, .comp-frame a {
+      margin: 0;
+      color: #111;
+      text-decoration: none;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .late p { color: #e30613; font-size: 31px; }
+    .brand p { font-size: 38px; }
+    .nav p, .nav a { font-size: 28px; }
+    .mark {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      background: #e30613;
+      margin-right: 8px;
+      vertical-align: 2px;
+    }
+    .cols p { font-size: 23px; }
+    .row p { font-size: 31px; }
+    .rule {
+      position: absolute;
+      background: #111;
+    }
+    .h { height: 1px; }
+    .v { width: 1px; }
+  </style>
+</head>
+<body>
+  <main class="comp-frame">
+    <div class="rule h" style="left:0;top:0;width:100%"></div>
+    <div class="rule h" style="left:0;top:14%;width:100%"></div>
+    <div class="rule v" style="left:29%;top:0;height:100%"></div>
+    <div class="rule h" style="left:29%;top:26.5%;width:71%"></div>
+    <div class="rule h" style="left:29%;top:45.1%;width:71%"></div>
+    <div class="rule h" style="left:29%;top:64.4%;width:71%"></div>
+    <div class="rule h" style="left:29%;top:84.4%;width:71%"></div>
+    <div class="rule v" style="left:38.6%;top:14%;height:86%"></div>
+    <div class="rule v" style="left:60%;top:14%;height:86%"></div>
+    <div class="rule h" style="left:0;top:99%;width:100%"></div>
+
+    <div class="r-brand brand"><p>Reed</p></div>
+    <div class="r-late late"><p>Cannot reach knot</p></div>
+    <div class="r-nav-home nav"><p><span class="mark"></span>Home</p></div>
+    <div class="r-nav-discover nav"><p>Discover</p></div>
+    <div class="r-nav-compose nav"><p>Compose</p></div>
+    <div class="r-nav-search nav"><p>Search</p></div>
+    <div class="r-nav-settings nav"><p>Settings</p></div>
+    <div class="r-nav-identity nav"><p>Identity</p></div>
+    <div class="r-col-time cols"><p>Time</p></div>
+    <div class="r-col-author cols"><p>Author</p></div>
+    <div class="r-col-post cols"><p>Post</p></div>
+    <p class="row" style="position:absolute;left:31%;top:33%;font-size:31px">09:14</p>
+    <div class="r-r1-author row"><p>Ada</p></div>
+    <div class="r-r1-post row" style="width:auto"><p>keep this</p></div>
+    <p class="row" style="position:absolute;left:31%;top:52%;font-size:31px">09:02</p>
+    <div class="r-r2-author row"><p>Bob</p></div>
+    <div class="r-r2-post row" style="width:auto"><p>the knot answered</p></div>
+    <p class="row" style="position:absolute;left:31%;top:72%;font-size:31px">08:40</p>
+    <div class="r-r3-author row"><p>Ada</p></div>
+    <div class="r-r3-post row" style="width:auto"><p style="font-size:23px">public, on purpose</p></div>
+  </main>
+</body>
+</html>

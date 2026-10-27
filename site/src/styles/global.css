@@ -178,6 +178,8 @@ a.icon-btn:hover { color: var(--text); text-decoration: none; background: var(--
   margin: 16px 8px 6px;
 }
 .mod:first-child { margin-top: 0; }
+.sidebar section + section { margin-top: 24px; }
+.sidebar section > .mod:first-child { color: var(--text-muted); font-weight: 600; }
 .nav-link {
   display: block;
   padding: 6px 10px;
@@ -234,6 +236,16 @@ a.icon-btn:hover { color: var(--text); text-decoration: none; background: var(--
   font-size: 13px;
 }
 .prose pre code { background: none; padding: 0; }
+.prose .doc-level { color: var(--text-faint); font: 12px var(--font-ui); margin: 0 0 12px; }
+.page-links { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); font: 14px var(--font-ui); }
+.page-link { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 2px; overflow-wrap: anywhere; }
+.page-link:hover { background: var(--bg-elevated); border-color: var(--accent); text-decoration: none; }
+.page-link.next { grid-column: 2; align-items: flex-end; text-align: right; }
+.page-direction { color: var(--text-muted); font-size: 12px; }
+.diagram { margin: 1.5em 0; max-width: 100%; }
+.diagram .mermaid { overflow-x: auto; text-align: center; background: var(--bg-elevated); }
+.diagram .mermaid svg { display: block; min-width: 640px; max-width: 100%; height: auto; margin: auto; }
+.diagram figcaption { color: var(--text-faint); font: 12px var(--font-ui); text-align: center; }
 .prose table { width: 100%; border-collapse: collapse; font-family: var(--font-ui); font-size: 13.5px; margin: 1.2em 0; }
 .prose th, .prose td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
 .prose th { background: var(--bg-elevated); font-weight: 500; }
@@ -566,9 +578,10 @@ body.is-landing .topbar {
   color: var(--text);
 }
 .land-apps a:hover { color: var(--text); text-decoration: none; }
-.land-apps code {
-  font-family: var(--font-mono);
-  font-size: 13.5px;
+.land-apps .name {
+  font-family: var(--font-ui);
+  font-size: 16px;
+  font-weight: 500;
   color: var(--accent);
   background: none;
   padding: 0;
@@ -618,6 +631,15 @@ body.is-landing .topbar {
   .site-link { padding: 6px 8px; }
   .topbar { gap: 8px; padding: 0 10px; }
   a.icon-btn.gh { display: none; }
+}
+
+@media (max-width: 600px) {
+  :root { --top: 88px; }
+  .topbar { flex-wrap: wrap; align-content: center; row-gap: 4px; }
+  .wordmark { min-width: 0; }
+  .site-nav { order: 5; flex-basis: 100%; justify-content: center; }
+  .search-btn { max-width: 120px; }
+  .top-actions { margin-left: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

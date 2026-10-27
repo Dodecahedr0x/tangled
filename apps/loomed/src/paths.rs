@@ -11,10 +11,12 @@ pub fn home_dir() -> PathBuf {
     PathBuf::from(".loomed")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn keys_path() -> PathBuf {
     home_dir().join("keys.json")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn knot_path() -> PathBuf {
     home_dir().join("knot.txt")
 }

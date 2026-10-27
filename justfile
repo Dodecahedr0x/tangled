@@ -21,6 +21,17 @@ default:
 test:
     cargo test --workspace
 
+# Three-node HTTP app/protocol acceptance plus provider migration and harness checks
+test-e2e *flags:
+    cargo build -p tangled-e2e -p tangled-knot
+    cargo test -p tangled-e2e
+    target/debug/tangled-e2e --output target/e2e/acceptance.json {{flags}}
+
+# Release workflows and replication; fresh clusters, one warmup and three measured runs
+bench-e2e *flags:
+    cargo build --release -p tangled-e2e -p tangled-knot
+    target/release/tangled-e2e --benchmark --output target/e2e/benchmark.json {{flags}}
+
 # Build tangled-knot, then run ignored loomed-core knot_live
 test-live:
     cargo build -p tangled-knot
@@ -227,7 +238,11 @@ reed-demo knot="http://127.0.0.1:3000":
     "{{just_executable()}}" reed-seed "{{knot}}" --create-local
     "{{just_executable()}}" reed
 
-# Site preview at http://localhost:4321 (landing + docs; copies spec + OpenAPI)
+# Hosted knot: email account, custodial key, public posts (http://127.0.0.1:8787)
+provider:
+    cargo run -p tangled-provider
+
+# Site preview at http://localhost:4321 (home → docs → spec)
 docs:
     npm --prefix site run dev
 

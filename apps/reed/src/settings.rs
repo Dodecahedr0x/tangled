@@ -10,6 +10,7 @@ pub fn Settings() -> Element {
     let self_did = ui
         .map(|s| s().did.clone().unwrap_or_default())
         .unwrap_or_default();
+    let archive_url = format!("{}/imports", initial.trim_end_matches('/'));
     let mut knot = use_signal(|| initial);
     rsx! {
         div { class: "shell",
@@ -29,6 +30,8 @@ pub fn Settings() -> Element {
                         "Settings"
                     }
                     p { class: "muted", "Knot URL — the node Reed syncs with" }
+                    p { a { href: archive_url, "Your private archive & connections" } }
+                    p { class: "muted", "Import posts, conversations, and media from other apps in your host account. Imported history stays private." }
                     div { class: "field",
                         label { class: "field-label", r#for: "knot-url", "Knot URL" }
                         div { class: "control-row",

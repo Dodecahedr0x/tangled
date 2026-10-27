@@ -4,14 +4,14 @@ import { withBase } from "../../data/nav";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
-const yaml = readFileSync(fileURLToPath(new URL("../../../../spec/http/openapi.yaml", import.meta.url)), "utf8");
+const yaml = readFileSync(fileURLToPath(new URL("../../../../docs/spec/http/openapi.yaml", import.meta.url)), "utf8");
 ---
 
 <DocLayout title="OpenAPI" description="Tangled Knot HTTP API (OpenAPI 3.1)">
   <h1>OpenAPI</h1>
   <p>
-    Canonical machine-readable HTTP API from <code>spec/http/openapi.yaml</code>.
-    Copied to <a href={withBase("/openapi.yaml")}>/openapi.yaml</a> on preview and build.
+    Canonical machine-readable HTTP API from <code>docs/spec/http/openapi.yaml</code>.
+    Download <a href={withBase("/openapi.yaml")}>openapi.yaml</a>.
     Human-readable notes: <a href={withBase("/reference/http")}>HTTP reference</a>,
     <a href={withBase("/spec/http-api")}>HTTP API</a>.
   </p>

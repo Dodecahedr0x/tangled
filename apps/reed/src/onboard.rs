@@ -84,12 +84,6 @@ pub fn OnboardView() -> Element {
 }
 
 fn wallet_slot(did: String) -> Element {
-    #[cfg(target_arch = "wasm32")]
-    {
-        if !did.is_empty() {
-            return rsx! { crate::wallet::WalletConnect { expected_did: did } };
-        }
-    }
     let _ = did;
     rsx! {}
 }

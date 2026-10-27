@@ -185,7 +185,7 @@ pub async fn siws_token(client: &KnotClient, identity: &Identity) -> Result<Stri
 
 pub fn load_vector(name: &str) -> serde_json::Value {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/vectors")
+        .join("../../docs/spec/vectors")
         .join(name);
     let s = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {name}: {e}"));
     serde_json::from_str(&s).expect("vector json")

@@ -1,12 +1,17 @@
 ---
 /* THESIS: Protocol documentation as a type-indexed instrument; refuses centered SaaS-docs heroes.
    OWN-WORLD: Slate, copper, Fira Sans / Source Serif 4 / Source Code Pro, hairline borders.
-   STORY: Implementer finds claim, type, method, vector in one shell.
+   STORY: Reader maps identity, knot, visibility, sync; then opens the spec.
    FIRST VIEWPORT: Dark chrome, 272px module tree, docs as a section of the site.
    FORM: rustdocs × Mintlify canon, restrained, dark-first. */
 import "../styles/global.css";
 import Chrome from "../components/Chrome.astro";
-import { specNav, toolNav, sitePath, withBase } from "../data/nav";
+import Mermaid from "../components/Mermaid.astro";
+import { getCollection } from "astro:content";
+import { docRoute } from "../../scripts/docs.mjs";
+import { sectionFor, toolNav, sitePath, withBase } from "../data/nav";
+import { types } from "../data/types";
+import { httpMethods } from "../data/http";
 
 interface Props {
   title: string;
@@ -16,6 +21,42 @@ interface Props {
 
 const { title, description = "Tangled protocol specification", headings = [] } = Astro.props;
 const path = sitePath(Astro.url.pathname);
+const readingLevel = sectionFor(path);
+const levelLabels = {
+  guides: "Guides · Introduction and getting started",
+  docs: "Docs · Feature behavior and implementation",
+  spec: "Specs · Protocol contract and reference",
+  landing: "",
+};
+const guides = (await getCollection("guides")).sort((a, b) => a.data.order - b.data.order);
+const features = (await getCollection("docs")).sort((a, b) => a.data.order - b.data.order);
+const levels = [
+  { label: "Guides", section: "guides", level: "guides", entries: guides },
+  { label: "Docs", section: "docs", level: "features", entries: features },
+];
+const chapters = (await getCollection("spec")).sort((a, b) => a.data.order - b.data.order);
+const specNav = [...Map.groupBy(chapters, (entry) => entry.data.group)].map(([group, entries]) => ({
+  module: `spec::${group}`,
+  items: entries.map(({ data }) => ({
+    href: data.slug === "terminology" ? "/terminology" : `/spec/${data.slug}`,
+    label: data.title,
+  })),
+}));
+const selectedLevel = levels.find(({ section }) => section === readingLevel);
+const pageOrder = selectedLevel
+  ? selectedLevel.entries.map(({ data }) => ({ href: docRoute(data.slug, selectedLevel.level), label: data.title }))
+  : [
+      ...specNav.flatMap(({ items }) => items),
+      ...toolNav.flatMap((item) => [item, ...(item.href === "/reference/types"
+        ? types.map((type) => ({ href: type.href, label: type.name }))
+        : item.href === "/reference/http"
+          ? httpMethods.map((method) => ({ href: `/reference/http/${method.id}`, label: method.id }))
+          : [])]),
+    ];
+const canonicalPath = path === "/spec/terminology" ? "/terminology" : path;
+const pageIndex = pageOrder.findIndex(({ href }) => href === canonicalPath);
+const previousPage = pageIndex > 0 ? pageOrder[pageIndex - 1] : undefined;
+const nextPage = pageIndex >= 0 ? pageOrder[pageIndex + 1] : undefined;
 ---
 
 <!doctype html>
@@ -36,9 +77,19 @@ const path = sitePath(Astro.url.pathname);
   <body>
     <Chrome showSearch showMenu>
       <div class="shell">
-        <nav class="sidebar" id="sidebar" aria-label="Specification">
-          <div class="mod">site::docs</div>
-          <a class:list={["nav-link", { active: path === "/docs" }]} href={withBase("/docs")}>Overview</a>
+        <nav class="sidebar" id="sidebar" aria-label="Documentation">
+          {levels.filter(({ section }) => section === readingLevel).map(({ label, level, entries }) => (
+            <section aria-label={label}>
+              <div class="mod">{label}</div>
+              {entries.map((entry) => (
+                <a class:list={["nav-link", { active: path === docRoute(entry.data.slug, level) }]} href={withBase(docRoute(entry.data.slug, level))}>
+                  {entry.data.title}
+                </a>
+              ))}
+            </section>
+          ))}
+          {readingLevel === "spec" && <section aria-label="Specs">
+          <div class="mod">Specs</div>
           {
             specNav.map((g) => (
               <>
@@ -59,10 +110,28 @@ const path = sitePath(Astro.url.pathname);
               </a>
             ))
           }
+          </section>}
         </nav>
         <div class="main">
           <main class="prose" id="content" data-pagefind-body>
+            <p class="doc-level">{levelLabels[readingLevel]}</p>
             <slot />
+            {(previousPage || nextPage) && (
+              <nav class="page-links" aria-label="Page navigation" data-pagefind-ignore>
+                {previousPage && (
+                  <a class="page-link previous" href={withBase(previousPage.href)} rel="prev">
+                    <span class="page-direction">← Previous</span>
+                    <span>{previousPage.label}</span>
+                  </a>
+                )}
+                {nextPage && (
+                  <a class="page-link next" href={withBase(nextPage.href)} rel="next">
+                    <span class="page-direction">Next →</span>
+                    <span>{nextPage.label}</span>
+                  </a>
+                )}
+              </nav>
+            )}
           </main>
           {
             headings.length > 0 && (
@@ -81,5 +150,6 @@ const path = sitePath(Astro.url.pathname);
         </div>
       </div>
     </Chrome>
+    <Mermaid />
   </body>
 </html>

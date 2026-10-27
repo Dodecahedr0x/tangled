@@ -562,6 +562,229 @@ async fn car_since_and_get_repo_auth() {
 }
 
 #[tokio::test]
+async fn car_export_filters_private_record_blocks_and_scoped_siblings() {
+    let alice = Live::named("car-privacy-alice").await;
+    let bob = Live::named("car-privacy-bob").await;
+    let public = alice
+        .publish(alice.unsigned(
+            "pub.tangled.post",
+            "public",
+            "public",
+            serde_json::json!({"text":"open"}),
+        ))
+        .await
+        .unwrap();
+    let private = alice
+        .publish(alice.unsigned(
+            "pub.tangled.post",
+            "private",
+            "cap",
+            serde_json::json!({"text":"cap secret"}),
+        ))
+        .await
+        .unwrap();
+    let mut sealed = alice.unsigned(
+        "pub.tangled.chat",
+        "sealed",
+        "sealed",
+        serde_json::json!({"ciphertext":"aabb"}),
+    );
+    sealed["circle"] = serde_json::json!(format!("{}#circle", alice.did()));
+    let sibling = alice.publish(sealed).await.unwrap();
+    let exported = car::decode(
+        &alice
+            .client()
+            .get_repo(&alice.did(), None, Some(false))
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(exported.blocks.iter().any(|(cid, _)| cid == &public.cid));
+    assert!(
+        !exported
+            .blocks
+            .iter()
+            .any(|(cid, _)| cid == &private.cid || cid == &sibling.cid),
+        "public CAR must not contain private record bytes"
+    );
+    let head = alice.client().get_head(&alice.did()).await.unwrap();
+    let commit = tangled::record::parse_commit(
+        exported
+            .get(&tangled::cid::Cid::parse(&head.commit).unwrap())
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        exported
+            .blocks
+            .iter()
+            .any(|(cid, _)| cid.to_string() == commit.data),
+        "public CAR retains MST structural proof root"
+    );
+    let res = format!("tangled://{}/pub.tangled.post", alice.did());
+    let (cap, _) = alice.issue_cap(&bob.did(), "repo/read", &res).unwrap();
+    let header = bob.invocation_header(&cap, "repo/read", &res, &alice.did());
+    let scoped = car::decode(
+        &alice
+            .client_cap(header)
+            .get_repo_auth(&GetRepoAuthRequest {
+                did: alice.did(),
+                since: None,
+                blobs: Some(false),
+            })
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        scoped.blocks.iter().any(|(cid, _)| cid == &private.cid),
+        "authorized CAR includes permitted record"
+    );
+    assert!(
+        !scoped.blocks.iter().any(|(cid, _)| cid == &sibling.cid),
+        "scoped CAR must not contain sibling private record bytes"
+    );
+    let circle_log = alice
+        .publish(alice.unsigned(
+            "sys.circle",
+            "circle",
+            "cap",
+            serde_json::json!({"v":1,"epoch":0}),
+        ))
+        .await
+        .unwrap();
+    let other_log = alice
+        .publish(alice.unsigned(
+            "sys.circle",
+            "other",
+            "cap",
+            serde_json::json!({"v":1,"epoch":0}),
+        ))
+        .await
+        .unwrap();
+    let mut other = alice.unsigned(
+        "pub.tangled.chat",
+        "other",
+        "sealed",
+        serde_json::json!({"ciphertext":"ccdd"}),
+    );
+    other["circle"] = serde_json::json!(format!("{}#other", alice.did()));
+    let other = alice.publish(other).await.unwrap();
+    let res = tangled::capability::circle_resource_uri(&alice.did(), "circle");
+    let (cap, _) = alice.issue_cap(&bob.did(), "circle/read", &res).unwrap();
+    let header = bob.invocation_header(&cap, "circle/read", &res, &alice.did());
+    let circle_car = car::decode(
+        &alice
+            .client_cap(header)
+            .get_repo_auth(&GetRepoAuthRequest {
+                did: alice.did(),
+                since: None,
+                blobs: Some(false),
+            })
+            .await
+            .unwrap(),
+    )
+    .unwrap();
+    assert!(circle_car.blocks.iter().any(|(cid, _)| cid == &sibling.cid));
+    assert!(circle_car
+        .blocks
+        .iter()
+        .any(|(cid, _)| cid == &circle_log.cid));
+    for (label, cid) in [("other circle payload", &other.cid), ("other circle log", &other_log.cid), ("unrelated private record", &private.cid)] {
+        assert!(circle_car.get(cid).is_none(), "circle CAR leaked {label} {cid}: {:?}", circle_car.get(cid).map(tangled::dagcbor::decode_json));
+    }
+}
+
+#[tokio::test]
+async fn commit_cursor_delta_import_uses_verified_local_history() {
+    let alice = Live::named("commit-delta-alice").await;
+    let bob = Live::named("commit-delta-bob").await;
+    let first = alice
+        .publish(alice.unsigned(
+            "pub.tangled.post",
+            "first",
+            "public",
+            serde_json::json!({"text":"one"}),
+        ))
+        .await
+        .unwrap();
+    let second = alice
+        .publish(alice.unsigned(
+            "pub.tangled.post",
+            "second",
+            "public",
+            serde_json::json!({"text":"two"}),
+        ))
+        .await
+        .unwrap();
+    let full = alice
+        .client()
+        .get_repo(&alice.did(), None, Some(false))
+        .await
+        .unwrap();
+    let token = common::siws_token(&bob.client(), &alice.identity)
+        .await
+        .unwrap();
+    bob.client()
+        .with_session_cookie(token.clone())
+        .import_repo(full, true)
+        .await
+        .unwrap();
+    let third = alice
+        .publish(alice.unsigned(
+            "pub.tangled.post",
+            "third",
+            "public",
+            serde_json::json!({"text":"three"}),
+        ))
+        .await
+        .unwrap();
+    let since = second.put.commit.unwrap();
+    let bytes = alice
+        .client()
+        .get_repo(&alice.did(), Some(&since), Some(false))
+        .await
+        .unwrap();
+    let delta = car::decode(&bytes).unwrap();
+    assert!(delta.blocks.iter().any(|(cid, _)| cid.to_string() == since));
+    assert!(delta
+        .blocks
+        .iter()
+        .any(|(cid, _)| Some(cid.to_string()) == third.put.commit));
+    assert!(!delta
+        .blocks
+        .iter()
+        .any(|(cid, _)| Some(cid.to_string()) == first.put.commit));
+    let empty = Live::named("commit-delta-empty").await;
+    let empty_token = common::siws_token(&empty.client(), &alice.identity)
+        .await
+        .unwrap();
+    let missing_history = empty
+        .client()
+        .with_session_cookie(empty_token)
+        .import_repo(bytes.clone(), true)
+        .await
+        .unwrap_err();
+    assert_eq!(
+        http_code(&missing_history),
+        (400, "InvalidSignature".into())
+    );
+    bob.client()
+        .with_session_cookie(token)
+        .import_repo(bytes, true)
+        .await
+        .expect("commit delta import must use the already verified local predecessor chain");
+    assert_eq!(
+        bob.client()
+            .get_record(&alice.did(), "pub.tangled.post", "third")
+            .await
+            .unwrap()
+            .record["body"]["text"],
+        "three"
+    );
+}
+
+#[tokio::test]
 async fn backlinks_empty_is_not_zero_comments() {
     let alice = Live::named("bl-alice").await;
     let post = alice
@@ -842,6 +1065,52 @@ async fn bad_signature_rejected() {
         .await
         .unwrap_err();
     assert_eq!(http_code(&err).0, 400);
+}
+
+#[tokio::test]
+async fn unknown_visibility_rejected_without_mutation() {
+    let alice = Live::named("invalid-visibility-http").await;
+    let invalid = alice.unsigned(
+        "pub.tangled.post",
+        "bad-vis",
+        "unknown",
+        serde_json::json!({"text":"invalid"}),
+    );
+    let error = alice.publish(invalid).await.unwrap_err();
+    assert_eq!(http_code(&error), (400, "InvalidRequest".into()));
+    let missing = alice
+        .client()
+        .get_record(&alice.did(), "pub.tangled.post", "bad-vis")
+        .await
+        .unwrap_err();
+    assert_eq!(
+        http_code(&missing).0,
+        404,
+        "invalid envelope must not be stored"
+    );
+}
+
+#[tokio::test]
+async fn unsigned_hosted_write_rejected_without_mutation() {
+    let alice = Live::named("unsigned-hosted-http").await;
+    let record = alice.unsigned(
+        "pub.tangled.post",
+        "unsigned",
+        "public",
+        serde_json::json!({"text":"unsigned"}),
+    );
+    let error = alice
+        .client()
+        .put_record(&PutRecordRequest { record })
+        .await
+        .unwrap_err();
+    assert_eq!(http_code(&error), (400, "InvalidSignature".into()));
+    let missing = alice
+        .client()
+        .get_record(&alice.did(), "pub.tangled.post", "unsigned")
+        .await
+        .unwrap_err();
+    assert_eq!(http_code(&missing).0, 404);
 }
 
 #[tokio::test]
@@ -1168,4 +1437,157 @@ async fn get_blob_sends_length_and_media_type() {
         Some(bytes.len().to_string().as_str())
     );
     assert_eq!(got.header("x-tangled-media-type"), Some("image/png"));
+}
+
+#[tokio::test]
+async fn siws_blob_upload_is_owned_by_session_identity() {
+    let host = Live::named("siws-blob-host").await;
+    let guest = identity_named("siws-blob-guest");
+    let token = common::siws_token(&host.client(), &guest).await.unwrap();
+    let client = host.client().with_session_cookie(token);
+    let bytes = b"guest-public-image".to_vec();
+    let uploaded = client
+        .put_blob_media(bytes.clone(), Some("image/png"))
+        .await
+        .unwrap();
+    let record = serde_json::json!({
+        "v":1, "type":common::schema_cid("pub.tangled.media"),
+        "collection":"pub.tangled.media", "rkey":"guest-image",
+        "author":guest.did_string(), "ts":NOW * 1000, "prev":[], "vis":"public",
+        "body":{"blob":uploaded.cid,"mime":"image/png"},
+    });
+    let record = tangled::record::sign_json_record(guest.signing_key(), &record)
+        .unwrap()
+        .json;
+    client
+        .put_record(&PutRecordRequest { record })
+        .await
+        .unwrap();
+    let response = host
+        .client()
+        .get_blob_response(&guest.did_string(), &uploaded.cid)
+        .await;
+    assert!(
+        response.is_ok(),
+        "guest-authenticated upload must be readable under its author's DID: {response:?}"
+    );
+    let response = response.unwrap();
+    assert_eq!(response.body, bytes);
+    assert_eq!(response.header("x-tangled-media-type"), Some("image/png"));
+    assert_eq!(host.client().stats().await.unwrap().counts.blobs, 1);
+}
+
+#[tokio::test]
+async fn blob_owner_query_and_invalid_or_expired_session_keep_existing_defaults() {
+    let host = Live::named("blob-owner-defaults").await;
+    let guest = identity_named("blob-owner-defaults-guest");
+    let token = common::siws_token(&host.client(), &guest).await.unwrap();
+    let explicit = b"explicit-query-owner".to_vec();
+    let response = reqwest::Client::new()
+        .post(format!("http://{}/xrpc/tangled.repo.putBlob", host.addr))
+        .query(&[("did", host.did())])
+        .header(
+            "Cookie",
+            format!("{}={token}", tangled::session::COOKIE_NAME),
+        )
+        .body(explicit.clone())
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(response.status(), 200);
+    let explicit: tangled::http::PutBlobResponse = response.json().await.unwrap();
+    let invalid = host
+        .client()
+        .with_session_cookie("invalid-session")
+        .put_blob(b"invalid-cookie".to_vec())
+        .await
+        .unwrap();
+    {
+        let mut engine = host.state.engine.lock().unwrap();
+        engine.now += tangled::session::SESSION_TTL_SECONDS + 1;
+    }
+    let expired = host
+        .client()
+        .with_session_cookie(token)
+        .put_blob(b"expired-cookie".to_vec())
+        .await
+        .unwrap();
+    for (key, cid, bytes) in [
+        ("explicit", explicit.cid, b"explicit-query-owner".as_slice()),
+        ("invalid", invalid.cid, b"invalid-cookie".as_slice()),
+        ("expired", expired.cid, b"expired-cookie".as_slice()),
+    ] {
+        host.publish(host.unsigned(
+            "pub.tangled.media",
+            key,
+            "public",
+            serde_json::json!({"blob":cid}),
+        ))
+        .await
+        .unwrap();
+        assert_eq!(
+            host.client().get_blob(&host.did(), &cid).await.unwrap(),
+            bytes
+        );
+        assert!(host
+            .client()
+            .get_blob(&guest.did_string(), &cid)
+            .await
+            .is_err());
+    }
+}
+
+#[tokio::test]
+async fn sns_handle_resolves_over_http_without_blocking_runtime_panic() {
+    use base64::Engine;
+    struct ServerTask(tokio::task::JoinHandle<()>);
+    impl Drop for ServerTask {
+        fn drop(&mut self) {
+            self.0.abort();
+        }
+    }
+    let host = Live::named("sns-http-runtime").await;
+    let mut registry = vec![0; 96];
+    registry[32..64].copy_from_slice(&host.identity.pubkey_bytes());
+    let encoded = base64::engine::general_purpose::STANDARD.encode(registry);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let rpc_url = format!("http://{}", listener.local_addr().unwrap());
+    let app = axum::Router::new().route("/", axum::routing::post(move || {
+        let encoded = encoded.clone();
+        async move { axum::Json(serde_json::json!({"jsonrpc":"2.0","id":1,"result":{"value":{"data":[encoded,"base64"]}}})) }
+    }));
+    let _server = ServerTask(tokio::spawn(async move {
+        axum::serve(listener, app).await.unwrap();
+    }));
+    {
+        let mut engine = host.state.engine.lock().unwrap();
+        engine.handle_resolver.live = true;
+        engine.handle_resolver.solana_rpc = Some(rpc_url);
+    }
+    assert!(host
+        .client()
+        .identity_resolve(Some("cluster.sol"), None)
+        .await
+        .is_err());
+    host.publish(host.unsigned(
+        "sys.id",
+        "self",
+        "public",
+        serde_json::json!({
+            "v":1, "pubkey":hex::encode(host.identity.pubkey_bytes()),
+            "agreement":hex::encode(host.identity.agreement_public_bytes()),
+            "alsoKnownAs":["cluster.sol"],
+        }),
+    ))
+    .await
+    .unwrap();
+    let resolved = host
+        .client()
+        .identity_resolve(Some("cluster.sol"), None)
+        .await;
+    assert!(
+        resolved.is_ok(),
+        "forward SNS ownership plus signed reverse claim must resolve over HTTP: {resolved:?}"
+    );
+    assert_eq!(resolved.unwrap().did, host.did());
 }

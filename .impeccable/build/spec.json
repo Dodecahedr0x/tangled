@@ -1,0 +1,1779 @@
+{
+  "tool": "comp-spec",
+  "version": 1,
+  "createdAt": "2026-10-26T17:30:41.749Z",
+  "comp": ".impeccable/mocks/reed-home-sheet.webp",
+  "warnings": [],
+  "uncoveredInkCells": [
+    "G3",
+    "G5",
+    "G7"
+  ],
+  "compSize": {
+    "width": 1280,
+    "height": 720
+  },
+  "aspect": 1.7778,
+  "orientation": "landscape",
+  "palette": [
+    {
+      "hex": "#f8f8f8",
+      "coverage": 0.9594
+    },
+    {
+      "hex": "#181818",
+      "coverage": 0.0263
+    },
+    {
+      "hex": "#b0b0b0",
+      "coverage": 0.0051
+    },
+    {
+      "hex": "#7a7a7a",
+      "coverage": 0.0047
+    },
+    {
+      "hex": "#474747",
+      "coverage": 0.0045
+    }
+  ],
+  "bands": [
+    {
+      "y": 0.0139,
+      "strength": 0.3422
+    },
+    {
+      "y": 0.1389,
+      "strength": 0.686
+    },
+    {
+      "y": 0.2639,
+      "strength": 0.4759
+    },
+    {
+      "y": 0.4583,
+      "strength": 0.4524
+    },
+    {
+      "y": 0.5556,
+      "strength": 0.2011
+    },
+    {
+      "y": 0.6528,
+      "strength": 0.5527
+    },
+    {
+      "y": 0.7361,
+      "strength": 0.2974
+    },
+    {
+      "y": 0.7639,
+      "strength": 0.2459
+    },
+    {
+      "y": 0.8333,
+      "strength": 0.2681
+    },
+    {
+      "y": 0.8611,
+      "strength": 0.2223
+    },
+    {
+      "y": 0.9861,
+      "strength": 0.3673
+    }
+  ],
+  "regions": [
+    {
+      "id": "brand",
+      "kind": "text",
+      "note": "Word Reed, black, top of the left column",
+      "grid": "A0:B0",
+      "coverBox": {
+        "x": 0,
+        "y": 0,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0234,
+        "y": 0.0417,
+        "w": 0.075,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 30,
+        "y": 30,
+        "w": 96,
+        "h": 42
+      },
+      "aspect": 2.2857,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.7746
+        },
+        {
+          "hex": "#0b0b0b",
+          "coverage": 0.1362
+        },
+        {
+          "hex": "#919291",
+          "coverage": 0.0357
+        },
+        {
+          "hex": "#585858",
+          "coverage": 0.0335
+        },
+        {
+          "hex": "#c1c1c1",
+          "coverage": 0.0201
+        }
+      ],
+      "detail": {
+        "energy": 26.4088
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 4,
+          "capHeightPx": 26.9,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.5571,
+          "advTall": 0.5757,
+          "advX": 0.5571,
+          "gap": 0.1857,
+          "xRatio": 0.7191,
+          "stemW": 0.1214,
+          "contrast": 1.0542,
+          "serif": null,
+          "densTall": 0.4615,
+          "densX": 0.5155,
+          "weight": 0.4615
+        },
+        "widthClass": "condensed",
+        "weightClass": "regular",
+        "chosen": {
+          "family": "M PLUS 1 Code",
+          "weight": 400,
+          "fontSizePx": 38,
+          "source": "catalog",
+          "estimatedSize": true,
+          "stamp": "8dbaca1bdce9"
+        }
+      }
+    },
+    {
+      "id": "late",
+      "kind": "text",
+      "note": "Red words Cannot reach knot, right-aligned in the top band",
+      "grid": "H0:J0",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0,
+        "w": 0.3,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.8219,
+        "y": 0.05,
+        "w": 0.1266,
+        "h": 0.05
+      },
+      "px": {
+        "x": 1052,
+        "y": 36,
+        "w": 162,
+        "h": 36
+      },
+      "aspect": 4.5,
+      "palette": [
+        {
+          "hex": "#f8f7f6",
+          "coverage": 0.8339
+        },
+        {
+          "hex": "#d47f7e",
+          "coverage": 0.0532
+        },
+        {
+          "hex": "#f8d4d2",
+          "coverage": 0.0468
+        },
+        {
+          "hex": "#9e2e2f",
+          "coverage": 0.0452
+        },
+        {
+          "hex": "#eda9a7",
+          "coverage": 0.021
+        }
+      ],
+      "detail": {
+        "energy": 30.2501
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 9,
+          "capHeightPx": 22,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.4993,
+          "advTall": 0.4993,
+          "advX": 0.4993,
+          "gap": 0.1816,
+          "xRatio": 0.7159,
+          "stemW": 0.1343,
+          "contrast": 1.0265,
+          "serif": null,
+          "densTall": 0.4833,
+          "densX": 0.5602,
+          "weight": 0.4833
+        },
+        "widthClass": "condensed",
+        "weightClass": "medium"
+      }
+    },
+    {
+      "id": "nav-home",
+      "kind": "control",
+      "note": "Word Home with a small red square to its left, the current destination",
+      "grid": "A2:B2",
+      "coverBox": {
+        "x": 0,
+        "y": 0.2,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0141,
+        "y": 0.2,
+        "w": 0.0891,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 18,
+        "y": 144,
+        "w": 114,
+        "h": 42
+      },
+      "aspect": 2.7143,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.7845
+        },
+        {
+          "hex": "#d50808",
+          "coverage": 0.0913
+        },
+        {
+          "hex": "#0a0a0a",
+          "coverage": 0.0796
+        },
+        {
+          "hex": "#a9161e",
+          "coverage": 0.0272
+        },
+        {
+          "hex": "#838383",
+          "coverage": 0.0175
+        }
+      ],
+      "detail": {
+        "energy": 21.0584
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "nav-discover",
+      "kind": "control",
+      "note": "Word Discover",
+      "grid": "A3:B3",
+      "coverBox": {
+        "x": 0,
+        "y": 0.3,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0469,
+        "y": 0.3,
+        "w": 0.0984,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 60,
+        "y": 216,
+        "w": 126,
+        "h": 42
+      },
+      "aspect": 3,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8495
+        },
+        {
+          "hex": "#9a9a9a",
+          "coverage": 0.0467
+        },
+        {
+          "hex": "#10100f",
+          "coverage": 0.0467
+        },
+        {
+          "hex": "#cacaca",
+          "coverage": 0.0346
+        },
+        {
+          "hex": "#383838",
+          "coverage": 0.0225
+        }
+      ],
+      "detail": {
+        "energy": 29.2682
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "nav-compose",
+      "kind": "control",
+      "note": "Word Compose",
+      "grid": "A4:B4",
+      "coverBox": {
+        "x": 0,
+        "y": 0.4,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0422,
+        "y": 0.4,
+        "w": 0.0938,
+        "h": 0.0667
+      },
+      "px": {
+        "x": 54,
+        "y": 288,
+        "w": 120,
+        "h": 48
+      },
+      "aspect": 2.5,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8656
+        },
+        {
+          "hex": "#0b0b0b",
+          "coverage": 0.075
+        },
+        {
+          "hex": "#4b4b4b",
+          "coverage": 0.0312
+        },
+        {
+          "hex": "#aeaeae",
+          "coverage": 0.0219
+        },
+        {
+          "hex": "#808080",
+          "coverage": 0.0063
+        }
+      ],
+      "detail": {
+        "energy": 25.9562
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "nav-search",
+      "kind": "control",
+      "note": "Word Search",
+      "grid": "A5:B5",
+      "coverBox": {
+        "x": 0,
+        "y": 0.5,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0422,
+        "y": 0.5083,
+        "w": 0.0797,
+        "h": 0.05
+      },
+      "px": {
+        "x": 54,
+        "y": 366,
+        "w": 102,
+        "h": 36
+      },
+      "aspect": 2.8333,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8358
+        },
+        {
+          "hex": "#0e0e0e",
+          "coverage": 0.098
+        },
+        {
+          "hex": "#484848",
+          "coverage": 0.0368
+        },
+        {
+          "hex": "#7f7f7f",
+          "coverage": 0.027
+        },
+        {
+          "hex": "#a8a8a8",
+          "coverage": 0.0025
+        }
+      ],
+      "detail": {
+        "energy": 27.6522
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "nav-settings",
+      "kind": "control",
+      "note": "Word Settings",
+      "grid": "A6:B6",
+      "coverBox": {
+        "x": 0,
+        "y": 0.6,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0422,
+        "y": 0.6083,
+        "w": 0.0984,
+        "h": 0.0667
+      },
+      "px": {
+        "x": 54,
+        "y": 438,
+        "w": 126,
+        "h": 48
+      },
+      "aspect": 2.625,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8438
+        },
+        {
+          "hex": "#0f0f0f",
+          "coverage": 0.0863
+        },
+        {
+          "hex": "#777777",
+          "coverage": 0.0342
+        },
+        {
+          "hex": "#c7c7c7",
+          "coverage": 0.0253
+        },
+        {
+          "hex": "#3d3d3d",
+          "coverage": 0.0104
+        }
+      ],
+      "detail": {
+        "energy": 27.3581
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "nav-identity",
+      "kind": "control",
+      "note": "Word Identity",
+      "grid": "A7:B7",
+      "coverBox": {
+        "x": 0,
+        "y": 0.7,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.0422,
+        "y": 0.7167,
+        "w": 0.0984,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 54,
+        "y": 516,
+        "w": 126,
+        "h": 42
+      },
+      "aspect": 3,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8384
+        },
+        {
+          "hex": "#151515",
+          "coverage": 0.0663
+        },
+        {
+          "hex": "#4e4e4e",
+          "coverage": 0.0544
+        },
+        {
+          "hex": "#bebebe",
+          "coverage": 0.0238
+        },
+        {
+          "hex": "#888888",
+          "coverage": 0.017
+        }
+      ],
+      "detail": {
+        "energy": 29.2663
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "col-time",
+      "kind": "text",
+      "note": "Column heading Time",
+      "grid": "D2:D2",
+      "box": {
+        "x": 0.3,
+        "y": 0.2,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "px": {
+        "x": 384,
+        "y": 144,
+        "w": 128,
+        "h": 72
+      },
+      "aspect": 1.7778,
+      "palette": [
+        {
+          "hex": "#f6f6f6",
+          "coverage": 0.9438
+        },
+        {
+          "hex": "#afafaf",
+          "coverage": 0.0349
+        },
+        {
+          "hex": "#121212",
+          "coverage": 0.0126
+        },
+        {
+          "hex": "#707070",
+          "coverage": 0.0058
+        },
+        {
+          "hex": "#3d3d3d",
+          "coverage": 0.0029
+        }
+      ],
+      "detail": {
+        "energy": 14.3513
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 1,
+          "capHeightPx": 2.5,
+          "inkIsDark": true,
+          "allCaps": true,
+          "advance": 51.2,
+          "advTall": 51.2,
+          "advX": null,
+          "gap": 0,
+          "xRatio": null,
+          "stemW": null,
+          "contrast": null,
+          "serif": null,
+          "densTall": 0.8521,
+          "densX": null,
+          "weight": 0.8521
+        },
+        "widthClass": "wide",
+        "weightClass": "black"
+      }
+    },
+    {
+      "id": "col-author",
+      "kind": "text",
+      "note": "Column heading Author",
+      "grid": "E2:F2",
+      "coverBox": {
+        "x": 0.4,
+        "y": 0.2,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.4047,
+        "y": 0.2,
+        "w": 0.0844,
+        "h": 0.0333
+      },
+      "px": {
+        "x": 518,
+        "y": 144,
+        "w": 108,
+        "h": 24
+      },
+      "aspect": 4.5,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.7743
+        },
+        {
+          "hex": "#b5b5b5",
+          "coverage": 0.0764
+        },
+        {
+          "hex": "#0f0f0f",
+          "coverage": 0.0694
+        },
+        {
+          "hex": "#494948",
+          "coverage": 0.0521
+        },
+        {
+          "hex": "#767676",
+          "coverage": 0.0278
+        }
+      ],
+      "detail": {
+        "energy": 36.0731
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 7,
+          "capHeightPx": 16,
+          "inkIsDark": true,
+          "allCaps": true,
+          "advance": 0.5003,
+          "advTall": 0.5003,
+          "advX": null,
+          "gap": 0.2971,
+          "xRatio": null,
+          "stemW": 0.1621,
+          "contrast": 1.1329,
+          "serif": 0.8067,
+          "densTall": 0.5105,
+          "densX": null,
+          "weight": 0.5105
+        },
+        "widthClass": "condensed",
+        "weightClass": "medium"
+      }
+    },
+    {
+      "id": "col-post",
+      "kind": "text",
+      "note": "Column heading Post",
+      "grid": "G2:H2",
+      "coverBox": {
+        "x": 0.6,
+        "y": 0.2,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.6516,
+        "y": 0.2,
+        "w": 0.0563,
+        "h": 0.0333
+      },
+      "px": {
+        "x": 834,
+        "y": 144,
+        "w": 72,
+        "h": 24
+      },
+      "aspect": 3,
+      "palette": [
+        {
+          "hex": "#f6f6f6",
+          "coverage": 0.7969
+        },
+        {
+          "hex": "#0e0e0e",
+          "coverage": 0.0729
+        },
+        {
+          "hex": "#b8b8b8",
+          "coverage": 0.0729
+        },
+        {
+          "hex": "#767676",
+          "coverage": 0.0521
+        },
+        {
+          "hex": "#383838",
+          "coverage": 0.0052
+        }
+      ],
+      "detail": {
+        "energy": 25.2302
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 4,
+          "capHeightPx": 16.4,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.6399,
+          "advTall": 0.6399,
+          "advX": null,
+          "gap": 0.2438,
+          "xRatio": 0.6918,
+          "stemW": 0.1594,
+          "contrast": 1.068,
+          "serif": null,
+          "densTall": 0.4792,
+          "densX": null,
+          "weight": 0.4792
+        },
+        "widthClass": "normal",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "r1-time",
+      "kind": "text",
+      "note": "Departure time 09:14",
+      "grid": "D3:D3",
+      "coverBox": {
+        "x": 0.3,
+        "y": 0.3,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.3797,
+        "y": 0.3,
+        "w": 0.0141,
+        "h": 0.1
+      },
+      "px": {
+        "x": 486,
+        "y": 216,
+        "w": 18,
+        "h": 72
+      },
+      "aspect": 0.25,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8333
+        },
+        {
+          "hex": "#b5b5b4",
+          "coverage": 0.1667
+        }
+      ],
+      "detail": {
+        "energy": 3.536
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": null,
+        "measuredAt": "2026-10-26T17:30:54.644Z",
+        "note": "no separable lettering in the crop; size by the region box"
+      }
+    },
+    {
+      "id": "r1-author",
+      "kind": "text",
+      "note": "Author Ada",
+      "grid": "E3:E3",
+      "coverBox": {
+        "x": 0.4,
+        "y": 0.3,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.4047,
+        "y": 0.3333,
+        "w": 0.0469,
+        "h": 0.05
+      },
+      "px": {
+        "x": 518,
+        "y": 240,
+        "w": 60,
+        "h": 36
+      },
+      "aspect": 1.6667,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8333
+        },
+        {
+          "hex": "#0f0f0f",
+          "coverage": 0.0917
+        },
+        {
+          "hex": "#484848",
+          "coverage": 0.0375
+        },
+        {
+          "hex": "#8b8b8b",
+          "coverage": 0.0208
+        },
+        {
+          "hex": "#b8b8b8",
+          "coverage": 0.0167
+        }
+      ],
+      "detail": {
+        "energy": 16.4461
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 3,
+          "capHeightPx": 21.6,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.5315,
+          "advTall": 0.5777,
+          "advX": 0.4853,
+          "gap": 0.1618,
+          "xRatio": 0.7316,
+          "stemW": 0.1252,
+          "contrast": 1.0223,
+          "serif": null,
+          "densTall": 0.4392,
+          "densX": 0.596,
+          "weight": 0.4392
+        },
+        "widthClass": "condensed",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "r1-post",
+      "kind": "text",
+      "note": "Post keep this",
+      "grid": "H3:I3",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.3,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7,
+        "y": 0.3333,
+        "w": 0.0656,
+        "h": 0.05
+      },
+      "px": {
+        "x": 896,
+        "y": 240,
+        "w": 84,
+        "h": 36
+      },
+      "aspect": 2.3333,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8512
+        },
+        {
+          "hex": "#0b0b0b",
+          "coverage": 0.0685
+        },
+        {
+          "hex": "#383838",
+          "coverage": 0.0417
+        },
+        {
+          "hex": "#666666",
+          "coverage": 0.0208
+        },
+        {
+          "hex": "#a3a3a3",
+          "coverage": 0.0179
+        }
+      ],
+      "detail": {
+        "energy": 18.2436
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 4,
+          "capHeightPx": 21.8,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.493,
+          "advTall": 0.5045,
+          "advX": 0.4816,
+          "gap": 0.2064,
+          "xRatio": 0.7032,
+          "stemW": 0.1202,
+          "contrast": 0.9386,
+          "serif": 1.786,
+          "densTall": 0.3691,
+          "densX": 0.5249,
+          "weight": 0.3691
+        },
+        "widthClass": "condensed",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "r2-time",
+      "kind": "text",
+      "note": "Departure time 09:02",
+      "grid": "D5:D5",
+      "coverBox": {
+        "x": 0.3,
+        "y": 0.5,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.3797,
+        "y": 0.5,
+        "w": 0.0141,
+        "h": 0.1
+      },
+      "px": {
+        "x": 486,
+        "y": 360,
+        "w": 18,
+        "h": 72
+      },
+      "aspect": 0.25,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8333
+        },
+        {
+          "hex": "#b8b8b8",
+          "coverage": 0.1667
+        }
+      ],
+      "detail": {
+        "energy": 3.4693
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": null,
+        "measuredAt": "2026-10-26T17:30:54.697Z",
+        "note": "no separable lettering in the crop; size by the region box"
+      }
+    },
+    {
+      "id": "r2-author",
+      "kind": "text",
+      "note": "Author Bob",
+      "grid": "E5:E5",
+      "coverBox": {
+        "x": 0.4,
+        "y": 0.5,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.4094,
+        "y": 0.5167,
+        "w": 0.0422,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 524,
+        "y": 372,
+        "w": 54,
+        "h": 42
+      },
+      "aspect": 1.2857,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8175
+        },
+        {
+          "hex": "#b1b1b1",
+          "coverage": 0.0635
+        },
+        {
+          "hex": "#0e0e0e",
+          "coverage": 0.0635
+        },
+        {
+          "hex": "#787878",
+          "coverage": 0.0357
+        },
+        {
+          "hex": "#4b4b4b",
+          "coverage": 0.0198
+        }
+      ],
+      "detail": {
+        "energy": 14.8718
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 3,
+          "capHeightPx": 21.4,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.5367,
+          "advTall": 0.525,
+          "advX": 0.56,
+          "gap": 0.1633,
+          "xRatio": 0.7176,
+          "stemW": 0.1238,
+          "contrast": 0.961,
+          "serif": null,
+          "densTall": 0.5291,
+          "densX": 0.4946,
+          "weight": 0.5291
+        },
+        "widthClass": "condensed",
+        "weightClass": "medium"
+      }
+    },
+    {
+      "id": "r2-post",
+      "kind": "text",
+      "note": "Post the knot answered",
+      "grid": "H5:I5",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.5,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7562,
+        "y": 0.5167,
+        "w": 0.1031,
+        "h": 0.0583
+      },
+      "px": {
+        "x": 968,
+        "y": 372,
+        "w": 132,
+        "h": 42
+      },
+      "aspect": 3.1429,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8344
+        },
+        {
+          "hex": "#131313",
+          "coverage": 0.0893
+        },
+        {
+          "hex": "#c2c2c2",
+          "coverage": 0.0406
+        },
+        {
+          "hex": "#7f7f7f",
+          "coverage": 0.0244
+        },
+        {
+          "hex": "#414141",
+          "coverage": 0.0114
+        }
+      ],
+      "detail": {
+        "energy": 32.1841
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 8,
+          "capHeightPx": 22.1,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.4868,
+          "advTall": 0.5207,
+          "advX": 0.4755,
+          "gap": 0.1358,
+          "xRatio": 0.7164,
+          "stemW": 0.1206,
+          "contrast": 0.9472,
+          "serif": 0.7182,
+          "densTall": 0.4672,
+          "densX": 0.5482,
+          "weight": 0.4672
+        },
+        "widthClass": "condensed",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "r3-time",
+      "kind": "text",
+      "note": "Departure time 08:40",
+      "grid": "D7:D7",
+      "coverBox": {
+        "x": 0.3,
+        "y": 0.7,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.3797,
+        "y": 0.7,
+        "w": 0.0141,
+        "h": 0.1
+      },
+      "px": {
+        "x": 486,
+        "y": 504,
+        "w": 18,
+        "h": 72
+      },
+      "aspect": 0.25,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.8333
+        },
+        {
+          "hex": "#a9a9a9",
+          "coverage": 0.1667
+        }
+      ],
+      "detail": {
+        "energy": 3.474
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": null,
+        "measuredAt": "2026-10-26T17:30:54.754Z",
+        "note": "no separable lettering in the crop; size by the region box"
+      }
+    },
+    {
+      "id": "r3-author",
+      "kind": "text",
+      "note": "Author Ada",
+      "grid": "E7:E7",
+      "coverBox": {
+        "x": 0.4,
+        "y": 0.7,
+        "w": 0.1,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.4047,
+        "y": 0.7167,
+        "w": 0.0469,
+        "h": 0.05
+      },
+      "px": {
+        "x": 518,
+        "y": 516,
+        "w": 60,
+        "h": 36
+      },
+      "aspect": 1.6667,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.825
+        },
+        {
+          "hex": "#0c0d0c",
+          "coverage": 0.1042
+        },
+        {
+          "hex": "#404040",
+          "coverage": 0.025
+        },
+        {
+          "hex": "#888888",
+          "coverage": 0.025
+        },
+        {
+          "hex": "#c5c5c5",
+          "coverage": 0.0208
+        }
+      ],
+      "detail": {
+        "energy": 16.3562
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 3,
+          "capHeightPx": 22,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.522,
+          "advTall": 0.5673,
+          "advX": 0.4766,
+          "gap": 0.1475,
+          "xRatio": 0.7198,
+          "stemW": 0.1262,
+          "contrast": 1.0371,
+          "serif": null,
+          "densTall": 0.4442,
+          "densX": 0.6047,
+          "weight": 0.4442
+        },
+        "widthClass": "condensed",
+        "weightClass": "regular"
+      }
+    },
+    {
+      "id": "r3-post",
+      "kind": "text",
+      "note": "Post public, on purpose",
+      "grid": "H7:I7",
+      "coverBox": {
+        "x": 0.7,
+        "y": 0.7,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "box": {
+        "x": 0.7422,
+        "y": 0.725,
+        "w": 0.1219,
+        "h": 0.05
+      },
+      "px": {
+        "x": 950,
+        "y": 522,
+        "w": 156,
+        "h": 36
+      },
+      "aspect": 4.3333,
+      "palette": [
+        {
+          "hex": "#f7f7f7",
+          "coverage": 0.8333
+        },
+        {
+          "hex": "#0b0b0b",
+          "coverage": 0.0849
+        },
+        {
+          "hex": "#b4b4b4",
+          "coverage": 0.0304
+        },
+        {
+          "hex": "#747474",
+          "coverage": 0.0288
+        },
+        {
+          "hex": "#353535",
+          "coverage": 0.0224
+        }
+      ],
+      "detail": {
+        "energy": 39.3611
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null,
+      "type": {
+        "comp": {
+          "lines": 1,
+          "glyphs": 10,
+          "capHeightPx": 16,
+          "inkIsDark": true,
+          "allCaps": false,
+          "advance": 0.6392,
+          "advTall": 0.6392,
+          "advX": null,
+          "gap": 0.2494,
+          "xRatio": 0.8017,
+          "stemW": 0.1629,
+          "contrast": 0.9311,
+          "serif": 0.4306,
+          "densTall": 0.5557,
+          "densX": null,
+          "weight": 0.5557
+        },
+        "widthClass": "normal",
+        "weightClass": "medium"
+      }
+    },
+    {
+      "id": "rule-top",
+      "kind": "chrome",
+      "note": "Top hairline of the sheet",
+      "grid": "A0:J0",
+      "snap": false,
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.1
+      },
+      "px": {
+        "x": 0,
+        "y": 0,
+        "w": 1280,
+        "h": 72
+      },
+      "aspect": 17.7778,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9378
+        },
+        {
+          "hex": "#262626",
+          "coverage": 0.0507
+        },
+        {
+          "hex": "#9e2e2e",
+          "coverage": 0.0047
+        },
+        {
+          "hex": "#f8c9c9",
+          "coverage": 0.0037
+        },
+        {
+          "hex": "#808080",
+          "coverage": 0.0032
+        }
+      ],
+      "detail": {
+        "energy": 17.3617
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-head",
+      "kind": "chrome",
+      "note": "Hairline under the Reed and late-mark band",
+      "grid": "A1:J1",
+      "snap": false,
+      "box": {
+        "x": 0,
+        "y": 0.1,
+        "w": 1,
+        "h": 0.1
+      },
+      "px": {
+        "x": 0,
+        "y": 72,
+        "w": 1280,
+        "h": 72
+      },
+      "aspect": 17.7778,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9521
+        },
+        {
+          "hex": "#0d0d0d",
+          "coverage": 0.0282
+        },
+        {
+          "hex": "#353535",
+          "coverage": 0.0158
+        },
+        {
+          "hex": "#808080",
+          "coverage": 0.0023
+        },
+        {
+          "hex": "#b0b0b0",
+          "coverage": 0.0016
+        }
+      ],
+      "detail": {
+        "energy": 13.858
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-rail",
+      "kind": "chrome",
+      "note": "Vertical hairline between destinations and the timetable",
+      "grid": "C0:C9",
+      "snap": false,
+      "box": {
+        "x": 0.2,
+        "y": 0,
+        "w": 0.1,
+        "h": 1
+      },
+      "px": {
+        "x": 256,
+        "y": 0,
+        "w": 128,
+        "h": 720
+      },
+      "aspect": 0.1778,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9543
+        },
+        {
+          "hex": "#212121",
+          "coverage": 0.0411
+        },
+        {
+          "hex": "#575757",
+          "coverage": 0.0023
+        },
+        {
+          "hex": "#bebebe",
+          "coverage": 0.0016
+        },
+        {
+          "hex": "#888888",
+          "coverage": 0.0006
+        }
+      ],
+      "detail": {
+        "energy": 6.7338
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-h-cols",
+      "kind": "chrome",
+      "note": "Hairline under the Time Author Post headings",
+      "grid": "D2:J2",
+      "snap": false,
+      "box": {
+        "x": 0.3,
+        "y": 0.2,
+        "w": 0.7,
+        "h": 0.1
+      },
+      "px": {
+        "x": 384,
+        "y": 144,
+        "w": 896,
+        "h": 72
+      },
+      "aspect": 12.4444,
+      "palette": [
+        {
+          "hex": "#f6f6f6",
+          "coverage": 0.9736
+        },
+        {
+          "hex": "#101010",
+          "coverage": 0.0092
+        },
+        {
+          "hex": "#b6b6b6",
+          "coverage": 0.0089
+        },
+        {
+          "hex": "#5e5e5e",
+          "coverage": 0.005
+        },
+        {
+          "hex": "#898989",
+          "coverage": 0.0032
+        }
+      ],
+      "detail": {
+        "energy": 22.7215
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-h-r1",
+      "kind": "chrome",
+      "note": "Hairline under the first departure",
+      "grid": "D4:J4",
+      "snap": false,
+      "box": {
+        "x": 0.3,
+        "y": 0.4,
+        "w": 0.7,
+        "h": 0.1
+      },
+      "px": {
+        "x": 384,
+        "y": 288,
+        "w": 896,
+        "h": 72
+      },
+      "aspect": 12.4444,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9521
+        },
+        {
+          "hex": "#0c0d0c",
+          "coverage": 0.0415
+        },
+        {
+          "hex": "#b5b5b5",
+          "coverage": 0.0032
+        },
+        {
+          "hex": "#5f5f5f",
+          "coverage": 0.0032
+        }
+      ],
+      "detail": {
+        "energy": 12.5701
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-h-r2",
+      "kind": "chrome",
+      "note": "Hairline under the second departure",
+      "grid": "D6:J6",
+      "snap": false,
+      "box": {
+        "x": 0.3,
+        "y": 0.6,
+        "w": 0.7,
+        "h": 0.1
+      },
+      "px": {
+        "x": 384,
+        "y": 432,
+        "w": 896,
+        "h": 72
+      },
+      "aspect": 12.4444,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9522
+        },
+        {
+          "hex": "#1d1d1d",
+          "coverage": 0.0414
+        },
+        {
+          "hex": "#5c5c5c",
+          "coverage": 0.0032
+        },
+        {
+          "hex": "#aeaeae",
+          "coverage": 0.0032
+        }
+      ],
+      "detail": {
+        "energy": 14.8798
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-h-r3",
+      "kind": "chrome",
+      "note": "Hairline under the third departure",
+      "grid": "D8:J8",
+      "snap": false,
+      "box": {
+        "x": 0.3,
+        "y": 0.8,
+        "w": 0.7,
+        "h": 0.1
+      },
+      "px": {
+        "x": 384,
+        "y": 576,
+        "w": 896,
+        "h": 72
+      },
+      "aspect": 12.4444,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9555
+        },
+        {
+          "hex": "#212121",
+          "coverage": 0.0416
+        },
+        {
+          "hex": "#a8a8a8",
+          "coverage": 0.0015
+        },
+        {
+          "hex": "#686868",
+          "coverage": 0.0014
+        }
+      ],
+      "detail": {
+        "energy": 13.8798
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-v-time",
+      "kind": "chrome",
+      "note": "Vertical hairline after the Time column",
+      "grid": "D2:D8",
+      "snap": false,
+      "box": {
+        "x": 0.3,
+        "y": 0.2,
+        "w": 0.1,
+        "h": 0.7
+      },
+      "px": {
+        "x": 384,
+        "y": 144,
+        "w": 128,
+        "h": 504
+      },
+      "aspect": 0.254,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9386
+        },
+        {
+          "hex": "#161616",
+          "coverage": 0.029
+        },
+        {
+          "hex": "#b0b0b0",
+          "coverage": 0.0267
+        },
+        {
+          "hex": "#525252",
+          "coverage": 0.0043
+        },
+        {
+          "hex": "#808080",
+          "coverage": 0.0014
+        }
+      ],
+      "detail": {
+        "energy": 10.0967
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    },
+    {
+      "id": "rule-v-author",
+      "kind": "chrome",
+      "note": "Vertical hairline after the Author column",
+      "grid": "F2:F8",
+      "snap": false,
+      "box": {
+        "x": 0.5,
+        "y": 0.2,
+        "w": 0.1,
+        "h": 0.7
+      },
+      "px": {
+        "x": 640,
+        "y": 144,
+        "w": 128,
+        "h": 504
+      },
+      "aspect": 0.254,
+      "palette": [
+        {
+          "hex": "#f8f8f8",
+          "coverage": 0.9826
+        },
+        {
+          "hex": "#181818",
+          "coverage": 0.0174
+        }
+      ],
+      "detail": {
+        "energy": 3.2766
+      },
+      "medium": "semantic",
+      "plate": null,
+      "text": null
+    }
+  ]
+}

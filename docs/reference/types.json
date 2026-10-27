@@ -1,0 +1,496 @@
+[
+  {
+    "name": "Record",
+    "module": "spec::data",
+    "signature": "pub struct Record { v, type, collection, rkey, author, ts, prev, vis, body, ref?, circle?, sig }",
+    "summary": "Typed, content-addressed object signed by a Solana key, stored in a repository Merkle Search Tree (MST).",
+    "href": "/reference/types/record",
+    "fields": [
+      {
+        "name": "v",
+        "type": "u8",
+        "note": "Must be 1."
+      },
+      {
+        "name": "type",
+        "type": "Cid",
+        "note": "Schema CID."
+      },
+      {
+        "name": "collection",
+        "type": "string",
+        "note": "Reverse-DNS or sys.* name."
+      },
+      {
+        "name": "rkey",
+        "type": "string",
+        "note": "Unique in (did, collection). TID recommended."
+      },
+      {
+        "name": "author",
+        "type": "Did",
+        "note": "did:sol:<base58>."
+      },
+      {
+        "name": "ts",
+        "type": "u64",
+        "note": "Unix milliseconds."
+      },
+      {
+        "name": "prev",
+        "type": "Cid[]",
+        "note": "Same-key causal parents. Op-id for CRDT collections is this record’s CID. Merge records list concurrent heads."
+      },
+      {
+        "name": "vis",
+        "type": "Visibility",
+        "note": "public | cap | sealed."
+      },
+      {
+        "name": "body",
+        "type": "Value | Ciphertext | null",
+        "note": "null is a delete tombstone."
+      },
+      {
+        "name": "ref",
+        "type": "Cid?",
+        "note": "Annotation target (record CID)."
+      },
+      {
+        "name": "circle",
+        "type": "string?",
+        "note": "did:sol:owner#rkey when circle-scoped; vis must be sealed."
+      },
+      {
+        "name": "sig",
+        "type": "[u8; 64]",
+        "note": "Ed25519 over the off-chain envelope of BLAKE3(unsigned)."
+      }
+    ],
+    "impl": [
+      "Unsigned map omits sig; that DAG-CBOR is the hash input.",
+      "Device keys add signedBy and proof.",
+      "Sealed application records set epoch.",
+      "Same-key concurrent writes: Last-ts-wins among causal heads, except pub.tangled.page (RGA text + LWW title/blob + signed compact)."
+    ],
+    "see": "/spec/data-model"
+  },
+  {
+    "name": "PageBody",
+    "module": "spec::data",
+    "signature": "pub enum PageBody { Ops { ops: Vec<PageOp> }, Compact { compact: 1, frontier: Vec<Cid>, snapshot: PageSnapshot } }",
+    "summary": "Wiki page Conflict-free Replicated Data Type (CRDT) body. Incremental ops, or a signed compact snapshot at a frontier. Live title and text are computed. Op-id is the signed record CID.",
+    "href": "/reference/types/pagebody",
+    "fields": [
+      {
+        "name": "ops",
+        "type": "PageOp[]",
+        "note": "Incremental: ins (Replicated Growable Array run), del (atom ids), lww (Last-Writer-Wins title | blob)."
+      },
+      {
+        "name": "compact",
+        "type": "1",
+        "note": "Compact body version. Mutually exclusive with ops."
+      },
+      {
+        "name": "frontier",
+        "type": "Cid[]",
+        "note": "Causal heads of the folded prefix; same set as envelope prev. Sorted CID text."
+      },
+      {
+        "name": "snapshot",
+        "type": "PageSnapshot",
+        "note": "RGA atoms (original ids) plus LWW title/blob candidates from Apply(included set)."
+      }
+    ],
+    "impl": [
+      "Apply every non-tombstone same-key record; order of receipt must not change the live value.",
+      "Atom id is (record CID, Unicode scalar index). Concurrent siblings sort atom-id descending.",
+      "A compact snapshot unions by atom-id; ops concurrent with the frontier merge on top (stale compact, not invalid).",
+      "After a GC-root compact, materialization MAY be compact + ops not in the included set.",
+      "Page delete (body null) is live only when every causal head is a tombstone."
+    ],
+    "see": "/spec/data-model"
+  },
+  {
+    "name": "Commit",
+    "module": "spec::data",
+    "signature": "pub struct Commit { v, did, data, rev, prev, sig, sigRotation? }",
+    "summary": "Signed snapshot of a repository: DID, MST root CID, monotonic revision.",
+    "href": "/reference/types/commit",
+    "fields": [
+      {
+        "name": "did",
+        "type": "Did",
+        "note": "Repository identity."
+      },
+      {
+        "name": "data",
+        "type": "Cid",
+        "note": "MST root."
+      },
+      {
+        "name": "rev",
+        "type": "Tid",
+        "note": "13-char Crockford base32 TID. Must increase."
+      },
+      {
+        "name": "prev",
+        "type": "Cid | null",
+        "note": "Previous commit."
+      },
+      {
+        "name": "sig",
+        "type": "[u8; 64]",
+        "note": "Identity or new key on rotation."
+      },
+      {
+        "name": "sigRotation",
+        "type": "[u8; 64]?",
+        "note": "Required when pubkey changes."
+      }
+    ],
+    "impl": [
+      "Head is the latest commit CID advertised by a knot (not the raw MST root).",
+      "putRecord writes a new Commit; prev is the previous Commit CID or null at genesis."
+    ],
+    "see": "/spec/repositories"
+  },
+  {
+    "name": "Cid",
+    "module": "spec::data",
+    "signature": "pub type Cid = CIDv1(0x71 dag-cbor, 0x1e blake3, 32)",
+    "summary": "Content identifier. Display is multibase base32 with prefix b.",
+    "href": "/reference/types/cid",
+    "fields": [
+      {
+        "name": "version",
+        "type": "1",
+        "note": "CIDv1."
+      },
+      {
+        "name": "codec",
+        "type": "0x71",
+        "note": "dag-cbor. Blobs use 0x55 raw."
+      },
+      {
+        "name": "mh",
+        "type": "0x1e",
+        "note": "BLAKE3."
+      },
+      {
+        "name": "digest",
+        "type": "[u8; 32]",
+        "note": "BLAKE3-256 of the block."
+      }
+    ],
+    "impl": [
+      "JSON mapping is IPLD {\"/\":\"b…\"}."
+    ],
+    "see": "/spec/cryptography"
+  },
+  {
+    "name": "Visibility",
+    "module": "spec::auth",
+    "signature": "pub enum Visibility { Public, Cap, Sealed }",
+    "summary": "Fetch vs read. Authorization and confidentiality are separate layers.",
+    "href": "/reference/types/visibility",
+    "fields": [
+      {
+        "name": "public",
+        "type": "unit",
+        "note": "Anyone may fetch and rebroadcast."
+      },
+      {
+        "name": "cap",
+        "type": "unit",
+        "note": "Knot serves only with a capability; host can read plaintext."
+      },
+      {
+        "name": "sealed",
+        "type": "unit",
+        "note": "Ciphertext body; knot stores opaque bytes."
+      }
+    ],
+    "impl": [
+      "Looms ingest public only."
+    ],
+    "see": "/spec/visibility"
+  },
+  {
+    "name": "Capability",
+    "module": "spec::auth",
+    "signature": "pub struct Capability { iss, aud, cmd, res, nbf, exp, pol, prf, sig }",
+    "summary": "UCAN-profile certificate, DAG-CBOR, Solana-signed. Not a JWT.",
+    "href": "/reference/types/capability",
+    "fields": [
+      {
+        "name": "iss",
+        "type": "Did",
+        "note": "Issuer."
+      },
+      {
+        "name": "aud",
+        "type": "Did",
+        "note": "Audience, often a device DID."
+      },
+      {
+        "name": "cmd",
+        "type": "Command",
+        "note": "repo/read, repo/write, circle/read, …"
+      },
+      {
+        "name": "res",
+        "type": "Uri",
+        "note": "tangled://did[/collection[/rkey]] or tangled://circle/owner/rkey"
+      },
+      {
+        "name": "prf",
+        "type": "Cid[]",
+        "note": "Parent certificates. Empty at root."
+      }
+    ],
+    "impl": [
+      "Children MUST NOT amplify command, resource, or time.",
+      "Caveats: eq, lt, valid_until, max_uses (knots MUST count successful uses per leaf CID; cap.verify MUST NOT increment).",
+      "Revocation is sys.revocation.",
+      "circle/read is issued by the circle owner; it authorizes fetch of circle-scoped records on any knot that stores them."
+    ],
+    "see": "/spec/capabilities"
+  },
+  {
+    "name": "Invocation",
+    "module": "spec::auth",
+    "signature": "pub struct Invocation { cap, prf, cmd, res, args, ts, aud, nonce, sig }",
+    "summary": "Request signed by the leaf capability audience. HTTP Authorization: Cap <base64url(DAG-CBOR)>. JSON-in-header MUST be rejected.",
+    "href": "/reference/types/invocation",
+    "fields": [
+      {
+        "name": "cap",
+        "type": "Cid",
+        "note": "Leaf capability."
+      },
+      {
+        "name": "prf",
+        "type": "Capability[]",
+        "note": "Chain, root first."
+      },
+      {
+        "name": "nonce",
+        "type": "[u8; 16]",
+        "note": "Replay protection."
+      },
+      {
+        "name": "aud",
+        "type": "Did",
+        "note": "The knot DID for HTTP."
+      }
+    ],
+    "impl": [
+      "Offline verifiers require exp within 2 hours unless they have a revocation MST."
+    ],
+    "see": "/spec/capabilities"
+  },
+  {
+    "name": "Circle",
+    "module": "spec::auth",
+    "signature": "pub struct Circle { name, members, policy, epoch, distributor, threshold: 16 }",
+    "summary": "Group. User operations: create, add, remove, send, leave. Distributor is not a user-facing mode.",
+    "href": "/reference/types/circle",
+    "fields": [
+      {
+        "name": "epoch",
+        "type": "u64",
+        "note": "Current N. Application AEAD uses epoch_secret[N]."
+      },
+      {
+        "name": "distributor",
+        "type": "\"hpke\" | \"mls\" | \"dual\"",
+        "note": "Automatic. Never shown in client API."
+      },
+      {
+        "name": "threshold",
+        "type": "16",
+        "note": "CIRCLE_MLS_THRESHOLD. Writers MUST emit 16."
+      },
+      {
+        "name": "policy.history_share",
+        "type": "bool",
+        "note": "Whether new members get old epochs. Default false."
+      }
+    ],
+    "impl": [
+      "Grow across 16 is still add-member: same circle id, dual-stack epoch, offline Welcome in the log.",
+      "Leaf HPKE key is the Tangled X25519 agreement key. RFC 9420 Welcome is sealed to init_key, which MUST differ from the leaf.",
+      "Never downgrade to HPKE after MLS has been used.",
+      "Owner issues a circle/read membership grant on add; revokes it on remove.",
+      "After agreement rotation the member’s client re-wraps epoch secrets; not a user-facing mode."
+    ],
+    "see": "/spec/circles"
+  },
+  {
+    "name": "Ciphertext",
+    "module": "spec::data",
+    "signature": "pub struct Ciphertext { alg, enc?, ct, epoch? }",
+    "summary": "Sealed body. hpke-record for 1:1, epoch-aead for circles.",
+    "href": "/reference/types/ciphertext",
+    "fields": [
+      {
+        "name": "alg",
+        "type": "string",
+        "note": "hpke-record | epoch-aead"
+      },
+      {
+        "name": "enc",
+        "type": "bytes?",
+        "note": "HPKE encapsulating key."
+      },
+      {
+        "name": "ct",
+        "type": "bytes",
+        "note": "Ciphertext and tag."
+      },
+      {
+        "name": "epoch",
+        "type": "u64?",
+        "note": "Required for epoch-aead."
+      }
+    ],
+    "impl": [
+      "Large payloads MAY set blob: Cid and omit ct."
+    ],
+    "see": "/spec/data-model"
+  },
+  {
+    "name": "Binding",
+    "module": "spec::interop",
+    "signature": "pub struct Binding { tangled, protocol, foreign, nonce, attested, foreignSig }",
+    "summary": "Proves a Solana identity controls (or is attested as) a foreign identity.",
+    "href": "/reference/types/binding",
+    "fields": [
+      {
+        "name": "protocol",
+        "type": "enum",
+        "note": "nostr | atproto | activitypub | farcaster"
+      },
+      {
+        "name": "attested",
+        "type": "bool",
+        "note": "Must be true only for ActivityPub."
+      },
+      {
+        "name": "foreignSig",
+        "type": "bytes",
+        "note": "Protocol-specific."
+      }
+    ],
+    "impl": [
+      "Both the Tangled record signature and foreignSig MUST verify."
+    ],
+    "see": "/spec/interoperability"
+  },
+  {
+    "name": "Foreign",
+    "module": "spec::interop",
+    "signature": "pub struct Foreign { protocol, foreign_id, bytes_cid, translator, attested, mapped? }",
+    "summary": "Envelope around a foreign object. Export MUST emit original bytes when bytes_cid is present.",
+    "href": "/reference/types/foreign",
+    "fields": [
+      {
+        "name": "protocol",
+        "type": "enum",
+        "note": "nostr | atproto | activitypub | farcaster"
+      },
+      {
+        "name": "foreign_id",
+        "type": "string",
+        "note": "Canonical id: Nostr event id, AT strong URI, AP object id IRI, Farcaster message hash."
+      },
+      {
+        "name": "bytes_cid",
+        "type": "Cid",
+        "note": "Raw original bytes."
+      },
+      {
+        "name": "translator",
+        "type": "Did",
+        "note": "Gateway DID."
+      },
+      {
+        "name": "mapped",
+        "type": "Cid?",
+        "note": "Tangled application record, if any."
+      }
+    ],
+    "impl": [
+      "mapped_lossy when the mapping truncates.",
+      "sys.foreign rkey MUST be hex(BLAKE3(protocol || 0x00 || canonical foreign_id)); re-import is in-place.",
+      "Native export sets mapped; re-export MUST NOT mint a new foreign id when bytes_cid exists.",
+      "Pre-canonical duplicates: equal bytes_cid, or protocol id inside the bytes."
+    ],
+    "see": "/spec/interoperability"
+  },
+  {
+    "name": "Label",
+    "module": "spec::network",
+    "signature": "pub struct Label { src, uri, val, neg, ts }",
+    "summary": "Signed opinion about a DID or record. Not a delete.",
+    "href": "/reference/types/label",
+    "fields": [
+      {
+        "name": "src",
+        "type": "Did",
+        "note": "Labeler; must equal author."
+      },
+      {
+        "name": "val",
+        "type": "string",
+        "note": "spam, nsfw, scam, ok, or namespaced."
+      },
+      {
+        "name": "neg",
+        "type": "bool",
+        "note": "Retract."
+      }
+    ],
+    "impl": [
+      "Clients compose labelers. Knots MUST NOT silently drop public records from getRepo because of a label."
+    ],
+    "see": "/spec/labels"
+  },
+  {
+    "name": "NodeStats",
+    "module": "spec::wire",
+    "signature": "pub struct NodeStats { v, did, asOf, counts, rates, topology }",
+    "summary": "Knot-local public aggregates and advertised-peer topology. Not a global directory.",
+    "href": "/reference/types/nodestats",
+    "fields": [
+      {
+        "name": "counts",
+        "type": "NodeCounts",
+        "note": "Live vis:public tips only. identities, repos, records, blobs, peers, circles, foreign, commits."
+      },
+      {
+        "name": "rates.publicCommits",
+        "type": "u64",
+        "note": "Retained public subscribe log length, not a wall-clock hourly rate."
+      },
+      {
+        "name": "topology.peers",
+        "type": "uri[]",
+        "note": "Same operator-marked set as node.describe peers. Never learned URLs."
+      },
+      {
+        "name": "topology.hosted",
+        "type": "HostedIdentity[]",
+        "note": "DIDs with a live public tip. May be truncated."
+      }
+    ],
+    "impl": [
+      "GET /xrpc/tangled.node.stats, no auth.",
+      "MUST NOT count cap/sealed records, capability uses, or sessions.",
+      "Clients crawl advertised peers; the graph is incomplete by design."
+    ],
+    "see": "/spec/http-api"
+  }
+]

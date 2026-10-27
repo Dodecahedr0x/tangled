@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Scaffold reference: reed-home-sheet.webp</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=M+PLUS+1+Code:wght@400&display=swap">
+  <link rel="stylesheet" href="layout.css">
+  <style>html,body{margin:0}body{background:#f8f8f8}.region{box-sizing:border-box}.region.text p{white-space:pre-wrap}</style>
+</head>
+<body>
+<!-- Reference only. Every region sits at its measured box inside a comp-aspect frame. Take the boxes (layout.css), keep your own semantic structure. -->
+<main class="comp-frame" style="max-width:1280px">
+  <div class="r-brand region text" data-region="brand"><!-- Word Reed, black, top of the left column --><p style="font-size:var(--r-brand-font);font-family:var(--r-brand-family),sans-serif;font-weight:var(--r-brand-weight);line-height:1.05;margin:0">brand</p></div>
+  <div class="r-late region text" data-region="late"><!-- Red words Cannot reach knot, right-aligned in the top band --><p style="font-size:var(--r-late-font);line-height:1.05;margin:0">late</p></div>
+  <div class="r-nav-home region control" data-region="nav-home"><!-- Word Home with a small red square to its left, the current destination: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-home); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-nav-discover region control" data-region="nav-discover"><!-- Word Discover: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-discover); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-nav-compose region control" data-region="nav-compose"><!-- Word Compose: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-compose); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-nav-search region control" data-region="nav-search"><!-- Word Search: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-search); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-nav-settings region control" data-region="nav-settings"><!-- Word Settings: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-settings); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-nav-identity region control" data-region="nav-identity"><!-- Word Identity: rebuild the control's chrome from the crop (comp-spec.mjs --crop nav-identity); its ink box, border, fill, radius, and label size are the comp's --></div>
+  <div class="r-col-time region text" data-region="col-time"><!-- Column heading Time --><p style="font-size:var(--r-col-time-font);line-height:1.05;margin:0">col-time</p></div>
+  <div class="r-col-author region text" data-region="col-author"><!-- Column heading Author --><p style="font-size:var(--r-col-author-font);line-height:1.05;margin:0">col-author</p></div>
+  <div class="r-col-post region text" data-region="col-post"><!-- Column heading Post --><p style="font-size:var(--r-col-post-font);line-height:1.05;margin:0">col-post</p></div>
+  <div class="r-r1-time region text" data-region="r1-time"><!-- Departure time 09:14 --><p style="line-height:1.05;margin:0">r1-time</p></div>
+  <div class="r-r1-author region text" data-region="r1-author"><!-- Author Ada --><p style="font-size:var(--r-r1-author-font);line-height:1.05;margin:0">r1-author</p></div>
+  <div class="r-r1-post region text" data-region="r1-post"><!-- Post keep this --><p style="font-size:var(--r-r1-post-font);line-height:1.05;margin:0">r1-post</p></div>
+  <div class="r-r2-time region text" data-region="r2-time"><!-- Departure time 09:02 --><p style="line-height:1.05;margin:0">r2-time</p></div>
+  <div class="r-r2-author region text" data-region="r2-author"><!-- Author Bob --><p style="font-size:var(--r-r2-author-font);line-height:1.05;margin:0">r2-author</p></div>
+  <div class="r-r2-post region text" data-region="r2-post"><!-- Post the knot answered --><p style="font-size:var(--r-r2-post-font);line-height:1.05;margin:0">r2-post</p></div>
+  <div class="r-r3-time region text" data-region="r3-time"><!-- Departure time 08:40 --><p style="line-height:1.05;margin:0">r3-time</p></div>
+  <div class="r-r3-author region text" data-region="r3-author"><!-- Author Ada --><p style="font-size:var(--r-r3-author-font);line-height:1.05;margin:0">r3-author</p></div>
+  <div class="r-r3-post region text" data-region="r3-post"><!-- Post public, on purpose --><p style="font-size:var(--r-r3-post-font);line-height:1.05;margin:0">r3-post</p></div>
+  <div class="r-rule-top region chrome" data-region="rule-top"><!-- Top hairline of the sheet --></div>
+  <div class="r-rule-head region chrome" data-region="rule-head"><!-- Hairline under the Reed and late-mark band --></div>
+  <div class="r-rule-rail region chrome" data-region="rule-rail"><!-- Vertical hairline between destinations and the timetable --></div>
+  <div class="r-rule-h-cols region chrome" data-region="rule-h-cols"><!-- Hairline under the Time Author Post headings --></div>
+  <div class="r-rule-h-r1 region chrome" data-region="rule-h-r1"><!-- Hairline under the first departure --></div>
+  <div class="r-rule-h-r2 region chrome" data-region="rule-h-r2"><!-- Hairline under the second departure --></div>
+  <div class="r-rule-h-r3 region chrome" data-region="rule-h-r3"><!-- Hairline under the third departure --></div>
+  <div class="r-rule-v-time region chrome" data-region="rule-v-time"><!-- Vertical hairline after the Time column --></div>
+  <div class="r-rule-v-author region chrome" data-region="rule-v-author"><!-- Vertical hairline after the Author column --></div>
+</main>
+</body>
+</html>

@@ -35,7 +35,7 @@ cargo fmt
 cargo clippy --all-targets -- -D warnings
 ```
 
-Unit tests do not use the network. Spec vectors are read from `spec/vectors/*.json`. Live SNS JSON-RPC is `#[ignore]` and needs a local validator (never mainnet):
+Unit tests do not use the network. Spec vectors are read from `docs/spec/vectors/*.json`. Live SNS JSON-RPC is `#[ignore]` and needs a local validator (never mainnet):
 
 ```bash
 # Agave v4.2.1 in CI (`solana-test-validator`). Local 4.0+ works.
@@ -133,6 +133,6 @@ In-process e2e lives in `tests/e2e.rs` and `tests/e2e_protocol.rs` with a shared
 
 - **MLS Welcome init key:** RFC 9420 requires KeyPackage `init_key` ≠ leaf HPKE. The leaf encryption key is the Tangled X25519 `agreement` key (HPKE wraps and MLS path secrets). Welcome is sealed to the OpenMLS-generated init key. Ciphersuite `0x0001`, basic credential = 32-byte Solana pubkey, exporter label `tangled.epoch` match spec 05/10. Implementations MUST NOT derive X25519 from the Ed25519 identity key.
 - **`listRecords`** is a convenience on the engine; the HTTP knot returns `MethodNotImplemented` (use `getRepo`). This is an intentional spec forbid.
-- **MLS wrapping vector** `spec/vectors/mls-welcome-commit.json` is wrapping-only; live RFC 9420 bytes are produced by OpenMLS in `cargo test -p tangled --lib mls::` (Welcome hex is not frozen; not deterministic).
+- **MLS wrapping vector** `docs/spec/vectors/mls-welcome-commit.json` is wrapping-only; live RFC 9420 bytes are produced by OpenMLS in `cargo test -p tangled --lib mls::` (Welcome hex is not frozen; not deterministic).
 - **WebSocket** `subscribe` / `loom.firehose` are implemented in `tangled-knot`. The in-process engine used by unit tests still returns a transport error (no socket). The HTTP knot persists `since` replay.
 - **Live SNS** calls Solana JSON-RPC only when `HandleResolver.solana_rpc` / `SOLANA_RPC` is set. Default `cargo test` injects `HandleResolver.sns` and never hits the network. Ignored tests in `tests/sns_rpc.rs` call real `getAccountInfo` against `solana-test-validator` (CI and `scripts/sns-validator.sh`); they refuse `mainnet-beta` unless `SNS_ALLOW_MAINNET=1`.

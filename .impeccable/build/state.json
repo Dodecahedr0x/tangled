@@ -1,0 +1,240 @@
+{
+  "tool": "build-phase",
+  "version": 2,
+  "startedAt": "2026-10-26T17:17:41.507Z",
+  "comp": ".impeccable/mocks/reed-home-sheet.webp",
+  "direction": "d21139d5",
+  "breakpoint": "1280x720",
+  "artifact": null,
+  "phase": "hero",
+  "phases": {
+    "comps": {
+      "status": "closed",
+      "openedAt": "2026-10-26T17:17:41.506Z",
+      "closedAt": "2026-10-26T17:29:27.587Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "3 comps, 1 approved",
+        "approved": ".impeccable/mocks/reed-home-sheet.webp",
+        "at": "2026-10-26T17:29:27.587Z"
+      },
+      "forced": null
+    },
+    "spec": {
+      "status": "closed",
+      "openedAt": "2026-10-26T17:29:27.601Z",
+      "closedAt": "2026-10-26T17:31:15.813Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "29 regions, 0 plates, 14 text regions measured",
+        "at": "2026-10-26T17:31:15.813Z"
+      },
+      "forced": null
+    },
+    "plates": {
+      "status": "closed",
+      "openedAt": "2026-10-26T17:31:15.813Z",
+      "closedAt": "2026-10-26T17:31:15.825Z",
+      "attempts": 1,
+      "notes": [],
+      "gate": {
+        "ok": true,
+        "reasons": [],
+        "summary": "no plates owed",
+        "at": "2026-10-26T17:31:15.825Z"
+      },
+      "forced": null
+    },
+    "hero": {
+      "status": "open",
+      "openedAt": "2026-10-26T17:31:15.825Z",
+      "closedAt": null,
+      "attempts": 0,
+      "notes": [],
+      "gate": {
+        "ok": false,
+        "reasons": [
+          "region nav-settings (control) is contradicted (structure 46%, detail added 26%): this control does not read as the comp's: rebuild its chrome from the crop (border, fill, radius, chevron or arrow, label size) rather than from a component default",
+          "control nav-home drifts to 62% (structure 57%, color 88%): its chrome differs from the comp's; open .impeccable/review/diff/hero/regions/nav-home.png and match the border, fill, radius, chevron or arrow, and label size",
+          "control nav-compose drifts to 61% (structure 52%, color 95%): its chrome differs from the comp's; open .impeccable/review/diff/hero/regions/nav-compose.png and match the border, fill, radius, chevron or arrow, and label size"
+        ],
+        "summary": "hero 81% (match)",
+        "score": 0.8104,
+        "verdict": "match",
+        "report": ".impeccable/review/diff/hero/report.json",
+        "sideBySide": "/Users/dode/Documents/network/tangled/.impeccable/review/diff/hero/side-by-side.png",
+        "worst": [
+          "r2-author drift 58%",
+          "col-author drift 59%",
+          "nav-settings contradicted 59%"
+        ],
+        "worstIds": [
+          "r2-author",
+          "col-author",
+          "nav-settings"
+        ],
+        "worstCrops": [
+          {
+            "id": "r2-author",
+            "verdict": "drift",
+            "score": {
+              "overall": 0.5814,
+              "structure": 0.5383,
+              "color": 0.9274,
+              "colorIntersection": 0.8812,
+              "paletteMatch": 0.9523,
+              "detail": 0.3895,
+              "detailRaw": 0.478,
+              "detailAdded": 0.1771,
+              "bands": 0.22
+            },
+            "file": ".impeccable/review/diff/hero/regions/r2-author.png"
+          },
+          {
+            "id": "col-author",
+            "verdict": "drift",
+            "score": {
+              "overall": 0.5876,
+              "structure": 0.6333,
+              "color": 0.9531,
+              "colorIntersection": 0.9182,
+              "paletteMatch": 0.9719,
+              "detail": 0.218,
+              "detailRaw": 0.2857,
+              "detailAdded": 0.1354,
+              "bands": 0
+            },
+            "file": ".impeccable/review/diff/hero/regions/col-author.png"
+          },
+          {
+            "id": "nav-settings",
+            "verdict": "contradicted",
+            "score": {
+              "overall": 0.5882,
+              "structure": 0.4613,
+              "color": 0.9448,
+              "colorIntersection": 0.9087,
+              "paletteMatch": 0.9643,
+              "detail": 0.2496,
+              "detailRaw": 0.3798,
+              "detailAdded": 0.2604,
+              "bands": 0.4545
+            },
+            "file": ".impeccable/review/diff/hero/regions/nav-settings.png"
+          }
+        ],
+        "advisories": [
+          "(advisory, above the 72% bar; fix in the polish pass before responsive) 2 readings:",
+          "  control nav-discover: its rule sits 27px into the box in the comp and 9px in the build (-18px), so the strip is shorter than the comp's; match the height, not only the position",
+          "  control nav-identity: its rule sits 27px into the box in the comp and 9px in the build (-18px), so the strip is shorter than the comp's; match the height, not only the position",
+          "(advisory, unchanged for 3+ attempts) text r3-post: the face renders 25% lighter than the comp's (ink density 0.42 vs 0.56); raise a weight step or use the ranked face",
+          "(advisory, unchanged for 3+ attempts) text late: ink is #e80a19 in the build, #d47f7e in the comp; use the comp's colour",
+          "(advisory, unchanged for 3+ attempts) text col-time: ink is #181818 in the build, #afafaf in the comp; use the comp's colour",
+          "(advisory, unchanged for 3+ attempts) text col-author: ink is #1a1a1a in the build, #b5b5b5 in the comp; use the comp's colour",
+          "(advisory, unchanged for 3+ attempts) text r2-author: ink is #181818 in the build, #b1b1b1 in the comp; use the comp's colour"
+        ],
+        "regionVerdicts": {
+          "brand": "drift",
+          "late": "drift",
+          "nav-home": "drift",
+          "nav-discover": "drift",
+          "nav-compose": "drift",
+          "nav-search": "drift",
+          "nav-settings": "contradicted",
+          "nav-identity": "drift",
+          "col-time": "match",
+          "col-author": "drift",
+          "col-post": "drift",
+          "r1-time": "match",
+          "r1-author": "drift",
+          "r1-post": "drift",
+          "r2-time": "match",
+          "r2-author": "drift",
+          "r2-post": "drift",
+          "r3-time": "match",
+          "r3-author": "drift",
+          "r3-post": "drift",
+          "rule-top": "match",
+          "rule-head": "drift",
+          "rule-rail": "drift",
+          "rule-h-cols": "drift",
+          "rule-h-r1": "match",
+          "rule-h-r2": "match",
+          "rule-h-r3": "match",
+          "rule-v-time": "match",
+          "rule-v-author": "match"
+        },
+        "at": "2026-10-26T17:45:22.373Z"
+      },
+      "forced": null,
+      "readingsSeen": {
+        "text late: ink is #e80918 in the build, #d47f7e in the comp; use the comp's colour": 1,
+        "text col-time: ink is #181818 in the build, #afafaf in the comp; use the comp's colour": 6,
+        "text col-author: ink is #464646 in the build, #b5b5b5 in the comp; use the comp's colour": 1,
+        "text r2-author: ink is #181818 in the build, #b1b1b1 in the comp; use the comp's colour": 6,
+        "control nav-discover: its ink is 8px tall in the build and 22px in the comp (-14px); match the height, not only the position": 1,
+        "chrome rule-h-cols: its rule sits 47px into the box in the comp and 28px in the build (-19px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "chrome rule-h-r1: its rule sits 37px into the box in the comp and 21px in the build (-16px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "chrome rule-h-r2: its rule sits 32px into the box in the comp and 13px in the build (-19px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "chrome rule-h-r3: its rule sits 32px into the box in the comp and 6px in the build (-26px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "text r3-post: the face renders 25% lighter than the comp's (ink density 0.42 vs 0.56); raise a weight step or use the ranked face": 5,
+        "text late: ink is #e80a19 in the build, #d47f7e in the comp; use the comp's colour": 5,
+        "text col-author: ink is #1a1a1a in the build, #b5b5b5 in the comp; use the comp's colour": 5,
+        "text r1-time: ink is #181818 in the build, #b5b5b4 in the comp; use the comp's colour": 1,
+        "text r2-time: ink is #747474 in the build, #b8b8b8 in the comp; use the comp's colour": 1,
+        "text r3-time: ink is #181818 in the build, #a9a9a9 in the comp; use the comp's colour": 1,
+        "control nav-discover: its rule sits 27px into the box in the comp and 10px in the build (-17px), so the strip is shorter than the comp's; match the height, not only the position": 3,
+        "control nav-identity: its rule sits 27px into the box in the comp and 10px in the build (-17px), so the strip is shorter than the comp's; match the height, not only the position": 3,
+        "chrome rule-h-r3: its rule sits 32px into the box in the comp and 20px in the build (-12px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "chrome rule-h-r3: its rule sits 32px into the box in the comp and 7px in the build (-25px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "control nav-discover: its rule sits 27px into the box in the comp and 9px in the build (-18px), so the strip is shorter than the comp's; match the height, not only the position": 1,
+        "control nav-identity: its rule sits 27px into the box in the comp and 9px in the build (-18px), so the strip is shorter than the comp's; match the height, not only the position": 1
+      },
+      "records": 6
+    },
+    "sections": {
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
+      "notes": [],
+      "gate": null,
+      "forced": null
+    },
+    "motion": {
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
+      "notes": [],
+      "gate": null,
+      "forced": null
+    },
+    "responsive": {
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
+      "notes": [],
+      "gate": null,
+      "forced": null
+    },
+    "review": {
+      "status": "pending",
+      "openedAt": null,
+      "closedAt": null,
+      "attempts": 0,
+      "notes": [],
+      "gate": null,
+      "forced": null
+    }
+  },
+  "finish": null,
+  "plates": {}
+}

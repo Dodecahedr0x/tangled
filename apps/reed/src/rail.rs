@@ -17,7 +17,7 @@ pub fn BandRail(
             div { class: "rail-head",
                 div { class: "brand",
                     span { class: "tick" }
-                    "reed"
+                    "Reed"
                 }
                 if show_tune {
                     label { class: "tune-wrap",

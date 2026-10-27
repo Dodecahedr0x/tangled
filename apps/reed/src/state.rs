@@ -1,13 +1,25 @@
 use dioxus::prelude::WritableExt;
 use reed_core::{
-    boost, follow, like, parse_peer, resolve_peer, search, unboost, unfollow, unlike, FileKeyStore,
-    KeyStore, KnotUrl, Outbox, Peer, Post, PostId, Profile, ReedError, ReedKeys, Replica, Sync,
-    TimelineItem,
+    boost, follow, like, parse_peer, resolve_peer, search, unboost, unfollow, unlike, KnotUrl,
+    Outbox, Peer, Post, PostId, Profile, ReedError, ReedKeys, Replica, Sync, TimelineItem,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use reed_core::{FileKeyStore, KeyStore};
 
-use crate::paths::{keys_path, knot_path, replica_dir};
+use crate::paths::replica_dir;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::paths::{keys_path, knot_path};
 
 pub const DEFAULT_KNOT_URL: &str = "http://127.0.0.1:3000";
+
+/// Knot used when the account has not chosen one. The hosted build sets
+/// `TANGLED_KNOT` to the provider URL.
+pub fn default_knot_url() -> &'static str {
+    match option_env!("TANGLED_KNOT") {
+        Some(url) if !url.is_empty() => url,
+        _ => DEFAULT_KNOT_URL,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KnotStatus {
@@ -111,7 +123,19 @@ impl Ui {
 }
 
 pub fn load_keys() -> Option<ReedKeys> {
-    FileKeyStore { path: keys_path() }.load().ok().flatten()
+    #[cfg(target_arch = "wasm32")]
+    {
+        let raw = browser_get("reed.keys");
+        return if raw.is_empty() {
+            None
+        } else {
+            ReedKeys::from_solana_json(&raw).ok()
+        };
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        FileKeyStore { path: keys_path() }.load().ok().flatten()
+    }
 }
 
 pub fn persist_keys(keys: &ReedKeys) {
@@ -119,28 +143,63 @@ pub fn persist_keys(keys: &ReedKeys) {
     {
         let _ = FileKeyStore { path: keys_path() }.save(keys);
     }
-    let _ = keys;
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_set("reed.keys", &keys.export_json());
+    }
 }
 
 pub fn persist_knot(url: &str) {
-    let _ = std::fs::create_dir_all(crate::paths::home_dir());
-    let _ = std::fs::write(knot_path(), url.trim());
+    let url = url.trim();
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_set("reed.knot", url);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = std::fs::create_dir_all(crate::paths::home_dir());
+        let _ = std::fs::write(knot_path(), url);
+    }
 }
 
 pub fn read_knot() -> String {
-    std::fs::read_to_string(knot_path())
-        .unwrap_or_default()
-        .trim()
-        .to_string()
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_get("reed.knot")
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::read_to_string(knot_path())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    }
 }
 
 pub fn ensure_knot_url() -> String {
     let knot = read_knot();
     if knot.is_empty() {
-        persist_knot(DEFAULT_KNOT_URL);
-        DEFAULT_KNOT_URL.to_string()
+        let url = default_knot_url();
+        persist_knot(url);
+        url.to_string()
     } else {
         knot
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_get(key: &str) -> String {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|s| s.get_item(key).ok().flatten())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_default()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_set(key: &str, value: &str) {
+    if let Some(store) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let _ = store.set_item(key, value);
     }
 }
 

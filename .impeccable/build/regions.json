@@ -1,0 +1,33 @@
+{
+  "regions": [
+    { "id": "brand", "kind": "text", "grid": "A0:B0", "note": "Word Reed, black, top of the left column" },
+    { "id": "late", "kind": "text", "grid": "H0:J0", "note": "Red words Cannot reach knot, right-aligned in the top band" },
+    { "id": "nav-home", "kind": "control", "grid": "A2:B2", "note": "Word Home with a small red square to its left, the current destination" },
+    { "id": "nav-discover", "kind": "control", "grid": "A3:B3", "note": "Word Discover" },
+    { "id": "nav-compose", "kind": "control", "grid": "A4:B4", "note": "Word Compose" },
+    { "id": "nav-search", "kind": "control", "grid": "A5:B5", "note": "Word Search" },
+    { "id": "nav-settings", "kind": "control", "grid": "A6:B6", "note": "Word Settings" },
+    { "id": "nav-identity", "kind": "control", "grid": "A7:B7", "note": "Word Identity" },
+    { "id": "col-time", "kind": "text", "grid": "D2:D2", "note": "Column heading Time" },
+    { "id": "col-author", "kind": "text", "grid": "E2:F2", "note": "Column heading Author" },
+    { "id": "col-post", "kind": "text", "grid": "G2:H2", "note": "Column heading Post" },
+    { "id": "r1-time", "kind": "text", "grid": "D3:D3", "note": "Departure time 09:14" },
+    { "id": "r1-author", "kind": "text", "grid": "E3:E3", "note": "Author Ada" },
+    { "id": "r1-post", "kind": "text", "grid": "H3:I3", "note": "Post keep this" },
+    { "id": "r2-time", "kind": "text", "grid": "D5:D5", "note": "Departure time 09:02" },
+    { "id": "r2-author", "kind": "text", "grid": "E5:E5", "note": "Author Bob" },
+    { "id": "r2-post", "kind": "text", "grid": "H5:I5", "note": "Post the knot answered" },
+    { "id": "r3-time", "kind": "text", "grid": "D7:D7", "note": "Departure time 08:40" },
+    { "id": "r3-author", "kind": "text", "grid": "E7:E7", "note": "Author Ada" },
+    { "id": "r3-post", "kind": "text", "grid": "H7:I7", "note": "Post public, on purpose" },
+    { "id": "rule-top", "kind": "chrome", "grid": "A0:J0", "snap": false, "note": "Top hairline of the sheet" },
+    { "id": "rule-head", "kind": "chrome", "grid": "A1:J1", "snap": false, "note": "Hairline under the Reed and late-mark band" },
+    { "id": "rule-rail", "kind": "chrome", "grid": "C0:C9", "snap": false, "note": "Vertical hairline between destinations and the timetable" },
+    { "id": "rule-h-cols", "kind": "chrome", "grid": "D2:J2", "snap": false, "note": "Hairline under the Time Author Post headings" },
+    { "id": "rule-h-r1", "kind": "chrome", "grid": "D4:J4", "snap": false, "note": "Hairline under the first departure" },
+    { "id": "rule-h-r2", "kind": "chrome", "grid": "D6:J6", "snap": false, "note": "Hairline under the second departure" },
+    { "id": "rule-h-r3", "kind": "chrome", "grid": "D8:J8", "snap": false, "note": "Hairline under the third departure" },
+    { "id": "rule-v-time", "kind": "chrome", "grid": "D2:D8", "snap": false, "note": "Vertical hairline after the Time column" },
+    { "id": "rule-v-author", "kind": "chrome", "grid": "F2:F8", "snap": false, "note": "Vertical hairline after the Author column" }
+  ]
+}

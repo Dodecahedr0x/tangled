@@ -1,0 +1,70 @@
+# Hosted Tangled provider. One web service, one disk.
+# A disk-backed service is a single instance: deploys stop the old process
+# before the new one starts. Repo bytes and account rows both live on the disk.
+# Disk snapshots are not a consistent backup of the sqlite file while the
+# process is writing. Stop the service before restoring a snapshot.
+services:
+  - type: web
+    name: tangled-provider
+    runtime: docker
+    plan: starter
+    region: oregon
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    disk:
+      name: knot-data
+      mountPath: /var/tangled
+      sizeGB: 1
+    envVars:
+      - key: DATA_DIR
+        value: /var/tangled
+      - key: PORT
+        value: "10000"
+  # Browser apps. Each build bakes the provider's public URL in as the default knot.
+  # Static sites are not on the private network, so this is the public URL.
+  - type: web
+    name: reed
+    runtime: static
+    buildCommand: ./scripts/render-web-app.sh reed Reed
+    staticPublishPath: dist/reed
+    envVars:
+      - key: TANGLED_KNOT
+        fromService:
+          name: tangled-provider
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+  - type: web
+    name: loomed
+    runtime: static
+    buildCommand: ./scripts/render-web-app.sh loomed Loomed
+    staticPublishPath: dist/loomed
+    envVars:
+      - key: TANGLED_KNOT
+        fromService:
+          name: tangled-provider
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+  - type: web
+    name: weft
+    runtime: static
+    buildCommand: ./scripts/render-web-app.sh weft Weft
+    staticPublishPath: dist/weft
+    envVars:
+      - key: TANGLED_KNOT
+        fromService:
+          name: tangled-provider
+          type: web
+          envVarKey: RENDER_EXTERNAL_URL
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

@@ -32,6 +32,13 @@ jobs:
           ASTRO_SITE: https://dodecahedr0x.github.io
           ASTRO_BASE: /tangled
 
+      - name: Validate documentation sources and generated links
+        run: |
+          npm --prefix site test
+          npm --prefix site run check:docs
+        env:
+          ASTRO_BASE: /tangled
+
   deploy:
     name: deploy
     needs: build

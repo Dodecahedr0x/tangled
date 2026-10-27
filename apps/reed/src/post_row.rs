@@ -146,6 +146,7 @@ pub fn PostRow(
                             class: "tweet-action",
                             aria_label: "Reply",
                             Icon { glyph: Glyph::Reply }
+                            span { class: "verb", "Reply" }
                             if replies > 0 {
                                 span { class: "count", "{replies}" }
                             }
@@ -161,6 +162,7 @@ pub fn PostRow(
                                 }
                             },
                             Icon { glyph: Glyph::Boost }
+                            span { class: "verb", "Boost" }
                             if boost_n > 0 {
                                 span { class: "count", "{boost_n}" }
                             }
@@ -176,6 +178,7 @@ pub fn PostRow(
                                 }
                             },
                             Icon { glyph: Glyph::Like, filled: liked }
+                            span { class: "verb", "Like" }
                             if like_n > 0 {
                                 span { class: "count", "{like_n}" }
                             }
@@ -274,37 +277,41 @@ fn boost_label(by: &str) -> String {
     format!("{name} boosted")
 }
 
+/// Local 24h departure clock (`09:14`).
 pub fn format_time(ts_us: u64) -> String {
-    let then = ts_us / 1_000_000;
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(then);
-    let ago = now.saturating_sub(then);
-    if ago < 60 {
-        "now".into()
-    } else if ago < 3600 {
-        format!("{}m", ago / 60)
-    } else if ago < 86_400 {
-        format!("{}h", ago / 3600)
-    } else if ago < 86_400 * 7 {
-        format!("{}d", ago / 86_400)
-    } else {
-        let (y, m, d) = ymd(then);
-        format!("{y:04}-{m:02}-{d:02}")
-    }
+    let secs = ts_us / 1_000_000;
+    let (hour, min) = local_hour_min(secs);
+    format!("{hour:02}:{min:02}")
 }
 
-fn ymd(secs: u64) -> (i32, u32, u32) {
-    let z = (secs / 86_400) as i64 + 719_468;
-    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
-    let doe = (z - era * 146_097) as u64;
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe as i64 + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    (y as i32, m as u32, d as u32)
+fn local_hour_min(unix_secs: u64) -> (u32, u32) {
+    #[cfg(unix)]
+    {
+        #[repr(C)]
+        struct Tm {
+            tm_sec: i32,
+            tm_min: i32,
+            tm_hour: i32,
+            tm_mday: i32,
+            tm_mon: i32,
+            tm_year: i32,
+            tm_wday: i32,
+            tm_yday: i32,
+            tm_isdst: i32,
+            tm_gmtoff: i64,
+            tm_zone: *const i8,
+        }
+        unsafe extern "C" {
+            fn localtime_r(timep: *const i64, result: *mut Tm) -> *mut Tm;
+        }
+        unsafe {
+            let t = unix_secs as i64;
+            let mut tm = std::mem::zeroed::<Tm>();
+            if !localtime_r(&t, &mut tm).is_null() && tm.tm_hour >= 0 && tm.tm_min >= 0 {
+                return (tm.tm_hour as u32, tm.tm_min as u32);
+            }
+        }
+    }
+    let mins = unix_secs / 60;
+    (((mins / 60) % 24) as u32, (mins % 60) as u32)
 }

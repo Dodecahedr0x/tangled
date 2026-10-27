@@ -41,10 +41,10 @@ pub struct Replica {
 
 impl Replica {
     pub fn open(dir: &Path) -> Result<Self> {
-        std::fs::create_dir_all(dir)?;
+        disk_create_dir(dir)?;
         let path = dir.join("replica.json");
-        let data = if path.exists() {
-            let s = std::fs::read_to_string(&path)?;
+        let data = if disk_exists(&path) {
+            let s = disk_read_string(&path)?;
             serde_json::from_str(&s).map_err(|e| LoomedError::Codec(e.to_string()))?
         } else {
             Data::default()
@@ -313,7 +313,93 @@ impl Replica {
     fn persist(&self) -> Result<()> {
         let path = self.dir.join("replica.json");
         let s = serde_json::to_string(&self.data).map_err(|e| LoomedError::Codec(e.to_string()))?;
-        std::fs::write(path, s)?;
+        disk_write(&path, s.as_bytes())?;
         Ok(())
+    }
+}
+
+fn disk_create_dir(path: &Path) -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::create_dir_all(path)?;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
+fn disk_exists(path: &Path) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        path.exists()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        memdisk::exists(path)
+    }
+}
+
+fn disk_read_string(path: &Path) -> Result<String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        Ok(std::fs::read_to_string(path)?)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let bytes = memdisk::read(path)?;
+        String::from_utf8(bytes).map_err(|e| LoomedError::Codec(e.to_string()))
+    }
+}
+
+fn disk_write(path: &Path, bytes: &[u8]) -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::write(path, bytes)?;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        memdisk::write(path, bytes)?;
+    }
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+mod memdisk {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    thread_local! {
+        static FILES: RefCell<HashMap<String, Vec<u8>>> = RefCell::new(HashMap::new());
+    }
+
+    fn key(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
+    }
+
+    pub fn exists(path: &Path) -> bool {
+        let k = key(path);
+        FILES.with(|files| files.borrow().contains_key(&k))
+    }
+
+    pub fn read(path: &Path) -> std::io::Result<Vec<u8>> {
+        let k = key(path);
+        FILES.with(|files| {
+            files
+                .borrow()
+                .get(&k)
+                .cloned()
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing"))
+        })
+    }
+
+    pub fn write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let k = key(path);
+        FILES.with(|files| {
+            files.borrow_mut().insert(k, bytes.to_vec());
+            Ok(())
+        })
     }
 }

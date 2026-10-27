@@ -1,0 +1,131 @@
+{
+  "title": "One look for Reed, Loomed, and Weft",
+  "question": "The three apps share one system. Only the stamp changes: public, sealed, or explored. Keep this counter, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Counter slip",
+      "kicker": "THE ROLL",
+      "lineage": "A numbered order slip on a quiet counter",
+      "thesis": "Every post, message, and peer is one numbered row on the same counter. Chrome steps back.",
+      "palette": ["#f7f7f5", "#16181d", "#5e656e", "#1d4ed8"],
+      "materials": ["thermal paper", "one rubber stamp", "tabular figures"],
+      "viewport": "Reed home: a narrow word column (Home, Discover, Compose, Search, Settings, Identity) and a single stack of numbered posts. Time is a short bar on the row, not a corner clock. The blue stamp is Reed. Loomed uses the same sheet with a violet stamp. Weft uses it with a green stamp, peers as numbered stops.",
+      "risk": "A receipt feels cheap if the paper yellows or the numbers become decoration. Weft’s map becomes a route of stops, not a floating graph.",
+      "raised": [
+        { "from": "Labanotation", "raise": "Time is a length on the row, not a timestamp tucked in the corner." },
+        { "from": "Botanical folio", "raise": "All three apps share one ground, one measure, and one type size. Only the stamp hue changes." },
+        { "from": "Metro tiles", "raise": "The row is the control. Selection floods the row. No extra button chrome." },
+        { "from": "Crouwel grid", "raise": "One cell size. Nothing floats between the cells." }
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "label": "Railway timetable",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "A Swiss departure sheet",
+      "thesis": "Posts, threads, and peers are departures: time, name, status, one late mark.",
+      "palette": ["#ffffff", "#111111", "#6b6b6b", "#e30613"],
+      "materials": ["enamel sign", "hairline rules", "tabular figures"],
+      "viewport": "Reed home as a departure sheet. A fixed time column, the author, the post, and a red mark only when the knot is unreachable. Loomed is the same sheet for private carriages. Weft is the route list of the knot and its peers.",
+      "risk": "This is the familiar clean-modern landing. Black, white, and one red on a strict grid is where most of these redesigns end.",
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-boarding",
+      "label": "Pass and board",
+      "verdict": "wins",
+      "lineage": "A segmented boarding pass beside a live gate board",
+      "thesis": "You carry a pass. The board is the live list, and a changed row stays lit until you have seen it.",
+      "palette": ["#f4f6f8", "#121417", "#9aa1ab", "#b45309"],
+      "materials": ["segmented card", "fixed columns", "monospace identity block"],
+      "viewport": "Reed: the pass across the top holds your name, a cropped did, and the knot. Below, posts sit in fixed columns of time, author, and text. A new row holds amber until Refresh. Loomed’s board is conversations. Weft’s board is peers.",
+      "case": "Beats the slip on both counts. More people already know how to read a pass and a board, and the pass is the identity while the board is the feed.",
+      "risk": "Turns into an airport costume if the pass grows a fake barcode. The did is text, not a picture of a code.",
+      "comp": ".impeccable/mocks/decision/challenger-boarding.webp",
+      "hero": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/vernacular-ephemera-boarding-pass-and-gate-board.webp"
+    },
+    {
+      "id": "challenger-splitflap",
+      "label": "Split-flap board",
+      "verdict": "competitive",
+      "lineage": "A rail concourse split-flap board",
+      "thesis": "The public list updates character by character. You watch it. You do not write on it.",
+      "palette": ["#141414", "#f4f1e8", "#c7a15a", "#8c3a32"],
+      "materials": ["matte flap faces", "brushed steel frame", "amber delay lamps"],
+      "viewport": "Reed home as a full-bleed board of posts in fixed cells. Delayed knots go amber. Cancelled rows dim to red. Loomed and Weft reuse the same cells.",
+      "case": "Holds recognition as a live public list. Loses as a place to write a post or sit in a private thread.",
+      "risk": "The clack becomes the product, and the writing disappears.",
+      "comp": ".impeccable/mocks/decision/challenger-splitflap.webp",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/signals-instruments-split-flap-concourse.webp"
+    },
+    {
+      "id": "challenger-laban",
+      "label": "Labanotation",
+      "verdict": "declined",
+      "lineage": "A vertical dance score",
+      "palette": ["#f7f7f4", "#111111", "#c8c8c8"],
+      "materials": ["score paper", "shaded blocks"],
+      "viewport": "Time runs upward. Actions are shaded blocks beside a center staff.",
+      "case": "People opening a feed do not read a dance score, and the symbols hide the post.",
+      "kept": "Time is a measured length.",
+      "risk": "The notation replaces the words.",
+      "hero": "https://impeccable.style/worlds/cards/notation-diagram-systems-labanotation-hero.webp"
+    },
+    {
+      "id": "challenger-folio",
+      "label": "Botanical folio",
+      "verdict": "declined",
+      "lineage": "Five plates of one plant at one scale",
+      "palette": ["#f3ecdf", "#3d4a32", "#8c2f2f", "#5c564c"],
+      "materials": ["cream plate", "sepia hairline"],
+      "viewport": "Five aligned plates, one life stage each, captions beneath.",
+      "case": "A social client is not a specimen sequence. Five plates do not hold an inbox.",
+      "kept": "One shared scale and ground.",
+      "risk": "Pretty plates, no place to write.",
+      "hero": "https://impeccable.style/worlds/cards/editorial-sequence-montage-botanical-folio-season-hero.webp"
+    },
+    {
+      "id": "challenger-metro",
+      "label": "Metro tiles",
+      "verdict": "declined",
+      "lineage": "Flat tiles and giant cropped lowercase",
+      "palette": ["#000000", "#00b7c3", "#ffffff", "#d0d0d0"],
+      "materials": ["flat color fields", "no chrome"],
+      "viewport": "A panorama of giant words. Tiles are the only doors.",
+      "case": "The type becomes the interface and the post has nowhere to sit.",
+      "kept": "Delete the button costume. The row is the control.",
+      "risk": "A poster, not a client.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-metro-typographic-tiles-hero.webp"
+    },
+    {
+      "id": "challenger-crouwel",
+      "label": "Grid specimen",
+      "verdict": "declined",
+      "lineage": "A Wim Crouwel construction grid",
+      "palette": ["#ffffff", "#1a3cff", "#111111"],
+      "materials": ["visible graph paper", "constructed letters"],
+      "viewport": "Monumental letters built cell by cell. The poster is the proof.",
+      "case": "The proof of these apps is the record, not the letterform.",
+      "kept": "One cell size. Nothing floats.",
+      "risk": "Graph paper as costume.",
+      "hero": "https://impeccable.style/worlds/cards/crouwel-grid-specimen-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "steer": true,
+  "canon": true,
+  "buildPath": { "value": "comp", "toggle": true },
+  "canonCard": {
+    "label": "The usual client",
+    "thesis": "A left rail, a white stage, a blue accent, and a feed of cards. The social app people already expect.",
+    "palette": ["#ffffff", "#111827", "#2563eb", "#e5e7eb"],
+    "materials": ["soft cards", "system sans", "icon rail"],
+    "viewport": "Reed home: icon sidebar, search on top, posts as rounded cards with a name and a line of text. Loomed is the same shell with message bubbles. Weft is the same shell with a chart.",
+    "risk": "Indistinguishable from every other client, on purpose.",
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  }
+}

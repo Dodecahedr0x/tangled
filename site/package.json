@@ -3,8 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node scripts/copy-spec.mjs && astro dev",
-    "build": "node scripts/copy-spec.mjs && astro build && pagefind --site dist",
+    "dev": "astro dev",
+    "build": "astro build && pagefind --site dist",
+    "test": "node --test scripts/*.test.mjs",
+    "check:docs": "node scripts/check-docs.mjs",
     "preview": "astro preview"
   },
   "dependencies": {

@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.enc
+*.lock
+!requirements.lock
+node_modules/

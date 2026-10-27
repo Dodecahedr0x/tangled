@@ -19,21 +19,26 @@ path = "src/main.rs"
 
 [features]
 default = ["activitypub"]
-activitypub = ["dep:tangled-ap", "dep:rsa", "dep:rand", "dep:reqwest"]
+activitypub = ["dep:tangled-ap", "dep:rsa", "dep:rand"]
 
 [dependencies]
-axum = { version = "0.8", features = ["ws"] }
+axum = { version = "0.8", features = ["ws", "multipart"] }
+base64 = "0.22"
+tangled-import = { path = "../tangled-import" }
 hex = "0.4"
 rand = { version = "0.8", optional = true }
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"], optional = true }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 rsa = { version = "0.9", features = ["pem"], optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+sha2 = "0.10"
 tangled = { path = "../tangled" }
 tangled-ap = { path = "../tangled-ap", optional = true }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "signal", "sync", "time"] }
 
 [dev-dependencies]
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
 blake3 = "1"
 futures-util = "0.3"
 hex = "0.4"

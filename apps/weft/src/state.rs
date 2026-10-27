@@ -1,9 +1,18 @@
 use dioxus::prelude::WritableExt;
 use weft_core::{Explorer, KnotUrl, LookupHit, NetworkView};
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::paths::knot_path;
 
 pub const DEFAULT_KNOT_URL: &str = "http://127.0.0.1:3000";
+
+/// Knot used when none is saved. The hosted build sets `TANGLED_KNOT`.
+pub fn default_knot_url() -> &'static str {
+    match option_env!("TANGLED_KNOT") {
+        Some(url) if !url.is_empty() => url,
+        _ => DEFAULT_KNOT_URL,
+    }
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum KnotStatus {
@@ -31,22 +40,49 @@ pub fn banner_text(status: KnotStatus) -> Option<&'static str> {
 }
 
 pub fn ensure_knot_url() -> String {
-    let path = knot_path();
-    if let Ok(s) = std::fs::read_to_string(&path) {
-        let t = s.trim();
-        if !t.is_empty() {
-            return t.to_string();
-        }
+    let saved = read_knot();
+    if !saved.is_empty() {
+        return saved;
     }
-    DEFAULT_KNOT_URL.to_string()
+    let url = default_knot_url();
+    persist_knot(url);
+    url.to_string()
+}
+
+pub fn read_knot() -> String {
+    #[cfg(target_arch = "wasm32")]
+    {
+        web_sys::window()
+            .and_then(|w| w.local_storage().ok().flatten())
+            .and_then(|s| s.get_item("weft.knot").ok().flatten())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_default()
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::read_to_string(knot_path())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    }
 }
 
 pub fn persist_knot(url: &str) {
-    let path = knot_path();
-    if let Some(dir) = path.parent() {
-        let _ = std::fs::create_dir_all(dir);
+    let url = url.trim();
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Some(store) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+            let _ = store.set_item("weft.knot", url);
+        }
     }
-    let _ = std::fs::write(path, url.trim());
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let path = knot_path();
+        if let Some(dir) = path.parent() {
+            let _ = std::fs::create_dir_all(dir);
+        }
+        let _ = std::fs::write(path, url);
+    }
 }
 
 pub async fn probe_knot(url: &str) -> KnotStatus {

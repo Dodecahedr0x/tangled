@@ -1,6 +1,6 @@
 ---
 name: Tangled
-description: Protocol site — rustdocs type index × Mintlify API grammar, landing as stacked courses
+description: Protocol site — funnel: plain landing, mechanism docs, rustdoc spec
 colors:
   bg: "#12141a"
   bg-sidebar: "#0c0e12"
@@ -132,17 +132,17 @@ components:
 
 Dark-first specification instrument. Rustdoc’s type density and module tree; Mintlify’s left nav, right TOC, method pages, and callouts. Copper accent on slate. Not a SaaS marketing docs theme and not default Starlight.
 
-Landing (`/`) is the same world at architectural scale: stacked horizontal courses labeled as rustdoc paths, type-led, no card grid. Docs (`/docs`) stay the dense reading shell.
+Landing (`/`) is the funnel mouth: stacked courses, type-led, no card grid, **plain language**. Guides (`/guides`) introduce the system and first run. Docs (`/docs`) explain features in detail. Specs (`/spec`) retain the formal protocol reading shell.
 
-THESIS: The spec is a type-indexed instrument; the landing is a vertical rise through its courses. The category-default centered hero with gradient cards is refused.
+THESIS: The site is a funnel — host it yourself, then the map, then the contract. The category-default centered hero with gradient cards is refused. A spec dump as the homepage is also refused.
 
-OWN-WORLD: Slate `#12141a`, sidebar `#0c0e12`, copper `#c47a4a`, Fira Sans UI, Source Serif 4 body and landing display, Source Code Pro signatures. Hairline borders, 2px radii, method-color ticks.
+OWN-WORLD: Slate `#12141a`, sidebar `#0c0e12`, copper `#c47a4a`, Fira Sans UI, Source Serif 4 body and landing display, Source Code Pro for code only. Hairline borders, 2px radii, method-color ticks.
 
-STORY: A visitor understands the substrate, sees Reed / Loomed / Weft as apps on it, and enters the spec. An implementer finds the claim, the type, the HTTP method, and the vector without leaving the shell.
+STORY: A visitor understands they host their own posts and messages, sees Reed / Loomed / Weft as apps, opens Docs. A reader learns identity, knot, visibility, sync. An implementer finds the claim, the type, the HTTP method, and the vector.
 
-FIRST VIEWPORT (landing): Full-bleed slate; 48px chrome with Landing | Docs | Reference; one copper kicker `tangled::protocol`; monumental serif line; one paragraph; Read the spec / GitHub; honest “not a running network.” No diagram, no cards.
+FIRST VIEWPORT (landing): Full-bleed slate; 48px chrome with Home | Guides | Docs | Specs; one copper kicker in ordinary words; monumental serif line; one paragraph; How it works / GitHub; honest “no public network.” No diagram, no cards, no rustdoc path kickers on the landing.
 
-FORM: Surface courses (seed `dea6db17`, assigned index 7), restrained color. Dark because the scene is night-time spec reading. Comp B plates.
+FORM: Surface courses, restrained color. Dark because the scene is night-time reading. Comp B plates.
 
 ## Colors
 
@@ -150,15 +150,15 @@ Restrained: neutrals plus one copper accent. Accent owns the active nav, links, 
 
 ## Typography
 
-Fira Sans for chrome and docs headings (rustdoc UI). Source Serif 4 for chapter prose and for the landing display line. Source Code Pro for types, CIDs, HTTP paths, and course kickers (`tangled::knot`). Docs type pages lead with a signature line in mono, rustdoc-style. Landing display: weight 400, tracking about `-0.03em`, measure of the lead ≤ 32em.
+Fira Sans for chrome and docs headings (rustdoc UI). Source Serif 4 for chapter prose and for the landing display line. Source Code Pro for types, CIDs, and HTTP paths — not as costume on the landing. Docs type pages lead with a signature line in mono, rustdoc-style. Landing display: weight 400, tracking about `-0.03em`, measure of the lead ≤ 32em.
 
 ## Layout
 
-Shared chrome: skip link, 48px top bar (wordmark, Landing / Docs / Reference, theme, GitHub). Search lives in the docs top bar only.
+Shared chrome: skip link, 48px top bar (wordmark, Home / Guides / Docs / Specs, theme, GitHub). Search lives in the guides/docs/specs top bar.
 
-Docs shell: 272px left nav, main, 220px TOC above 1100px. Docs home (`/docs`) is a claims board plus architecture figure.
+Docs shell: 272px left nav, main, 220px TOC above 1100px. Guides home (`/guides`) is the high-level map. Docs home (`/docs`) indexes feature explanations and links to formal specs.
 
-Landing: no sidebar. Stacked courses with more space above a heading than below it (course padding ~104px / 48px). The first course is shorter than the viewport so the next rustdoc kicker peeks. Apps are a hairline row list (`apps::reed`), not equal cards. Close the page with a real spec CTA, not a newsletter. Landing chrome uses page `--bg`, not the docs sidebar strip.
+Landing: no sidebar. Stacked courses with more space above a heading than below it (course padding ~104px / 48px). The first course is shorter than the viewport so the next heading peeks. Apps are a hairline row list (human names, not `apps::reed`), not equal cards. Close the page with How it works + Open the spec. Landing chrome uses page `--bg`, not the docs sidebar strip.
 
 ## Elevation & Depth
 
@@ -170,8 +170,8 @@ No drop shadows. Separation is 1px `{colors.border}` and background steps (`bg` 
 
 ## Components
 
-- Site nav: three items. Docs is active on spec, terminology, playground, compare, interop. Reference is active under `/reference`.
-- Sidebar: `spec::identity` module grouping, rustdoc path style, plus Docs overview.
+- Site nav: Home, Guides, Docs, Specs. Guides is active on `/guides/*`, Docs on `/docs/*`, and Specs on `/spec`, `/reference`, terminology, and playground.
+- Sidebar: only the selected level's pages. Top navigation switches Guides, Docs, and Specs. Specs retain module grouping and reference tools. Entries come from source metadata.
 - Callouts: Note / Must / Warning with copper or danger left bar.
 - Search: Pagefind overlay, keyboard `/`, docs only.
 - Playground: labeled **synthetic**; monospace I/O.

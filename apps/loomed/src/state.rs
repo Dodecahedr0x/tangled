@@ -1,14 +1,28 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::time::Duration;
 
 use dioxus::prelude::*;
 use loomed_core::{
-    search, CircleRef, Conversation, FileKeyStore, KeyStore, KnotUrl, LoomedError, LoomedKeys,
-    Message, Replica, Sync,
+    search, CircleRef, Conversation, KnotUrl, LoomedError, LoomedKeys, Message, Replica, Sync,
 };
+#[cfg(not(target_arch = "wasm32"))]
+use loomed_core::{FileKeyStore, KeyStore};
 
-use crate::paths::{keys_path, knot_path, replica_dir};
+use crate::paths::replica_dir;
+#[cfg(not(target_arch = "wasm32"))]
+use crate::paths::{keys_path, knot_path};
 
+/// Knot used when none is saved. The hosted build sets `TANGLED_KNOT`.
+pub fn default_knot_url() -> &'static str {
+    match option_env!("TANGLED_KNOT") {
+        Some(url) if !url.is_empty() => url,
+        _ => "http://127.0.0.1:3000",
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 const PROBE_TIMEOUT: Duration = Duration::from_secs(3);
+#[cfg(not(target_arch = "wasm32"))]
 const POLL_TIMEOUT: Duration = Duration::from_secs(15);
 
 #[derive(Clone, PartialEq)]
@@ -40,8 +54,16 @@ impl Ui {
     pub fn load() -> Self {
         let keys = load_keys();
         let did = keys.as_ref().map(|k| k.did().as_str());
-        let knot = std::fs::read_to_string(knot_path()).unwrap_or_default();
-        let knot = knot.trim().to_string();
+        let knot = {
+            let saved = read_knot();
+            if saved.is_empty() {
+                let url = default_knot_url().to_string();
+                persist_knot(&url);
+                url
+            } else {
+                saved
+            }
+        };
         let replica = Replica::open(&replica_dir()).ok();
         let conversations = replica
             .as_ref()
@@ -75,7 +97,19 @@ impl Ui {
 }
 
 pub fn load_keys() -> Option<LoomedKeys> {
-    FileKeyStore { path: keys_path() }.load().ok().flatten()
+    #[cfg(target_arch = "wasm32")]
+    {
+        let raw = browser_get("loomed.keys");
+        return if raw.is_empty() {
+            None
+        } else {
+            LoomedKeys::from_solana_json(&raw).ok()
+        };
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        FileKeyStore { path: keys_path() }.load().ok().flatten()
+    }
 }
 
 pub fn persist_keys(keys: &LoomedKeys) {
@@ -83,12 +117,23 @@ pub fn persist_keys(keys: &LoomedKeys) {
     {
         let _ = FileKeyStore { path: keys_path() }.save(keys);
     }
-    let _ = keys;
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_set("loomed.keys", &keys.export_json());
+    }
 }
 
 pub fn persist_knot(url: &str) {
-    let _ = std::fs::create_dir_all(crate::paths::home_dir());
-    let _ = std::fs::write(knot_path(), url.trim());
+    let url = url.trim();
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_set("loomed.knot", url);
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let _ = std::fs::create_dir_all(crate::paths::home_dir());
+        let _ = std::fs::write(knot_path(), url);
+    }
 }
 
 pub fn messages_for(circle: &str) -> Vec<Message> {
@@ -101,15 +146,46 @@ pub fn knot_banner() -> String {
     LoomedError::KnotUnreachable.to_string()
 }
 
-fn read_knot() -> String {
-    std::fs::read_to_string(knot_path())
+pub fn read_knot() -> String {
+    #[cfg(target_arch = "wasm32")]
+    {
+        browser_get("loomed.knot")
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::read_to_string(knot_path())
+            .unwrap_or_default()
+            .trim()
+            .to_string()
+    }
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_get(key: &str) -> String {
+    web_sys::window()
+        .and_then(|w| w.local_storage().ok().flatten())
+        .and_then(|s| s.get_item(key).ok().flatten())
+        .map(|s| s.trim().to_string())
         .unwrap_or_default()
-        .trim()
-        .to_string()
+}
+
+#[cfg(target_arch = "wasm32")]
+fn browser_set(key: &str, value: &str) {
+    if let Some(store) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let _ = store.set_item(key, value);
+    }
 }
 
 /// Run `fut` on a worker thread. `dioxus::spawn` / `use_future` poll on the
 /// VirtualDom thread; reqwest `describe` / `poll_once` there freezes the window.
+#[cfg(target_arch = "wasm32")]
+async fn run_off_ui<T: 'static>(
+    fut: impl std::future::Future<Output = T> + 'static,
+) -> Result<T, ()> {
+    Ok(fut.await)
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 async fn run_off_ui<T: Send + 'static>(
     fut: impl std::future::Future<Output = T> + Send + 'static,
 ) -> Result<T, ()> {
@@ -127,6 +203,31 @@ async fn run_off_ui<T: Send + 'static>(
     rx.await.map_err(|_| ())
 }
 
+/// Browser builds have no Tokio timer. The fetch itself fails when the host is gone.
+#[cfg(target_arch = "wasm32")]
+async fn probe_ok(sync: &loomed_core::Sync) -> bool {
+    sync.probe().await.is_ok()
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn probe_ok(sync: &loomed_core::Sync) -> bool {
+    tokio::time::timeout(PROBE_TIMEOUT, sync.probe())
+        .await
+        .ok()
+        .and_then(Result::ok)
+        .is_some()
+}
+
+#[cfg(target_arch = "wasm32")]
+async fn poll_within(sync: &mut loomed_core::Sync, replica: &mut Replica, keys: &LoomedKeys) {
+    let _ = sync.poll_once(replica, keys).await;
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+async fn poll_within(sync: &mut loomed_core::Sync, replica: &mut Replica, keys: &LoomedKeys) {
+    let _ = tokio::time::timeout(POLL_TIMEOUT, sync.poll_once(replica, keys)).await;
+}
+
 /// Probe + poll the knot. Returns whether the knot is unreachable.
 pub async fn probe_and_poll() -> bool {
     let knot = read_knot();
@@ -137,16 +238,12 @@ pub async fn probe_and_poll() -> bool {
         let Ok(mut sync) = Sync::http(KnotUrl(knot)) else {
             return true;
         };
-        let reachable = tokio::time::timeout(PROBE_TIMEOUT, sync.probe())
-            .await
-            .ok()
-            .and_then(Result::ok)
-            .is_some();
+        let reachable = probe_ok(&sync).await;
         if !reachable {
             return true;
         }
         if let (Some(keys), Ok(mut replica)) = (load_keys(), Replica::open(&replica_dir())) {
-            let _ = tokio::time::timeout(POLL_TIMEOUT, sync.poll_once(&mut replica, &keys)).await;
+            poll_within(&mut sync, &mut replica, &keys).await;
         }
         false
     })

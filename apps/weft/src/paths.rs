@@ -1,5 +1,7 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::PathBuf;
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn home_dir() -> PathBuf {
     if let Ok(p) = std::env::var("WEFT_HOME") {
         return PathBuf::from(p);
@@ -11,6 +13,7 @@ pub fn home_dir() -> PathBuf {
     PathBuf::from(".weft")
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn knot_path() -> PathBuf {
     home_dir().join("knot.txt")
 }

@@ -1,0 +1,28 @@
+[package]
+name = "tangled-e2e"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+anyhow = "1"
+axum = "0.8"
+base64 = "0.22"
+blake3 = "1"
+futures-util = "0.3"
+hex = "0.4"
+reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tempfile = "3"
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = "0.26"
+tangled = { path = "../tangled" }
+tangled-knot = { path = "../tangled-knot" }
+tangled-provider = { path = "../tangled-provider" }
+tangled-import = { path = "../tangled-import" }
+tangled-ap = { path = "../tangled-ap", features = ["demo"] }
+reed-core = { path = "../../apps/reed/core" }
+loomed-core = { path = "../../apps/loomed/core" }
+weft-core = { path = "../../apps/weft/core" }

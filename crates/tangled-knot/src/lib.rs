@@ -21,6 +21,7 @@ use tangled::identity::Identity;
 use tangled::{Error, KnotEngine, Result as TangledResult};
 use tokio::sync::broadcast;
 
+pub mod imports;
 mod ws;
 
 #[cfg(feature = "activitypub")]
@@ -84,7 +85,12 @@ pub fn router(state: AppState) -> Router {
         .route("/users/{name}/outbox", axum::routing::get(ap::outbox))
         .route("/inbox", axum::routing::post(ap::inbox))
         .route("/xrpc/tangled.ap.resolve", axum::routing::get(ap::resolve));
-    r.fallback(xrpc).with_state(state)
+    let app = r.fallback(xrpc).with_state(state.clone());
+    if let Some(imports) = imports::self_hosted(&state) {
+        app.merge(imports)
+    } else {
+        app
+    }
 }
 
 pub async fn serve_listener(
@@ -299,16 +305,35 @@ async fn xrpc(State(st): State<AppState>, req: Request<Body>) -> Response {
         Ok(r) => r,
         Err(r) => return r,
     };
-    let mut engine = st.engine.lock().unwrap_or_else(|e| e.into_inner());
-    if st.live_clock {
-        engine.now = unix_now();
-    }
-    let result = engine.handle(&knot_req);
-    let events = engine.take_events();
-    drop(engine);
-    for ev in events {
-        let _ = st.bus.send(ev);
-    }
+    // Engine dispatch may perform synchronous handle-resolution I/O. Keep it
+    // off async workers, and acquire/release its mutex entirely in that task.
+    let engine = st.engine.clone();
+    let live_clock = st.live_clock;
+    let bus = st.bus.clone();
+    let (result, knot_req) = match tokio::task::spawn_blocking(move || {
+        let mut engine = engine.lock().unwrap_or_else(|e| e.into_inner());
+        if live_clock {
+            engine.now = unix_now();
+        }
+        let result = engine.handle(&knot_req);
+        // A queued blocking job survives caller cancellation. Deliver committed
+        // events here while the lock still serializes dispatch and event order.
+        for event in engine.take_events() {
+            let _ = bus.send(event);
+        }
+        (result, knot_req)
+    })
+    .await
+    {
+        Ok(dispatched) => dispatched,
+        Err(error) => {
+            return from_error(
+                Error::Transport(error.to_string()),
+                has_auth,
+                origin.as_deref(),
+            );
+        }
+    };
     #[cfg(feature = "activitypub")]
     if let Ok(resp) = &result {
         if ap::put_ok(resp) {
@@ -320,6 +345,64 @@ async fn xrpc(State(st): State<AppState>, req: Request<Body>) -> Response {
     match result {
         Ok(resp) => from_knot_response(resp, has_auth, origin.as_deref()),
         Err(e) => from_error(e, has_auth, origin.as_deref()),
+    }
+}
+
+#[cfg(test)]
+mod dispatch_cancellation_tests {
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    #[allow(clippy::await_holding_lock)] // Deliberately gate the blocking job until cancellation.
+    async fn cancelled_handler_still_broadcasts_its_committed_write() {
+        use std::{sync::Arc, time::Duration};
+        let identity = Identity::generate();
+        let did = identity.did_string();
+        let mut engine = KnotEngine::hosting(&did);
+        engine.now = 1_700_000_000;
+        engine.register_identity(&identity);
+        let state = AppState::new(engine, false);
+        let mut events = state.bus.subscribe();
+        let unsigned = serde_json::json!({
+            "v":1, "type":tangled::Cid::dag_cbor(b"pub.tangled.post").to_string(),
+            "collection":"pub.tangled.post", "rkey":"cancelled-handler",
+            "author":did, "ts":1_700_000_000_000_000u64, "prev":[],
+            "vis":"public", "body":{"text":"committed after caller disconnects"},
+        });
+        let record = tangled::record::sign_json_record(identity.signing_key(), &unsigned)
+            .unwrap()
+            .json;
+        let request = Request::builder()
+            .method(Method::POST)
+            .uri("/xrpc/tangled.repo.putRecord")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                serde_json::to_vec(&serde_json::json!({"record":record})).unwrap(),
+            ))
+            .unwrap();
+        // Block dispatch deterministically until the blocking job owns its Arc.
+        let guard = state.engine.lock().unwrap();
+        let handler_state = state.clone();
+        let handler = tokio::spawn(async move { xrpc(State(handler_state), request).await });
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while Arc::strong_count(&state.engine) < 3 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .expect("blocking dispatch job was never queued");
+        handler.abort();
+        assert!(handler.await.unwrap_err().is_cancelled());
+        drop(guard);
+        let event = tokio::time::timeout(Duration::from_secs(2), events.recv())
+            .await
+            .expect("committed write event was lost after handler cancellation")
+            .expect("event bus closed");
+        assert_eq!(event.did, did);
+        assert!(event
+            .ops
+            .iter()
+            .any(|op| op.collection == "pub.tangled.post" && op.rkey == "cancelled-handler"));
     }
 }
 

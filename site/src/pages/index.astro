@@ -1,113 +1,91 @@
 ---
-/* THESIS: Landing as a vertical rise through protocol courses; refuses gradient-card SaaS heroes.
-   OWN-WORLD: Slate, copper, Source Serif display, rustdoc path kickers, hairline app rows.
-   STORY: What Tangled is, why, the apps on it, then the spec.
-   FIRST VIEWPORT: Monumental serif line, one paragraph, Read the spec / GitHub.
-   FORM: Courses (dea6db17 #7), Comp B plates. */
+/* THESIS: Funnel mouth in plain speech; refuses rustdoc kickers and a spec dump as the first page.
+   OWN-WORLD: Slate, copper, Source Serif display, Fira chrome, hairline app rows.
+   STORY: A stranger gets what Tangled is, sees three apps, opens Docs.
+   FIRST VIEWPORT: One serif line, one paragraph, How it works / GitHub. One copper kicker.
+   FORM: Vertical courses, Comp B plates, same world as docs — larger type, fewer words. */
 import LandingLayout from "../layouts/LandingLayout.astro";
 import { githubUrl, withBase } from "../data/nav";
 
+const providerUrl = import.meta.env.PUBLIC_PROVIDER_URL as string | undefined;
+
 const apps = [
   {
-    id: "apps::reed",
     name: "Reed",
     href: `${githubUrl}/tree/main/apps/reed`,
-    copy: "Public posts, profiles, follows, a home timeline. The social client on the data plane.",
+    copy: "Public posts, profiles, and follows. A timeline you host.",
   },
   {
-    id: "apps::loomed",
     name: "Loomed",
     href: `${githubUrl}/tree/main/apps/loomed`,
-    copy: "Sealed messages for circles. A radio set for the people you already trust — not a column of bubbles.",
+    copy: "Private groups. Messages for people you already trust.",
   },
   {
-    id: "apps::weft",
     name: "Weft",
     href: `${githubUrl}/tree/main/apps/weft`,
-    copy: "A read-only explorer. Counts, topology, lookup. It does not write.",
+    copy: "A map of the network. Counts, connections, lookup. It does not post.",
   },
 ];
 ---
 
 <LandingLayout>
   <section class="land-hero">
-    <p class="land-kicker">tangled::protocol</p>
-    <h1>A content network you host.</h1>
+    <p class="land-kicker">{providerUrl ? "A hosted knot" : "A protocol, not a product"}</p>
+    <h1>{providerUrl ? "Create an account." : "Host it yourself."}</h1>
     <p class="land-lead">
-      Identity is a Solana Ed25519 public key. Content lives in a signed Merkle repository on a host
-      you control — a <strong>knot</strong>. Authorization is object-capability. Confidentiality is
-      encryption. Discovery and moderation are unprivileged overlays.
+      {
+        providerUrl
+          ? "You don’t run a server. The hosted knot keeps your posts in a signed repository. The documents still explain how to run your own."
+          : "Tangled is a way to keep your posts, messages, and name on a computer you control. Apps sit on top. This site explains how — there isn’t a public Tangled to join yet."
+      }
     </p>
     <div class="land-cta">
-      <a class="btn-primary" href={withBase("/docs")}>Read the spec</a>
-      <a class="btn-ghost" href={githubUrl} rel="noopener noreferrer">GitHub</a>
+      {
+        providerUrl ? (
+          <a class="btn-primary" href={providerUrl}>
+            Create an account
+          </a>
+        ) : (
+          <a class="btn-primary" href={withBase("/guides")}>
+            How it works
+          </a>
+        )
+      }
+      <a class="btn-ghost" href={providerUrl ? withBase("/guides") : githubUrl} rel={providerUrl ? undefined : "noopener noreferrer"}>
+        {providerUrl ? "How it works" : "GitHub"}
+      </a>
     </div>
-    <p class="land-aside">This site is a specification, not a running network. There is no public graph to join.</p>
+    <p class="land-aside">
+      {
+        providerUrl
+          ? "The host holds the account key and says so. No user count. The documents are still the contract."
+          : "No sign-up. No hosted feed. The documents are the release."
+      }
+    </p>
   </section>
 
   <section class="land-course" aria-labelledby="why">
-    <p class="land-kicker">tangled::why</p>
-    <h2 id="why">One data plane. The knot is not a priest.</h2>
+    <h2 id="why">You shouldn’t need a company to keep a conversation.</h2>
     <p>
-      Neighboring protocols split the public tree from private data, or ask you to treat the host as
-      an authority. Tangled keeps public, capability-gated, and sealed records in one repository and
-      one sync protocol. Visibility is a field. A knot is a convenient place to keep bytes — it is
-      not an authority over identity, history, or meaning. Any replica can be verified from the
-      signatures and the Merkle root.
+      Most networks store your words on someone else’s servers. Tangled is built so
+      <strong>you</strong> run the host. Friends copy your updates. If that machine goes
+      away, the signed history can live on another one — the host was never the authority.
     </p>
-    <p>
-      Followers pull. Authors do not POST into N inboxes. Relays are not the source of truth. The
-      source of truth is a signed commit. One process and a local database is enough to exist.
-      Optional <strong>looms</strong> index public heads. Gateways bind other networks with
-      provenance; they do not define the data model.
-    </p>
-  </section>
-
-  <section class="land-course" aria-labelledby="knot">
-    <p class="land-kicker">tangled::knot</p>
-    <h2 id="knot">How the pieces sit.</h2>
-    <div class="arch" role="list">
-      <div class="arch-row" role="listitem">
-        <code>wallet</code>
-        <span>Ed25519 sign. The identity is the key, rotatable in-repo.</span>
-      </div>
-      <div class="arch-row" role="listitem">
-        <code>knot</code>
-        <span>Merkle Search Tree and blobs. The host you control.</span>
-      </div>
-      <div class="arch-row" role="listitem">
-        <code>sync</code>
-        <span>Peers pull commits. Knots do not fan out inbox POSTs.</span>
-      </div>
-      <div class="arch-row" role="listitem">
-        <code>loom</code>
-        <span>Optional public index. Unprivileged. Not required to exist.</span>
-      </div>
-      <div class="arch-row" role="listitem">
-        <code>gateway</code>
-        <span>ActivityPub, Nostr, AT Protocol bind in with provenance.</span>
-      </div>
-    </div>
   </section>
 
   <section class="land-course" aria-labelledby="apps">
-    <p class="land-kicker">tangled::apps</p>
-    <h2 id="apps">Applications on the substrate.</h2>
+    <h2 id="apps">Three apps in this repository.</h2>
     <p>
-      Microblogs, private groups, and explorers are clients of one data plane. The protocol does not
-      privilege a social-network shape. These three live in this repository. They are not a hosted
-      service.
+      They are clients of one shared store, not a suite you subscribe to. None of them
+      are a live service on this site.
     </p>
     <ul class="land-apps">
       {
         apps.map((app) => (
           <li>
             <a href={app.href} rel="noopener noreferrer">
-              <code>{app.id}</code>
-              <span>
-                <strong>{app.name}</strong>
-                {app.copy}
-              </span>
+              <span class="name">{app.name}</span>
+              <span>{app.copy}</span>
             </a>
           </li>
         ))
@@ -115,21 +93,18 @@ const apps = [
     </ul>
   </section>
 
-  <section class="land-course land-close" aria-labelledby="spec">
-    <p class="land-kicker">tangled::spec</p>
-    <h2 id="spec">The documents are the product.</h2>
+  <section class="land-course land-close" aria-labelledby="next">
+    <h2 id="next">Start here, then go deeper.</h2>
     <p>
-      Version 1 is implementable: chapters, Concise Data Definition Language (CDDL), OpenAPI, and
-      test vectors. Start at the overview, jump the <a href={withBase("/reference/http")}>HTTP reference</a>,
-      or open the <a href={withBase("/playground")}>synthetic playground</a>.
+      <a href={withBase("/guides")}>Guides</a> introduce Tangled and help you get started.
+      <a href={withBase("/docs")}>Docs</a> explain each feature in detail.
+      <a href={withBase("/spec/abstract")}>Specs</a> define the formal protocol:
+      types, HTTP methods, and conformance requirements.
     </p>
     <div class="land-cta">
-      <a class="btn-primary" href={withBase("/docs")}>Enter the spec</a>
-      <a class="btn-ghost" href={withBase("/reference/http")}>HTTP methods</a>
+      <a class="btn-primary" href={withBase("/guides")}>Read the guides</a>
+      <a class="btn-ghost" href={withBase("/docs")}>Explore the docs</a>
+      <a class="btn-ghost" href={withBase("/spec/abstract")}>Open the spec</a>
     </div>
-    <p class="land-aside">
-      Preview this site locally with <code>just docs</code>. Run a knot with the recipes in the
-      repository — this page will not start one for you.
-    </p>
   </section>
 </LandingLayout>

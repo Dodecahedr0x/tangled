@@ -2,30 +2,33 @@
 
 A content-network protocol: Solana-key identity, signed Merkle repositories, capability authorization, sealed records, and normative bridges to other networks.
 
-This repository is the **implementable specification** and a **static site** (landing plus docs). It is not a live network and does not run knots.
+This repository contains the **version 1 specification**, Rust reference implementations, Reed, Loomed, Weft, a hosted provider, and a **static documentation site**. The site explains the protocol; the provider and apps run separately. No public network size or production adoption is claimed.
 
-- Canonical spec: [`spec/`](spec/)
-- Site: [`site/`](site/) — landing at `/`, docs at `/docs` and `/spec/…`
+- Documentation: [`docs/`](docs/) — guides, specifications, and reference sources
+- Canonical spec: [`docs/spec/`](docs/spec/)
+- Site: [`site/`](site/) — landing at `/`, guides at `/guides`, feature docs at `/docs`, specs at `/spec/…`
 - Rust reference client: [`crates/tangled/`](crates/tangled/)
 - Knot HTTP server: [`crates/tangled-knot/`](crates/tangled-knot/)
+- Hosted provider (account signup, Render blueprint): [`crates/tangled-provider/`](crates/tangled-provider/) — `just provider`
 - Loomed messenger: [`apps/loomed/`](apps/loomed/)
 - Weft network explorer: [`apps/weft/`](apps/weft/)
+- Social activity imports: [`docs/features/social-imports.md`](docs/features/social-imports.md) — private archives, Telegram/X/WhatsApp connector setup, recovery, and implementation assumptions.
 - Product / visual contracts: [`PRODUCT.md`](PRODUCT.md), [`DESIGN.md`](DESIGN.md)
 
 ## Read the spec
 
 ```
-spec/00-abstract.md … spec/21-changelog.md
-spec/cddl/          DAG-CBOR types
-spec/schemas/       JSON Schema for core and example collections
-spec/http/openapi.yaml
-spec/interop/translations.yaml
-spec/vectors/       cryptographic fixtures
+docs/spec/00-abstract.md … docs/spec/21-changelog.md
+docs/spec/cddl/          DAG-CBOR types
+docs/spec/schemas/       JSON Schema for core and example collections
+docs/spec/http/openapi.yaml
+docs/spec/interop/translations.yaml
+docs/spec/vectors/       cryptographic fixtures
 ```
 
 ## Site
 
-Landing at `/`. Docs section at `/docs` (spec, HTTP reference, OpenAPI). Preview:
+Landing at `/`. Guides at `/guides` introduce Tangled and setup. Docs at `/docs` explain features. Specs at `/spec/…` define the formal protocol. Preview:
 
 ```bash
 just docs
@@ -39,7 +42,7 @@ GitHub Pages: push to `main` publishes [dodecahedr0x.github.io/tangled](https://
 ## Vectors
 
 ```bash
-cd spec/vectors
+cd docs/spec/vectors
 npm install
 node generate.mjs
 ```

@@ -44,56 +44,57 @@ pub fn InboxView(
         div { class: "shell",
             nav { class: "rail",
                 div { class: "rail-head",
-                    div { class: "brand",
-                        span { class: "tick" }
-                        "loomed"
-                    }
+                    div { class: "brand", "Loomed" }
                     input {
                         r#type: "search",
                         class: "tune",
-                        placeholder: "tune",
+                        placeholder: "Search",
                         aria_label: "search",
                         value: query,
                         oninput: move |e| on_query.call(e.value()),
                     }
                 }
-                div { class: "rail-list",
-                    if conversations.is_empty() {
-                        p { class: "muted empty-rail", "the band is quiet" }
-                    }
-                    for c in conversations.iter() {
-                        AppLink {
-                            class: "conv",
-                            to: Route::Thread {
-                                circle: c.circle.0.clone(),
-                            },
-                            span { class: "tick" }
-                            span { class: "conv-meta",
-                                span { class: "conv-title", {
-                                    let peers = row_peers(c);
-                                    if peers.is_empty() {
-                                        c.title.clone()
-                                    } else {
-                                        recipient_label(&peers, me)
-                                    }
-                                } }
-                                span { class: "muted conv-preview", {c.last_preview.clone()} }
-                            }
-                        }
-                    }
-                }
                 div { class: "rail-nav",
-                    AppLink { to: Route::Compose {}, class: "muted rail-link", "new" }
-                    AppLink { to: Route::Settings {}, class: "muted rail-link", "set" }
-                    AppLink { to: Route::Onboard {}, class: "muted rail-link", "id" }
+                    AppLink { to: Route::Inbox {}, class: "rail-link", "Inbox" }
+                    AppLink { to: Route::Compose {}, class: "rail-link", "New" }
+                    AppLink { to: Route::Settings {}, class: "rail-link", "Settings" }
+                    AppLink { to: Route::Onboard {}, class: "rail-link", "Identity" }
                 }
             }
             section { class: "stage",
-                if knot_unreachable {
-                    div { class: "banner", {knot_banner()} }
+                div { class: "band",
+                    if knot_unreachable {
+                        span { class: "banner late", {knot_banner()} }
+                    }
+                }
+                div { class: "sheet-cols pair",
+                    span { "Who" }
+                    span { "Last" }
                 }
                 if conversations.is_empty() && hits.is_empty() && !knot_unreachable {
-                    p { class: "muted empty-stage", "the band is quiet" }
+                    p { class: "muted empty-stage", "No conversations yet" }
+                }
+                for c in conversations.iter() {
+                    AppLink {
+                        class: "conv",
+                        to: Route::Thread {
+                            circle: c.circle.0.clone(),
+                        },
+                        span { class: "conv-title",
+                            if c.unread > 0 {
+                                span { class: "late-mark" }
+                            }
+                            {
+                                let peers = row_peers(c);
+                                if peers.is_empty() {
+                                    c.title.clone()
+                                } else {
+                                    recipient_label(&peers, me)
+                                }
+                            }
+                        }
+                        span { class: "conv-preview", {c.last_preview.clone()} }
+                    }
                 }
                 for m in hits.iter() {
                     article { class: "tx",

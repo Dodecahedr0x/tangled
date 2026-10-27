@@ -356,19 +356,27 @@ pub fn live_sns(handle: &str, rpc: &str) -> Result<SnsRecord> {
 }
 
 fn http_post_json(url: &str, body: &serde_json::Value) -> Result<String> {
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| Error::Handle(e.to_string()))?;
-    let resp = client
-        .post(url)
-        .json(body)
-        .send()
-        .map_err(|e| Error::Handle(e.to_string()))?;
-    if !resp.status().is_success() {
-        return Err(Error::Handle(format!("rpc {}", resp.status())));
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (url, body);
+        return Err(Error::Handle("live handle lookup is native only".into()));
     }
-    resp.text().map_err(|e| Error::Handle(e.to_string()))
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let client = reqwest::blocking::Client::builder()
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .map_err(|e| Error::Handle(e.to_string()))?;
+        let resp = client
+            .post(url)
+            .json(body)
+            .send()
+            .map_err(|e| Error::Handle(e.to_string()))?;
+        if !resp.status().is_success() {
+            return Err(Error::Handle(format!("rpc {}", resp.status())));
+        }
+        resp.text().map_err(|e| Error::Handle(e.to_string()))
+    }
 }
 
 fn live_txt(qname: &str) -> Result<Vec<String>> {
@@ -383,28 +391,36 @@ fn live_well_known(url: &str) -> Result<String> {
 }
 
 fn http_get_same_host(url: &str, accept: Option<&str>) -> Result<String> {
-    let client = reqwest::blocking::Client::builder()
-        .redirect(reqwest::redirect::Policy::custom(|attempt| {
-            let prev = attempt.previous().last().and_then(|u| u.host_str());
-            let next = attempt.url().host_str();
-            if prev == next {
-                attempt.follow()
-            } else {
-                attempt.stop()
-            }
-        }))
-        .timeout(std::time::Duration::from_secs(5))
-        .build()
-        .map_err(|e| Error::Handle(e.to_string()))?;
-    let mut req = client.get(url);
-    if let Some(a) = accept {
-        req = req.header("Accept", a);
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = (url, accept);
+        return Err(Error::Handle("live handle lookup is native only".into()));
     }
-    let resp = req.send().map_err(|e| Error::Handle(e.to_string()))?;
-    if !resp.status().is_success() {
-        return Err(Error::Handle(format!("http {}", resp.status())));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let client = reqwest::blocking::Client::builder()
+            .redirect(reqwest::redirect::Policy::custom(|attempt| {
+                let prev = attempt.previous().last().and_then(|u| u.host_str());
+                let next = attempt.url().host_str();
+                if prev == next {
+                    attempt.follow()
+                } else {
+                    attempt.stop()
+                }
+            }))
+            .timeout(std::time::Duration::from_secs(5))
+            .build()
+            .map_err(|e| Error::Handle(e.to_string()))?;
+        let mut req = client.get(url);
+        if let Some(a) = accept {
+            req = req.header("Accept", a);
+        }
+        let resp = req.send().map_err(|e| Error::Handle(e.to_string()))?;
+        if !resp.status().is_success() {
+            return Err(Error::Handle(format!("http {}", resp.status())));
+        }
+        resp.text().map_err(|e| Error::Handle(e.to_string()))
     }
-    resp.text().map_err(|e| Error::Handle(e.to_string()))
 }
 
 fn parse_doh_txt(body: &str) -> Result<Vec<String>> {

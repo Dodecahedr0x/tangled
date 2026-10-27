@@ -19,9 +19,15 @@ hex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tangled = { path = "../../../crates/tangled" }
-tangled-ap = { path = "../../../crates/tangled-ap", features = ["demo"] }
 thiserror = "2"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tangled-ap = { path = "../../../crates/tangled-ap", features = ["demo"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+tangled-ap = { path = "../../../crates/tangled-ap" }
+tokio = { version = "1", features = ["macros", "rt", "time"] }
 
 [dev-dependencies]
 tempfile = "3"

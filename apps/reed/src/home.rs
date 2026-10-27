@@ -44,23 +44,25 @@ pub fn HomeView(
                 on_refresh,
             }
             section { class: "stage",
-                if knot_unconfigured {
-                    div { class: "banner", {banner_text(KnotStatus::Unconfigured).unwrap_or("No knot URL set")} }
-                } else if knot_unreachable {
-                    div { class: "banner", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
+                div { class: "band",
+                    if knot_unconfigured {
+                        span { class: "banner", {banner_text(KnotStatus::Unconfigured).unwrap_or("No knot URL set")} }
+                    } else if knot_unreachable {
+                        span { class: "banner late", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
+                    }
                 }
-                p { class: "page-title",
-                    span { class: "tick" }
-                    "Home"
+                div { class: "sheet-cols",
+                    span { "Time" }
+                    span { "Author" }
+                    span { "Post" }
                 }
                 if items.is_empty() {
                     div { class: "empty",
-                        span { class: "tick" }
                         p { "No posts yet" }
                         p { class: "muted", "Follow someone or compose. History stays local." }
                     }
                 } else {
-                    div { class: "log",
+                    div { class: "log sheet",
                         for item in items.iter() {
                             TimelineCard { item: item.clone() }
                         }

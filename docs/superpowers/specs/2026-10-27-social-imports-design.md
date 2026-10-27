@@ -22,7 +22,7 @@ The remaining implementation choices below are recommendations made by the autho
 ## Current repository and implications
 
 - `crates/tangled` provides signed records, blobs, capabilities, sealed data, CAR export/import, and foreign-object identifiers and duplicate detection.
-- `spec/16-interoperability.md` defines provenance envelopes and idempotence for existing protocol bridges. These ideas are reusable; an uploaded archive is not independently signed evidence of a foreign author's identity.
+- `docs/spec/16-interoperability.md` defines provenance envelopes and idempotence for existing protocol bridges. These ideas are reusable; an uploaded archive is not independently signed evidence of a foreign author's identity.
 - `crates/tangled-knot` is the HTTP server. The provider wraps this router with account/session management and custodial signing.
 - `crates/tangled-provider` currently creates public posts. It has no source-connection management, import jobs, or private-archive experience.
 - Reed consumes public social records, Loomed consumes sealed circle messages, and Weft explores the network. An imported conversation cannot simply become a native circle of invented Tangled identities.

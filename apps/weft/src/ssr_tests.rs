@@ -147,7 +147,7 @@ fn lookup_identity() -> Element {
 #[test]
 fn overview_empty_mentions_weft_and_no_stats() {
     let h = html(empty_overview);
-    assert!(h.contains("weft"));
+    assert!(h.to_ascii_lowercase().contains("weft"));
     assert!(h.contains("Overview"));
     assert!(h.contains("No knot URL set"));
 }

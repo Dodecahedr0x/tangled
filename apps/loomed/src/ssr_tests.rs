@@ -190,7 +190,7 @@ fn inbox_empty_ssr() {
     assert!(s.contains("shell"), "night-radio shell: {s}");
     assert!(s.contains("rail"), "conversation rail: {s}");
     assert!(
-        s.contains("band is quiet") || s.contains("no traffic"),
+        s.contains("No conversations yet") || s.contains("no traffic"),
         "{s}"
     );
     assert!(
@@ -239,9 +239,9 @@ fn onboard_has_back_nav() {
     let s = html(onboard);
     assert!(
         s.contains("href=\"/\""),
-        "identity must link back to the band: {s}"
+        "identity must link back to the inbox: {s}"
     );
-    assert!(s.contains("band"), "visible band back control: {s}");
+    assert!(s.contains("Inbox"), "visible inbox back control: {s}");
 }
 
 #[test]

@@ -49,8 +49,8 @@ pub fn TopologyView(
                 if let Some(view) = view.as_ref() {
                     Graph { view: view.clone() }
                     ul { class: "topo-legend",
-                        li { "Copper fill — configured knot" }
-                        li { "Copper stroke — advertised public peers" }
+                        li { "Black fill — configured knot" }
+                        li { "Black line — advertised public peers" }
                         li { "Small nodes — hosted public identities" }
                     }
                 } else {

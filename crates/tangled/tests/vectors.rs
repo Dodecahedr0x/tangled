@@ -1,4 +1,4 @@
-//! Table-driven tests: one test per `spec/vectors/*.json`.
+//! Table-driven tests: one test per `docs/spec/vectors/*.json`.
 
 use std::fs;
 use std::path::PathBuf;
@@ -30,7 +30,7 @@ use tangled::sync::{getblob_auth, BlobAuth, BlobRef};
 
 fn vec_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../../spec/vectors")
+        .join("../../docs/spec/vectors")
         .join(name)
 }
 

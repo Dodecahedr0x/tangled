@@ -13,7 +13,7 @@ pub fn BandRail(
             div { class: "rail-head",
                 div { class: "brand",
                     span { class: "tick" }
-                    "weft"
+                    "Weft"
                 }
             }
             div { class: "rail-nav",

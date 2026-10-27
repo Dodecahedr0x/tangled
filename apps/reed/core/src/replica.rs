@@ -52,11 +52,11 @@ pub struct Replica {
 
 impl Replica {
     pub fn open(dir: &Path) -> Result<Self> {
-        std::fs::create_dir_all(dir)?;
-        std::fs::create_dir_all(dir.join("blobs"))?;
+        disk_create_dir(dir)?;
+        disk_create_dir(&dir.join("blobs"))?;
         let path = dir.join("replica.json");
-        let data = if path.exists() {
-            let s = std::fs::read_to_string(&path)?;
+        let data = if disk_exists(&path) {
+            let s = disk_read_string(&path)?;
             serde_json::from_str(&s).map_err(|e| ReedError::Codec(e.to_string()))?
         } else {
             Data::default()
@@ -78,12 +78,12 @@ impl Replica {
 
     pub fn store_blob(&mut self, cid: &str, bytes: &[u8]) -> Result<()> {
         let path = self.dir.join("blobs").join(cid);
-        std::fs::write(path, bytes)?;
+        disk_write(&path, bytes)?;
         Ok(())
     }
 
     pub fn blob(&self, cid: &str) -> Option<Vec<u8>> {
-        std::fs::read(self.dir.join("blobs").join(cid)).ok()
+        disk_read(&self.dir.join("blobs").join(cid)).ok()
     }
 
     pub fn has_schema(&self, name: &str) -> bool {
@@ -632,8 +632,98 @@ impl Replica {
     fn persist(&self) -> Result<()> {
         let path = self.dir.join("replica.json");
         let s = serde_json::to_string(&self.data).map_err(|e| ReedError::Codec(e.to_string()))?;
-        std::fs::write(path, s)?;
+        disk_write(&path, s.as_bytes())?;
         Ok(())
+    }
+}
+
+fn disk_create_dir(path: &Path) -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::create_dir_all(path)?;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = path;
+    }
+    Ok(())
+}
+
+fn disk_exists(path: &Path) -> bool {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        path.exists()
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        memdisk::exists(path)
+    }
+}
+
+fn disk_read(path: &Path) -> std::io::Result<Vec<u8>> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::read(path)
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        memdisk::read(path)
+    }
+}
+
+fn disk_read_string(path: &Path) -> Result<String> {
+    let bytes = disk_read(path)?;
+    String::from_utf8(bytes).map_err(|e| ReedError::Codec(e.to_string()))
+}
+
+fn disk_write(path: &Path, bytes: &[u8]) -> Result<()> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        std::fs::write(path, bytes)?;
+    }
+    #[cfg(target_arch = "wasm32")]
+    {
+        memdisk::write(path, bytes)?;
+    }
+    Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+mod memdisk {
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::path::Path;
+
+    thread_local! {
+        static FILES: RefCell<HashMap<String, Vec<u8>>> = RefCell::new(HashMap::new());
+    }
+
+    fn key(path: &Path) -> String {
+        path.to_string_lossy().into_owned()
+    }
+
+    pub fn exists(path: &Path) -> bool {
+        let k = key(path);
+        FILES.with(|files| files.borrow().contains_key(&k))
+    }
+
+    pub fn read(path: &Path) -> std::io::Result<Vec<u8>> {
+        let k = key(path);
+        FILES.with(|files| {
+            files
+                .borrow()
+                .get(&k)
+                .cloned()
+                .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::NotFound, "missing"))
+        })
+    }
+
+    pub fn write(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+        let k = key(path);
+        FILES.with(|files| {
+            files.borrow_mut().insert(k, bytes.to_vec());
+            Ok(())
+        })
     }
 }
 

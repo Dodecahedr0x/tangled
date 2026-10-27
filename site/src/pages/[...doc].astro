@@ -1,0 +1,21 @@
+---
+import DocLayout from "../layouts/DocLayout.astro";
+import { getCollection, render } from "astro:content";
+import { docRoute } from "../../scripts/docs.mjs";
+
+export async function getStaticPaths() {
+  const docs = await getCollection("docs");
+  const guides = await getCollection("guides");
+  return [...guides, ...docs].map((entry) => ({
+    params: { doc: docRoute(entry.data.slug, entry.collection === "guides" ? "guides" : "features").slice(1) },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content, headings } = await render(entry);
+---
+
+<DocLayout title={entry.data.title} description={entry.data.description} headings={headings}>
+  <Content />
+</DocLayout>

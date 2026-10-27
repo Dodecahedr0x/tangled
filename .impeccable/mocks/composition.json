@@ -1,0 +1,39 @@
+{
+  "title": "How the sheet is arranged",
+  "question": "The timetable is locked. Which arrangement of Reed’s home should Loomed and Weft follow too?",
+  "options": [
+    {
+      "id": "sheet",
+      "label": "Side words",
+      "kicker": "THE SHEET",
+      "lineage": "The timetable you picked",
+      "thesis": "A word column on the left, the departures on the right, red only when the knot is late.",
+      "palette": ["#ffffff", "#111111", "#6b6b6b", "#e30613"],
+      "materials": ["hairline rules", "tabular figures"],
+      "viewport": "Reed, Home, Discover, Compose, Search, Settings, Identity down the left. Time, Author, Post across the sheet. Cannot reach knot in red above the rows.",
+      "risk": "The left column can feel like every other app’s sidebar if the rules go soft.",
+      "comp": ".impeccable/mocks/reed-home-sheet.webp"
+    },
+    {
+      "id": "top",
+      "label": "Top rule",
+      "thesis": "The words sit on one line. The sheet uses the whole width.",
+      "palette": ["#ffffff", "#111111", "#6b6b6b", "#e30613"],
+      "materials": ["hairline rules", "tabular figures"],
+      "viewport": "Reed and the six destinations across the top, Home underlined in red. Six rows of Time, Author, Post. Cannot reach knot at the top right.",
+      "risk": "On a phone the top line has nowhere to go unless it stacks.",
+      "comp": ".impeccable/mocks/reed-home-top.webp"
+    },
+    {
+      "id": "time",
+      "label": "Large time",
+      "thesis": "The clock is the headline. The post sits beside it, smaller.",
+      "palette": ["#ffffff", "#111111", "#6b6b6b", "#e30613"],
+      "materials": ["hairline rules", "tabular figures"],
+      "viewport": "The same left words. Three rows. 09:14 is huge. Ada and the post are the destination, set small.",
+      "risk": "A long post, or a thread, has to shrink back down or the time stops being the point.",
+      "comp": ".impeccable/mocks/reed-home-time.webp"
+    }
+  ],
+  "buildPath": { "value": "comp", "toggle": false }
+}

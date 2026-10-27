@@ -1,0 +1,352 @@
+[
+  {
+    "id": "tangled.node.describe",
+    "method": "GET",
+    "path": "/xrpc/tangled.node.describe",
+    "summary": "Advertise profiles, foreign protocols, blob limit, custodialSign, public peers.",
+    "auth": "none",
+    "params": [],
+    "response": "{\n  \"v\": 1,\n  \"did\": \"did:sol:…\",\n  \"profiles\": [\"knot.public\", \"knot.cap\"],\n  \"protocols\": [],\n  \"maxBlob\": 134217728,\n  \"custodialSign\": false,\n  \"peers\": []\n}"
+  },
+  {
+    "id": "tangled.node.stats",
+    "method": "GET",
+    "path": "/xrpc/tangled.node.stats",
+    "summary": "Public-only knot-local counts, retained public commits, advertised peers, and hosted public identities. Not a global directory.",
+    "auth": "none",
+    "params": [],
+    "response": "{\n  \"v\": 1,\n  \"did\": \"did:sol:…\",\n  \"asOf\": 1700000000,\n  \"counts\": { \"identities\": 1, \"repos\": 1, \"records\": 2, \"blobs\": 0, \"peers\": 0, \"circles\": 0, \"foreign\": 0, \"commits\": 2 },\n  \"rates\": { \"publicCommits\": 2, \"retained\": 256 },\n  \"topology\": { \"peers\": [], \"hosted\": [{ \"did\": \"did:sol:…\", \"records\": 2 }], \"truncated\": false }\n}"
+  },
+  {
+    "id": "tangled.sync.getHead",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.getHead",
+    "summary": "Current signed Commit CID and MST root (data) for a DID.",
+    "auth": "none for public",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": "did:sol:…"
+      }
+    ],
+    "response": "{ \"did\": \"did:sol:…\", \"commit\": \"b…\", \"rev\": \"3jzfcijpjiz2u\", \"knot\": \"https://knot.example\", \"data\": \"b…\" }"
+  },
+  {
+    "id": "tangled.sync.getRecord",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.getRecord",
+    "summary": "Record, MST inclusion proof, commit.",
+    "auth": "Cap for vis cap/sealed",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": ""
+      },
+      {
+        "name": "collection",
+        "in": "query",
+        "required": true,
+        "note": ""
+      },
+      {
+        "name": "rkey",
+        "in": "query",
+        "required": true,
+        "note": "Plaintext or encrypted rkey"
+      },
+      {
+        "name": "Authorization",
+        "in": "header",
+        "required": false,
+        "note": "Cap <base64url(DAG-CBOR)>; JSON rejected"
+      }
+    ],
+    "response": "{ \"record\": { … }, \"proof\": [ /* MST nodes */ ], \"commit\": { … } }"
+  },
+  {
+    "id": "tangled.sync.getBlob",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.getBlob",
+    "summary": "Raw blob bytes. Content-Length required. X-Tangled-Media-Type when stored. Public if a live public record references cid; otherwise Cap.",
+    "auth": "none if publicly referenced; Cap otherwise",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": ""
+      },
+      {
+        "name": "cid",
+        "in": "query",
+        "required": true,
+        "note": "raw CID (codec 0x55)"
+      },
+      {
+        "name": "Authorization",
+        "in": "header",
+        "required": false,
+        "note": "Cap <base64url(DAG-CBOR)>; JSON rejected"
+      }
+    ],
+    "response": "application/octet-stream + Content-Length + optional X-Tangled-Media-Type"
+  },
+  {
+    "id": "tangled.sync.getBlocks",
+    "method": "POST",
+    "path": "/xrpc/tangled.sync.getBlocks",
+    "summary": "Fetch up to 256 blocks by CID. Returns a CAR.",
+    "auth": "Cap if any CID is a non-public record",
+    "params": [],
+    "request": "{ \"cids\": [\"b…\"] }",
+    "response": "CAR v1 or { \"missing\": [\"b…\"] }"
+  },
+  {
+    "id": "tangled.sync.getRepo",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.getRepo",
+    "summary": "CAR of the public repository, optionally since a commit. No listRecords on the wire.",
+    "auth": "none",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": ""
+      },
+      {
+        "name": "since",
+        "in": "query",
+        "required": false,
+        "note": "Commit CID"
+      },
+      {
+        "name": "blobs",
+        "in": "query",
+        "required": false,
+        "note": "boolean"
+      }
+    ],
+    "response": "application/vnd.ipld.car"
+  },
+  {
+    "id": "tangled.sync.getRepoAuth",
+    "method": "POST",
+    "path": "/xrpc/tangled.sync.getRepoAuth",
+    "summary": "CAR of collections the capability authorizes. since in query or JSON body (query wins).",
+    "auth": "Cap required",
+    "params": [
+      {
+        "name": "since",
+        "in": "query",
+        "required": false,
+        "note": "Commit CID; also accepted in the JSON body"
+      }
+    ],
+    "request": "{ \"did\": \"did:sol:…\", \"since\": \"b…\", \"blobs\": false }",
+    "response": "application/vnd.ipld.car"
+  },
+  {
+    "id": "tangled.sync.queryBacklinks",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.queryBacklinks",
+    "summary": "Local public backlink index. MUST NOT crawl. count is an untrusted overlay.",
+    "auth": "none (public hits only)",
+    "params": [
+      {
+        "name": "cid",
+        "in": "query",
+        "required": true,
+        "note": "Target record CID"
+      },
+      {
+        "name": "collection",
+        "in": "query",
+        "required": false,
+        "note": "Restrict hits"
+      },
+      {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "note": "default 50, max 500"
+      }
+    ],
+    "response": "{ \"hits\": [{ \"did\": \"…\", \"collection\": \"pub.tangled.annotation\", \"rkey\": \"…\", \"cid\": \"b…\", \"commit\": \"b…\" }], \"count\": 1, \"overlay\": true, \"complete\": false }"
+  },
+  {
+    "id": "tangled.sync.notify",
+    "method": "POST",
+    "path": "/xrpc/tangled.sync.notify",
+    "summary": "Optional head-moved hint. Knots MAY ignore.",
+    "auth": "none",
+    "params": [],
+    "request": "{ \"did\": \"did:sol:…\", \"commit\": \"b…\" }",
+    "response": "204"
+  },
+  {
+    "id": "tangled.sync.subscribe",
+    "method": "GET",
+    "path": "/xrpc/tangled.sync.subscribe",
+    "summary": "WebSocket of commits. Optional since resumes after that commit CID.",
+    "auth": "Cap if not public",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": ""
+      },
+      {
+        "name": "collection",
+        "in": "query",
+        "required": false,
+        "note": ""
+      },
+      {
+        "name": "since",
+        "in": "query",
+        "required": false,
+        "note": "Commit CID; replay then live"
+      }
+    ],
+    "response": "{ \"t\": \"commit\", \"commit\": \"b…\", \"ops\": [] }"
+  },
+  {
+    "id": "tangled.repo.putRecord",
+    "method": "POST",
+    "path": "/xrpc/tangled.repo.putRecord",
+    "summary": "Insert a signed record and a signed Commit. Optional prev is the current head Commit CID. Hosted identity-key writes MAY omit the cookie.",
+    "auth": "SIWS session or repo/write Cap",
+    "params": [],
+    "request": "{ \"record\": { \"v\": 1, \"collection\": \"pub.tangled.post\", \"vis\": \"public\", \"body\": { \"text\": \"hello\" }, \"sig\": \"…\" }, \"prev\": \"b…\" }",
+    "response": "{ \"cid\": \"b…\", \"commit\": \"b…\" }"
+  },
+  {
+    "id": "tangled.repo.putBlob",
+    "method": "POST",
+    "path": "/xrpc/tangled.repo.putBlob",
+    "summary": "Store opaque bytes. Optional mediaType query or X-Tangled-Media-Type.",
+    "auth": "session or blob/put",
+    "params": [
+      {
+        "name": "mediaType",
+        "in": "query",
+        "required": false,
+        "note": "MIME type stored with the blob"
+      }
+    ],
+    "request": "application/octet-stream",
+    "response": "{ \"cid\": \"b…\" }"
+  },
+  {
+    "id": "tangled.repo.import",
+    "method": "POST",
+    "path": "/xrpc/tangled.repo.import",
+    "summary": "Import a CAR. Verifies commit signatures. force for recovery. Auth is SIWS or repo/write.",
+    "auth": "identity session or repo/write",
+    "params": [
+      {
+        "name": "force",
+        "in": "query",
+        "required": false,
+        "note": "boolean"
+      }
+    ],
+    "request": "application/vnd.ipld.car",
+    "response": "{ \"did\": \"did:sol:…\", \"commit\": \"b…\" }"
+  },
+  {
+    "id": "tangled.identity.resolve",
+    "method": "GET",
+    "path": "/xrpc/tangled.identity.resolve",
+    "summary": "Handle or DID to endpoints, sys/id CID, and generative or operational DID document.",
+    "auth": "none",
+    "params": [
+      {
+        "name": "handle",
+        "in": "query",
+        "required": false,
+        "note": "DNS or SNS"
+      },
+      {
+        "name": "did",
+        "in": "query",
+        "required": false,
+        "note": ""
+      }
+    ],
+    "response": "{ \"did\": \"did:sol:…\", \"idCid\": \"b…\", \"endpoints\": [\"https://…\"], \"document\": { \"id\": \"did:sol:…\" } }"
+  },
+  {
+    "id": "tangled.session.challenge",
+    "method": "GET",
+    "path": "/xrpc/tangled.session.challenge",
+    "summary": "SIWS challenge. Canonical message: tangled.siws.v1 plus domain, DID, nonce, issuedAt.",
+    "auth": "none",
+    "params": [
+      {
+        "name": "did",
+        "in": "query",
+        "required": true,
+        "note": "did:sol:…"
+      }
+    ],
+    "response": "{ \"domain\": \"knot.example\", \"did\": \"did:sol:…\", \"nonce\": \"…\", \"issuedAt\": 1700000000, \"message\": \"tangled.siws.v1\\n…\" }"
+  },
+  {
+    "id": "tangled.session.verify",
+    "method": "POST",
+    "path": "/xrpc/tangled.session.verify",
+    "summary": "Verify SIWS Ed25519 over UTF-8 message bytes. Sets cookie tangled_session.",
+    "auth": "none (the signature is the proof)",
+    "params": [],
+    "request": "{ \"did\": \"did:sol:…\", \"nonce\": \"…\", \"signature\": \"<hex>\" }",
+    "response": "{ \"ok\": true, \"did\": \"did:sol:…\", \"exp\": 1700086400 }"
+  },
+  {
+    "id": "tangled.cap.verify",
+    "method": "POST",
+    "path": "/xrpc/tangled.cap.verify",
+    "summary": "Verify an Invocation. Used by gateways.",
+    "auth": "none (the invocation is the proof)",
+    "params": [],
+    "request": "DAG-CBOR Invocation",
+    "response": "{ \"ok\": true, \"cmd\": \"repo/read\", \"res\": \"tangled://…\" }"
+  },
+  {
+    "id": "tangled.loom.query",
+    "method": "GET",
+    "path": "/xrpc/tangled.loom.query",
+    "summary": "Optional public search. Looms only. type=ref finds annotations by parent CID. count is an overlay.",
+    "auth": "none",
+    "params": [
+      {
+        "name": "q",
+        "in": "query",
+        "required": true,
+        "note": "Search text, or record CID when type=ref"
+      },
+      {
+        "name": "type",
+        "in": "query",
+        "required": false,
+        "note": "collection name, or ref"
+      }
+    ],
+    "response": "{ \"hits\": [{ \"did\": \"…\", \"collection\": \"…\", \"rkey\": \"…\", \"cid\": \"b…\", \"commit\": \"b…\" }], \"count\": 3, \"overlay\": true, \"complete\": false }"
+  },
+  {
+    "id": "tangled.loom.firehose",
+    "method": "GET",
+    "path": "/xrpc/tangled.loom.firehose",
+    "summary": "WebSocket of public commits. OPTIONAL. Looms only.",
+    "auth": "none",
+    "params": [],
+    "response": "{ \"t\": \"commit\", \"commit\": \"b…\", \"ops\": [] }"
+  }
+]

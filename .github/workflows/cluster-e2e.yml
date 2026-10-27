@@ -1,0 +1,56 @@
+name: Cluster E2E
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cluster-e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cluster:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build isolated cluster runner and node
+        run: cargo build -p tangled-e2e -p tangled-knot
+      - name: Verify harness and feature contracts
+        run: cargo test -p tangled-e2e
+      - name: Run all five acceptance specifications
+        run: target/debug/tangled-e2e --operations 3 --payload-bytes 256 --output target/e2e/acceptance.json
+      - name: Upload reports and process logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-e2e-${{ github.run_id }}
+          path: target/e2e/
+          if-no-files-found: warn
+
+  benchmark:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build release runner and nodes
+        run: cargo build --release -p tangled-e2e -p tangled-knot
+      - name: Benchmark asserted workflows and replication
+        run: target/release/tangled-e2e --benchmark --operations 10 --payload-bytes 256 --warmups 1 --repetitions 3 --output target/e2e/benchmark.json
+      - name: Upload benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-benchmark-${{ github.run_id }}
+          path: target/e2e/
+          if-no-files-found: warn

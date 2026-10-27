@@ -19,15 +19,12 @@ pub fn OnboardView() -> Element {
         div { class: "shell onboard",
             nav { class: "rail",
                 div { class: "rail-head",
-                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "band" }
+                    AppLink { to: Route::Inbox {}, class: "muted rail-link", "Inbox" }
                 }
             }
             section { class: "stage",
-                p { class: "brand",
-                    span { class: "tick" }
-                    "loomed"
-                }
-                p { class: "muted", "sealed radio. generate or import seeds." }
+                p { class: "brand", "Loomed" }
+                p { class: "muted", "Generate a new identity, or import a key file." }
                 button {
                     onclick: move |_| {
                         let keys = LoomedKeys::generate();
@@ -68,12 +65,6 @@ pub fn OnboardView() -> Element {
 }
 
 fn wallet_slot(did: String) -> Element {
-    #[cfg(target_arch = "wasm32")]
-    {
-        if !did.is_empty() {
-            return rsx! { crate::wallet::WalletConnect { expected_did: did } };
-        }
-    }
     let _ = did;
     rsx! {}
 }

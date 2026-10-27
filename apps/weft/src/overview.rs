@@ -30,10 +30,12 @@ pub fn OverviewView(
         div { class: "shell",
             BandRail { show_refresh: true, on_refresh }
             section { class: "stage",
-                if knot_unconfigured {
-                    div { class: "banner", {banner_text(KnotStatus::Unconfigured).unwrap_or("No knot URL set")} }
-                } else if knot_unreachable {
-                    div { class: "banner", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
+                div { class: "band",
+                    if knot_unconfigured {
+                        span { class: "banner", {banner_text(KnotStatus::Unconfigured).unwrap_or("No knot URL set")} }
+                    } else if knot_unreachable {
+                        span { class: "banner late", {banner_text(KnotStatus::Unreachable).unwrap_or("Cannot reach knot")} }
+                    }
                 }
                 p { class: "page-title",
                     span { class: "tick" }
