@@ -80,7 +80,7 @@ The response contains `cid`, `mime`, `name` and `bytes`. Existing locally availa
 {"action":"convert","rkey":"follow-up","source":{"collection":"pub.tangled.chat","rkey":"saved-message"},"body":{"title":"Follow up","state":"inbox"}}
 ```
 
-The source must already exist in the same authorized Store. Conversion copies its `body.text`, or `body.excerpt` if present, unless a replacement `body.text` is explicitly provided. Other source shapes produce an empty text string, so a client can supply its own summary. The new note records immutable `provenance: { "uri": "<original URI>", "cid": "<exact original revision>" }` from the Store response. Later changes to the source do not change that evidence. The source remains unchanged. Its URI can reference another owner if imported into the Store; conversion never fabricates a source author or fetches a remote URL. Any source-specific upstream provenance remains available through the captured source revision.
+The source must already exist in the same authorized Store. Conversion copies its `body.text`, or `body.excerpt` if present, unless a replacement `body.text` is explicitly provided. Other source shapes produce an empty text string, so a client can supply its own summary. The new note records immutable `provenance: { "uri": "<original URI>", "cid": "<exact original revision>" }` from the Store response. Later changes to the source do not change that evidence. The source remains unchanged. Conversion never fabricates a source author or fetches a remote URL. Any source-specific upstream provenance remains available through the captured source revision.
 
 Delete a note:
 

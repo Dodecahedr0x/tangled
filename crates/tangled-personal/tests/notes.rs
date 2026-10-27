@@ -12,7 +12,7 @@ fn private_note_lifecycle_preserves_extensions_and_successors() {
         &mut store,
         json!({"action":"create","rkey":"thought","body":{"text":"First","vendor":{"color":"blue"}}}),
     );
-    assert_eq!(first["visibility"], "cap");
+    assert_eq!(first["vis"], "cap");
     let edited = call(
         &mut store,
         json!({"action":"edit","rkey":"thought","patch":{"title":"A thought","state":"draft"}}),
@@ -20,6 +20,7 @@ fn private_note_lifecycle_preserves_extensions_and_successors() {
     assert_eq!(edited["body"]["vendor"]["color"], "blue");
     assert_eq!(edited["body"]["text"], "First");
     assert_ne!(first["cid"], edited["cid"]);
+    assert_eq!(edited["prev"][0], first["cid"]);
     let got = call(&mut store, json!({"action":"get","rkey":"thought"}));
     assert_eq!(got["cid"], edited["cid"]);
     assert_eq!(
@@ -84,7 +85,7 @@ fn attachments_round_trip_as_private_note_blobs() {
         &mut store,
         json!({"action":"attach","rkey":"files","name":"receipt.txt","mime":"text/plain","bytes":[104,105]}),
     );
-    assert_eq!(note["visibility"], "cap");
+    assert_eq!(note["vis"], "cap");
     assert!(note["body"]["attachments"][0]["cid"].as_str().is_some());
     let attachment = call(
         &mut store,
@@ -112,7 +113,7 @@ fn converting_saved_item_keeps_exact_evidence() {
     assert_eq!(note["body"]["text"], "A message");
     assert_eq!(note["body"]["provenance"]["uri"], source["uri"]);
     assert_eq!(note["body"]["provenance"]["cid"], source["cid"]);
-    assert_eq!(note["visibility"], "cap");
+    assert_eq!(note["vis"], "cap");
     assert!(execute(
         &mut store,
         json!({"action":"edit","rkey":"saved","patch":{"provenance":null}})
@@ -179,5 +180,42 @@ fn generated_keys_and_empty_drafts_are_usable() {
             .unwrap()
             .len(),
         2
+    );
+}
+
+#[test]
+fn notes_and_attachments_survive_reopening_owner_repository() {
+    let dir = tempfile::tempdir().unwrap();
+    let cid;
+    {
+        let mut store = Store::open(dir.path()).unwrap();
+        call(
+            &mut store,
+            json!({"action":"capture","rkey":"durable","body":{"text":"Keep this","reminderAt":100}}),
+        );
+        let attached = call(
+            &mut store,
+            json!({"action":"attach","rkey":"durable","name":"memo.txt","mime":"text/plain","bytes":[65]}),
+        );
+        cid = attached["cid"].clone();
+    }
+    let mut store = Store::open(dir.path()).unwrap();
+    assert_eq!(
+        call(&mut store, json!({"action":"get","rkey":"durable"}))["cid"],
+        cid
+    );
+    assert_eq!(
+        call(
+            &mut store,
+            json!({"action":"attachment","rkey":"durable","index":0})
+        )["bytes"],
+        json!([65])
+    );
+    assert_eq!(
+        call(&mut store, json!({"action":"due","at":100}))
+            .as_array()
+            .unwrap()
+            .len(),
+        1
     );
 }
