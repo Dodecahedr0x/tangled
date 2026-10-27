@@ -16,14 +16,16 @@ class Element {
   get textContent() { return (this.text || '') + this.children.map(x => typeof x === 'object' ? x.textContent : x).join(' '); }
 }
 const el = (tag, attrs = {}, ...children) => new Element(tag, attrs, children);
+const revealedSelections = [];
 globalThis.readingTestHelpers = {
+  revealSelection: node => revealedSelections.push(node),
   el, field: (label, control, hint) => el('label', {}, label, control, hint),
   button: (label, onClick, kind) => el('button', { onClick, text: label, class: kind }),
   empty: (title, detail, action) => el('section', {}, title, detail, action),
   recordTitle: r => r.body?.title || r.body?.text || 'Untitled', timeLabel: t => String(t),
 };
 const source = (await readFile(new URL('../web/reading.js', import.meta.url), 'utf8'))
-  .replace(/^import .*from '\.\/ui\.js';/m, 'const {el,field,button,empty,recordTitle,timeLabel} = globalThis.readingTestHelpers;');
+  .replace(/^import .*from '\.\/ui\.js';/m, 'const {el,field,button,empty,recordTitle,timeLabel,revealSelection} = globalThis.readingTestHelpers;');
 const { mountFeeds, mountConnections } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 const nodes = root => [root, ...root.children.flatMap(x => typeof x === 'object' ? nodes(x) : [])];
 const byText = (root, text) => nodes(root).find(x => x.tagName === 'button' && x.text === text);
@@ -175,4 +177,35 @@ test('subscription selects contain native option nodes rather than a stringified
       ['option', ''], ['option', 'https://a.test/feed'], ['option', 'https://b.test/feed'],
     ]);
   }
+});
+
+
+test('reader reveal follows explicit item selection without following refresh or organization saves', async () => {
+  const start = revealedSelections.length;
+  const item = { uri: 'tangled://owner/feedItem/mobile', ts: 1, body: { title: 'Mobile article', body: 'Text', sourceUrl: 'https://source.test/feed' }, reading: {} };
+  const ctx = context((_, request) => request.action === 'list' ? { subscriptions: [] } : request.action === 'queue' ? { items: [item] } : {});
+  const root = el('main'); await mountFeeds(root, ctx);
+  assert.equal(revealedSelections.length, start, 'mount does not reveal');
+  await byText(root, 'Mobile article').onClick();
+  assert.equal(revealedSelections.length, start + 1);
+  assert.equal(revealedSelections.at(-1).class, 'reader');
+  await byText(root, 'Mark read').onClick();
+  await byText(root, 'Apply filters').onClick();
+  assert.equal(revealedSelections.length, start + 1, 'save and filter do not reveal');
+});
+
+test('contact filtering does not reveal a reader until an actual source item is opened', async () => {
+  const start = revealedSelections.length;
+  const item = { rkey: 'mobile-source', ts: 1, body: { imported: { source: 'telegram', account: 'me', object: { id: '1', kind: 'message', sender: 'alice', text: 'Mobile message' } }, currentRevision: 0 } };
+  const contact = { uri: 'tangled://owner/contact/alice', body: { identity: { source: 'telegram', account: 'me', sender: 'alice' }, alias: 'Alice', groups: [] } };
+  const ctx = context((_, request) => request.action === 'contacts' ? [contact] : request.action === 'history' ? [] : request.action === 'get' ? item : [item]);
+  const root = el('main'); await mountConnections(root, ctx);
+  assert.equal(revealedSelections.length, start);
+  await byText(root, 'Show contact items').onClick();
+  assert.equal(revealedSelections.length, start, 'contact filtering does not reveal');
+  await byText(root, 'Mobile message').onClick();
+  assert.equal(revealedSelections.length, start + 1);
+  assert.equal(revealedSelections.at(-1).class, 'reader');
+  await byText(root, 'Save local organization').onClick();
+  assert.equal(revealedSelections.length, start + 1, 'organization save does not reveal');
 });
