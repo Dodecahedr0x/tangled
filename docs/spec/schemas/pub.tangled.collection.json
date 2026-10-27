@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tangled.protocol/schemas/pub.tangled.collection.json",
+  "title": "pub.tangled.collection",
+  "description": "Personal named collection of stable record references, separate from a record's protocol collection.",
+  "type": "object",
+  "required": ["name", "items"],
+  "properties": {
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["uri"],
+        "properties": {
+          "uri": {"type": "string", "pattern": "^tangled://did:[^/]+/[^/]+/[^/]+$"},
+          "cid": {"type": "string", "minLength": 1, "description": "Optional exact version evidence"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}
