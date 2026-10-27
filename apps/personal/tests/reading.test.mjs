@@ -181,31 +181,151 @@ test('subscription selects contain native option nodes rather than a stringified
 
 
 test('reader reveal follows explicit item selection without following refresh or organization saves', async () => {
+  const updates = [];
   const start = revealedSelections.length;
   const item = { uri: 'tangled://owner/feedItem/mobile', ts: 1, body: { title: 'Mobile article', body: 'Text', sourceUrl: 'https://source.test/feed' }, reading: {} };
   const ctx = context((_, request) => request.action === 'list' ? { subscriptions: [] } : request.action === 'queue' ? { items: [item] } : {});
+  ctx.updateRecordLink = (...args) => updates.push(args);
   const root = el('main'); await mountFeeds(root, ctx);
   assert.equal(revealedSelections.length, start, 'mount does not reveal');
+  assert.deepEqual(updates, [], 'mount does not rewrite the current URL');
   await byText(root, 'Mobile article').onClick();
   assert.equal(revealedSelections.length, start + 1);
   assert.equal(revealedSelections.at(-1).class, 'reader');
   await byText(root, 'Mark read').onClick();
   await byText(root, 'Apply filters').onClick();
   assert.equal(revealedSelections.length, start + 1, 'save and filter do not reveal');
+  assert.deepEqual(updates, [['feeds', item.uri]], 'only explicit selection replaces the current record link');
 });
 
 test('contact filtering does not reveal a reader until an actual source item is opened', async () => {
+  const updates = [];
   const start = revealedSelections.length;
-  const item = { rkey: 'mobile-source', ts: 1, body: { imported: { source: 'telegram', account: 'me', object: { id: '1', kind: 'message', sender: 'alice', text: 'Mobile message' } }, currentRevision: 0 } };
+  const item = { uri: 'tangled://owner/pub.tangled.sourceItem/mobile-source', rkey: 'mobile-source', ts: 1, body: { imported: { source: 'telegram', account: 'me', object: { id: '1', kind: 'message', sender: 'alice', text: 'Mobile message' } }, currentRevision: 0 } };
   const contact = { uri: 'tangled://owner/contact/alice', body: { identity: { source: 'telegram', account: 'me', sender: 'alice' }, alias: 'Alice', groups: [] } };
   const ctx = context((_, request) => request.action === 'contacts' ? [contact] : request.action === 'history' ? [] : request.action === 'get' ? item : [item]);
+  ctx.updateRecordLink = (...args) => updates.push(args);
   const root = el('main'); await mountConnections(root, ctx);
   assert.equal(revealedSelections.length, start);
+  assert.deepEqual(updates, []);
   await byText(root, 'Show contact items').onClick();
   assert.equal(revealedSelections.length, start, 'contact filtering does not reveal');
+  assert.deepEqual(updates, [], 'contact filtering does not change the selected record URL');
   await byText(root, 'Mobile message').onClick();
   assert.equal(revealedSelections.length, start + 1);
   assert.equal(revealedSelections.at(-1).class, 'reader');
   await byText(root, 'Save local organization').onClick();
   assert.equal(revealedSelections.length, start + 1, 'organization save does not reveal');
+  assert.deepEqual(updates, [['connections', item.uri]], 'only opening the source item updates the record link');
+});
+
+const linkedFeed = { uri: 'tangled://did:sol:local/pub.tangled.feedItem/linked', collection: 'pub.tangled.feedItem', rkey: 'linked', ts: 1,
+  body: { title: 'Linked article', body: 'Outside the queue', sourceUrl: 'https://source.test/feed', extra: { retained: true } } };
+const linkedSource = { uri: 'tangled://did:sol:local/pub.tangled.sourceItem/linked', collection: 'pub.tangled.sourceItem', rkey: 'linked', ts: 1,
+  body: { imported: { source: 'third-party', account: 'me', object: { id: '7', kind: 'message', text: 'Linked source', sender: 'alice' } }, currentRevision: 0, deleted: true, extra: { retained: true } } };
+function linkedContext(item, overrides = {}) {
+  const ctx = context((feature, request) => {
+    if (feature === 'info') return { did: 'did:sol:local' };
+    if (feature === 'records' && request.action === 'get') return item;
+    if (feature === 'records' && request.collection === 'pub.tangled.readingState') return { records: [{ body: { item: linkedFeed.uri, read: true, starred: true, tags: ['kept'] } }] };
+    if (feature === 'feeds') return request.action === 'list' ? { subscriptions: [] } : { items: [] };
+    if (feature === 'connections') return request.action === 'get' ? item : [];
+    throw Error(`Unexpected API ${feature}/${request.action}`);
+  });
+  return Object.assign(ctx, { selection: { uri: item.uri } }, overrides);
+}
+
+for (const [view, mount, item, readerText] of [['feeds', mountFeeds, linkedFeed, 'Outside the queue'], ['connections', mountConnections, linkedSource, 'Linked source']]) {
+  test(`${view} opens its exact linked record outside filters without writes and copies its stable link`, async () => {
+    const before = JSON.stringify(item), copied = [], updates = [], root = el('main');
+    const ctx = linkedContext(item, { copyRecordLink: async (...args) => copied.push(args), updateRecordLink: (...args) => updates.push(args) });
+    await mount(root, ctx);
+    assert.ok(root.textContent.includes(readerText), 'linked content is rendered despite an empty list');
+    assert.deepEqual(updates, [], 'opening the initial route does not replace its URL');
+    if (view === 'feeds') {
+      assert.ok(byText(root, 'Mark unread'), 'existing read state is retained');
+      assert.ok(byText(root, 'Unstar article'));
+      assert.equal(control(root, 'Article tags').value, 'kept');
+      assert.deepEqual(ctx.calls.find(([feature, request]) => feature === 'records' && request.action === 'get')?.[1], { action: 'get', collection: 'pub.tangled.feedItem', rkey: 'linked' });
+    }
+    assert.ok(ctx.calls.every(([, request]) => !['mark', 'overlay', 'put', 'contact', 'select-revision'].includes(request.action)), 'opening never mutates signed records');
+    await byText(root, 'Copy link').onClick();
+    assert.deepEqual(copied, [[view, item.uri]]);
+    ctx.copyRecordLink = async () => { throw Error('Clipboard unavailable. Copy the address manually.'); };
+    await byText(root, 'Copy link').onClick();
+    assert.match(ctx.errors.at(-1), /Clipboard unavailable/);
+    assert.equal(JSON.stringify(item), before, 'source record and extension fields are untouched');
+  });
+
+  test(`${view} rejects malformed, wrong-collection, foreign and unavailable record links without writes`, async () => {
+    for (const uri of ['not-a-uri', 'tangled://did:sol:local/pub.tangled.note/linked', item.uri.replace('did:sol:local', 'did:sol:foreign'), item.uri]) {
+      const ctx = linkedContext(item, { selection: { uri } }), originalApi = ctx.api;
+      let getRequests = 0;
+      ctx.api = async (feature, request) => {
+        if ((feature === 'records' || feature === 'connections') && request.action === 'get') { getRequests++; throw Error('Record not found'); }
+        return originalApi(feature, request);
+      };
+      const root = el('main'); await mount(root, ctx);
+      assert.match(root.textContent, /(?:Could not open|unavailable|cannot open)/i);
+      assert.match(root.textContent, /(?:queue|search|retry|link)/i, 'error gives a recovery action');
+      assert.equal(byText(root, 'Copy link'), undefined);
+      assert.ok(ctx.errors.length > 0);
+      assert.ok(ctx.calls.every(([, request]) => !['mark', 'overlay', 'put', 'contact', 'select-revision'].includes(request.action)));
+      assert.equal(getRequests, uri === item.uri ? 1 : 0, 'bad identity is rejected before resolving a local key');
+    }
+  });
+
+  test(`${view} refuses a tombstone or a different record returned for the linked key`, async () => {
+    for (const patch of [{ deleted: true }, { tombstone: true }, { uri: item.uri.replace('did:sol:local', 'did:sol:other') }, { collection: 'pub.tangled.note' }, { rkey: 'different' }]) {
+      const returned = { ...item, ...patch }, root = el('main');
+      const ctx = linkedContext(returned, { selection: { uri: item.uri } });
+      await mount(root, ctx);
+      assert.match(root.textContent, /Could not open/);
+      assert.equal(byText(root, 'Copy link'), undefined);
+      assert.ok(ctx.calls.every(([, request]) => ['get', 'list', 'queue', 'history', 'contacts', undefined].includes(request.action)), 'record rejection does not issue a mutation');
+    }
+  });
+
+  test(`${view} does not let a slow initial link replace a newer explicit selection`, async () => {
+    const second = structuredClone(item); second.rkey = 'newer'; second.uri = item.uri.replace('/linked', '/newer');
+    if (view === 'feeds') { second.body.title = 'Newer article'; second.body.body = 'Newer content'; }
+    else second.body.imported.object.text = 'Newer source';
+    let resolveLinked, requested = false;
+    const pending = new Promise(resolve => { resolveLinked = resolve; });
+    const updates = [], ctx = linkedContext(item, { updateRecordLink: (...args) => updates.push(args) }), api = ctx.api;
+    ctx.api = (feature, request) => {
+      if (request.action === 'get') { if (request.rkey === 'linked') { requested = true; return pending; } return Promise.resolve(second); }
+      if (view === 'feeds' && feature === 'feeds' && request.action === 'queue') return Promise.resolve({ items: [second] });
+      if (view === 'connections' && feature === 'connections' && request.action === 'list') return Promise.resolve([second]);
+      return api(feature, request);
+    };
+    const root = el('main'), mounting = mount(root, ctx);
+    await new Promise(setImmediate);
+    assert.equal(requested, true, 'initial linked record is loading');
+    await byText(root, view === 'feeds' ? 'Newer article' : 'Newer source').onClick();
+    resolveLinked(item); await mounting;
+    const reader = nodes(root).find(node => node.tagName === 'article');
+    assert.ok(reader.textContent.includes(view === 'feeds' ? 'Newer article' : 'Newer source'));
+    assert.ok(!reader.textContent.includes(readerText));
+    assert.deepEqual(updates, [[view, second.uri]], 'new explicit selection updates the URL and a stale initial result cannot revert it');
+  });
+}
+
+
+test('a failed source reader selection retains the previous reader and record URL', async () => {
+  const second = structuredClone(linkedSource); second.rkey = 'unavailable'; second.uri = linkedSource.uri.replace('/linked', '/unavailable');
+  second.body.imported.object.text = 'Unavailable source';
+  const updates = [], ctx = linkedContext(linkedSource, { updateRecordLink: (...args) => updates.push(args) }), api = ctx.api;
+  ctx.api = (feature, request) => {
+    if (feature === 'connections' && request.action === 'list') return Promise.resolve([second]);
+    if (feature === 'connections' && request.action === 'get' && request.rkey === 'unavailable') return Promise.reject(Error('Read failed. Retry this item.'));
+    return api(feature, request);
+  };
+  const root = el('main'); await mountConnections(root, ctx);
+  await byText(root, 'Unavailable source').onClick();
+  assert.match(ctx.errors.at(-1), /Read failed/);
+  assert.deepEqual(updates, [], 'the URL keeps identifying the successfully loaded reader');
+  const reader = nodes(root).find(node => node.tagName === 'article');
+  assert.match(reader.textContent, /Linked source/);
+  assert.ok(!reader.textContent.includes('Unavailable source'));
 });

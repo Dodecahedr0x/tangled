@@ -75,6 +75,27 @@ function reminderValue(control) {
   return seconds;
 }
 
+function linkedTarget(ctx, uri, collection) {
+  const match = typeof uri === 'string' && /^tangled:\/\/([^/]+)\/([^/?#]+)\/([^/?#]+)$/.exec(uri);
+  if (!match || match[1] !== ctx.session?.did) throw new Error('This record is unavailable or belongs to another library.');
+  if (collection && match[2] !== collection) throw new Error('This record is not available in this view. Open it in Library.');
+  return { uri, collection: match[2], rkey: match[3] };
+}
+
+function checkLinkedRecord(target, record) {
+  if (!record || record.uri !== target.uri || record.collection !== target.collection || keyOf(record) !== target.rkey) {
+    throw new Error('This record is unavailable in this library.');
+  }
+  return record;
+}
+
+function copyLink(ctx, view, record, message) {
+  const copy = button('Copy link', () => void run(ctx, copy, message, async () => {
+    await ctx.copyRecordLink(view, record.uri);
+  }));
+  return copy;
+}
+
 export async function mountLibrary(root, ctx) {
   let searches = [], groups = [], annotations = [], current = null, results = [], total = 0, offset = 0, revision = 0;
   let selectedSearch = '', selectedGroup = null;
@@ -159,18 +180,19 @@ export async function mountLibrary(root, ctx) {
     if (current) renderReader(current);
   }
 
-  async function openResult(hit, reveal = false) {
+  async function openResult(hit, reveal = false, linked = false) {
     const ticket = ++revision;
     replace(reader, hint('Opening record…'));
     detailStatus.textContent = '';
     try {
-      const record = await ctx.api('records', { action: 'get', collection: hit.collection, rkey: keyOf(hit) });
+      const target = linked ? linkedTarget(ctx, hit.uri) : { ...hit, rkey: keyOf(hit) };
+      const record = checkLinkedRecord(target, await ctx.api('records', { action: 'get', collection: target.collection, rkey: target.rkey }));
       let text = plainBody(record.body);
       if (record.collection === 'pub.tangled.capture') text = (await ctx.api('capture', { action: 'read', uri: record.uri })).text;
       if (ticket !== revision) return;
       current = { record, text };
       renderReader(current);
-      if (reveal) revealSelection(reader);
+      if (reveal) { ctx.updateRecordLink?.('library', record.uri); revealSelection(reader); }
     } catch (error) {
       if (ticket !== revision) return;
       current = null;
@@ -223,7 +245,7 @@ export async function mountLibrary(root, ctx) {
     replace(reader, heading(recordTitle(record)), el('p', { class: 'meta', text: humanCollection(record.collection) }),
       body.url ? externalLink(body.url) : null,
       el('div', { class: 'reader-body', text: text || 'This record has no readable text. Open its original workflow to manage attachments or structured content.' }),
-      reference(record), el('div', { class: 'form-grid' }, field('Collection', addGroup), el('div', { class: 'actions' }, add)),
+      reference(record), copyLink(ctx, 'library', record, detailStatus), el('div', { class: 'form-grid' }, field('Collection', addGroup), el('div', { class: 'actions' }, add)),
       !groups.length ? hint('Create a collection below to organize this record.') : null,
       detailStatus, annotationList, annotationForm);
   }
@@ -280,6 +302,7 @@ export async function mountLibrary(root, ctx) {
   searchStatus.textContent = 'Loading your library…';
   try { await loadOrganizers(); await search(); }
   catch (error) { searchStatus.textContent = `${error.message || error} Reload this view to try again.`; ctx.notify(error.message || String(error), 'error'); }
+  if (ctx.selection?.uri) await openResult({ uri: ctx.selection.uri }, true, true);
 }
 
 export async function mountCapture(root, ctx) {
@@ -325,21 +348,22 @@ export async function mountCapture(root, ctx) {
     listStatus.textContent = '';
   }
 
-  async function open(uri, reveal = false) {
+  async function open(uri, reveal = false, linked = false) {
     const ticket = ++readerTicket;
     replace(reader, hint('Opening saved item…'));
     try {
+      const target = linked ? linkedTarget(ctx, uri, 'pub.tangled.capture') : null;
       const [recordResult, textResult] = await Promise.allSettled([ctx.api('capture', { action: 'get', uri }), ctx.api('capture', { action: 'read', uri })]);
       if (ticket !== readerTicket) return;
       if (recordResult.status === 'rejected') throw recordResult.reason;
-      selected = recordResult.value;
+      selected = target ? checkLinkedRecord(target, recordResult.value) : recordResult.value;
       currentText = textResult.status === 'fulfilled' ? textResult.value.text || '' : '';
       readerError = textResult.status === 'rejected' ? `Saved text could not be displayed: ${textResult.reason.message || textResult.reason}. Download the original to open it.` : '';
       renderReader();
       for (const row of list.children) row.classList.remove('selected');
       const index = records.findIndex(record => record.uri === uri);
       if (index >= 0) list.children[index]?.classList.add('selected');
-      if (reveal) revealSelection(reader);
+      if (reveal) { ctx.updateRecordLink?.('capture', selected.uri); revealSelection(reader); }
     } catch (error) {
       if (ticket === readerTicket) replace(reader, empty('Could not read this saved item', error.message || String(error), button('Try again', () => void open(uri))));
     }
@@ -374,7 +398,7 @@ export async function mountCapture(root, ctx) {
     readerStatus.textContent = '';
     replace(reader, heading(recordTitle(record)), el('p', { class: 'meta', text: [body.kind, body.read ? 'Read' : 'Unread', tagsText(body)].filter(Boolean).join(' · ') }),
       body.url ? externalLink(body.url) : null,
-      el('div', { class: 'actions' }, read, star, download), readerStatus,
+      el('div', { class: 'actions' }, read, star, download, copyLink(ctx, 'capture', record, readerStatus)), readerStatus,
       el('div', { class: 'reader-body', text: readerError || currentText || (body.kind === 'bookmark' ? 'This is a saved link. Open the original URL to read the page.' : 'Download the original file to open it in a suitable application.') }),
       el('details', { class: 'detail' }, el('summary', { text: 'Edit saved item' }),
         formWith(editSave, editStatus, ctx, async () => {
@@ -422,10 +446,22 @@ export async function mountCapture(root, ctx) {
     el('div', { class: 'split' }, el('section', { class: 'pane', 'aria-label': 'Saved items' }, count, list), reader)));
   try { await loadList(); }
   catch (error) { listStatus.textContent = `${error.message || error} Use Apply filters to try again.`; ctx.notify(error.message || String(error), 'error'); }
+  if (ctx.selection?.uri) await open(ctx.selection.uri, true, true);
 }
 
 export async function mountNotes(root, ctx) {
-  let records = [], selected = null, sources = [];
+  let records = [], selected = null, sources = [], editorRevision = 0, conversionRevision = 0;
+  let noteDirty = () => false, conversionDirty = () => false;
+  const registerGuard = () => ctx.setNavigationGuard?.(() => noteDirty() || conversionDirty());
+  const discard = () => ctx.confirmDiscard?.() !== false;
+  function clearConversion() {
+    ++conversionRevision; conversionDirty = () => false; replace(convertArea); registerGuard();
+  }
+  function startNote(record = null, initialState = 'note', reveal = false) {
+    if (!discard()) return;
+    clearConversion(); renderEditor(record, initialState); renderList();
+    if (reveal) { ctx.updateRecordLink?.('notes', record.uri); revealSelection(editor); }
+  }
   const stateFilter = select([['', 'All notes'], ['note', 'Notes'], ['draft', 'Drafts'], ['inbox', 'Self inbox'], ['due', 'Due reminders']]);
   const query = input('', { type: 'search', placeholder: 'Find a note' });
   const list = el('ul', { class: 'list' }), count = el('p', { class: 'meta' }), listStatus = status();
@@ -437,7 +473,7 @@ export async function mountNotes(root, ctx) {
     const needle = query.value.trim().toLocaleLowerCase();
     const filtered = records.filter(record => `${recordTitle(record)} ${record.body.text || ''}`.toLocaleLowerCase().includes(needle));
     count.textContent = `${filtered.length} ${filtered.length === 1 ? 'note' : 'notes'}`;
-    replace(list, ...(filtered.length ? filtered.map(record => itemRow(record, selected?.uri === record.uri, () => { selected = record; renderEditor(record); renderList(); revealSelection(editor); },
+    replace(list, ...(filtered.length ? filtered.map(record => itemRow(record, selected?.uri === record.uri, () => startNote(record, 'note', true),
       [record.body.state, record.body.reminderAt != null ? `Reminder: ${timeLabel(record.body.reminderAt * 1000)}` : '', record.body.attachments?.length ? `${record.body.attachments.length} attachments` : ''].filter(Boolean).join(' · '))) : [empty('No notes here yet', 'Write a note, keep a draft, or capture an idea in your self inbox. Clear filters to see other notes.')]));
   }
 
@@ -449,25 +485,62 @@ export async function mountNotes(root, ctx) {
     renderList(); listStatus.textContent = '';
   }
 
-  function renderEditor(record = null, initialState = 'note', draft = null) {
+  function renderEditor(record = null, initialState = 'note', draft = null, auxiliary = null) {
     selected = record;
+    const generation = ++editorRevision;
     const body = record?.body || {};
     const title = input(draft?.title ?? body.title ?? '', { maxLength: 512 });
     const text = textarea(draft?.text ?? body.text ?? '', { rows: 12 });
     const state = select([['note', 'Note'], ['draft', 'Draft'], ['inbox', 'Self inbox']], draft?.state || body.state || initialState);
     const reminder = input(draft?.reminder ?? localDate(body.reminderAt), { type: 'datetime-local' });
     const snapshot = () => ({ title: title.value, text: text.value, state: state.value, reminder: reminder.value });
-    const preserveDraft = updated => { const pending = snapshot(); renderEditor(updated, 'note', pending); renderList(); };
+    const baseline = { title: body.title || '', text: body.text || '', state: body.state || initialState, reminder: localDate(body.reminderAt) };
+    let pending = false;
+    // Capture the live controls after every awaited refresh, so typing during a
+    // request remains in the editor and is compared against the saved response.
+    async function updateNote(task, savedSnapshot = null, append = '', submittedControl = null) {
+      if (pending) throw new Error('Wait for the current note update to finish.');
+      pending = true;
+      if (submittedControl) submittedControl.disabled = true;
+      try {
+        const updated = await task();
+        if (submittedControl) submittedControl.value = '';
+        try { await loadList(); }
+        finally {
+          if (generation === editorRevision && editor.isConnected !== false) {
+            const live = snapshot();
+            if (append) live.text = `${live.text}${live.text ? '\n' : ''}${append}`;
+            const unchanged = savedSnapshot && Object.keys(live).every(key => live[key] === savedSnapshot[key]);
+            renderEditor(updated, 'note', unchanged ? null : live, { file: attachFile, append: appendText }); renderList();
+            if (!record) ctx.updateRecordLink?.('notes', updated.uri);
+          }
+        }
+      } finally {
+        pending = false;
+        if (submittedControl) submittedControl.disabled = false;
+      }
+    }
     const noteStatus = status(), save = submit(record ? 'Save note' : 'Create note');
     const attachments = el('div', { class: 'stack' });
-    const attachFile = input('', { type: 'file' });
+    // Reuse native controls across updates: a selected FileList cannot be
+    // restored by assigning a filename, and must stay private and unread here.
+    const attachFile = auxiliary?.file || input('', { type: 'file' });
     const attachStatus = status(), attach = submit('Attach file');
-    const appendText = textarea('', { rows: 3, required: true });
+    const appendText = auxiliary?.append || textarea('', { rows: 3, required: true });
     const appendStatus = status(), append = submit('Append to note');
+    noteDirty = () => pending || !!appendText.value || !!attachFile.files?.length || Object.entries(baseline).some(([key, value]) => snapshot()[key] !== value);
+    registerGuard();
     const clearReminder = button('Clear reminder', () => { reminder.value = ''; reminder.focus(); });
     const remove = button('Delete note', () => void run(ctx, remove, noteStatus, async () => {
-      await ctx.api('notes', { action: 'delete', rkey: keyOf(record) });
-      selected = null; await loadList(); renderEditor(); ctx.notify('Note deleted. Earlier signed revisions may remain in the repository.');
+      if (!discard()) return;
+      if (pending) throw new Error('Wait for the current note update to finish.');
+      pending = true;
+      try {
+        await ctx.api('notes', { action: 'delete', rkey: keyOf(record) });
+        try { await loadList(); }
+        finally { if (generation === editorRevision && editor.isConnected !== false) renderEditor(); }
+        ctx.notify('Note deleted. Earlier signed revisions may remain in the repository.');
+      } finally { pending = false; }
     }), 'danger');
     for (const [index, attachment] of (body.attachments || []).entries()) {
       const download = button('Download', () => void run(ctx, download, attachStatus, async () => {
@@ -475,48 +548,55 @@ export async function mountNotes(root, ctx) {
         ctx.download(data.name || 'attachment', new Uint8Array(data.bytes), data.mime || 'application/octet-stream');
       }));
       const removeAttachment = button('Remove attachment', () => void run(ctx, removeAttachment, attachStatus, async () => {
-        const updated = await ctx.api('notes', { action: 'edit', rkey: keyOf(record), patch: { attachments: body.attachments.filter((_, itemIndex) => itemIndex !== index) } });
-        await loadList(); preserveDraft(updated); ctx.notify('Attachment removed from this note.');
+        await updateNote(() => ctx.api('notes', { action: 'edit', rkey: keyOf(record), patch: { attachments: body.attachments.filter((_, itemIndex) => itemIndex !== index) } })); ctx.notify('Attachment removed from this note.');
       }));
       attachments.append(el('div', { class: 'item' }, el('div', { class: 'item-main' }, el('p', { text: attachment.name || 'Attachment' }), el('p', { class: 'meta', text: attachment.mime })), el('div', { class: 'actions' }, download, removeAttachment)));
     }
     replace(editor, heading(record ? 'Edit note' : 'New note'),
       formWith(save, noteStatus, ctx, async () => {
+        const submitted = snapshot();
         const patch = { text: text.value, title: title.value || null, state: state.value, reminderAt: reminderValue(reminder) };
         const createBody = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== null));
         const payload = record ? { action: 'edit', rkey: keyOf(record), patch } : { action: state.value === 'inbox' ? 'capture' : 'create', body: createBody };
-        const updated = await ctx.api('notes', payload);
-        await loadList(); renderEditor(updated); renderList(); ctx.notify(record ? 'Note saved.' : 'Note created privately.');
+        await updateNote(() => ctx.api('notes', payload), submitted); ctx.notify(record ? 'Note saved.' : 'Note created privately.');
       }, field('Title (optional)', title), field('Text', text), el('div', { class: 'form-grid' }, field('Keep as', state), field('Reminder', reminder, 'Reminders appear in Due reminders when this app is opened; no background notification is sent.')), clearReminder),
       record ? el('details', { class: 'detail' }, el('summary', { text: 'Append text' }), formWith(append, appendStatus, ctx, async () => {
-        const pending = snapshot();
-        const updated = await ctx.api('notes', { action: 'append', rkey: keyOf(record), text: appendText.value });
-        if (pending.text !== body.text) pending.text = `${pending.text}${pending.text ? '\n' : ''}${appendText.value}`;
-        else pending.text = updated.body.text;
-        await loadList(); renderEditor(updated, 'note', pending); renderList(); ctx.notify('Text appended.');
+        const appended = appendText.value;
+        await updateNote(() => ctx.api('notes', { action: 'append', rkey: keyOf(record), text: appended }), null, appended, appendText); ctx.notify('Text appended.');
       }, field('Text to append', appendText, 'Added after the existing text on a new line.'))) : null,
       record ? el('details', { class: 'detail' }, el('summary', { text: `Attachments (${body.attachments?.length || 0})` }), attachments,
         formWith(attach, attachStatus, ctx, async () => {
           const chosen = attachFile.files?.[0];
-          const bytes = await fileBytes(chosen);
-          const updated = await ctx.api('notes', { action: 'attach', rkey: keyOf(record), name: chosen.name, mime: chosen.type || 'application/octet-stream', bytes });
-          await loadList(); preserveDraft(updated); ctx.notify('File attached privately.');
+          await updateNote(async () => {
+            const bytes = await fileBytes(chosen);
+            return ctx.api('notes', { action: 'attach', rkey: keyOf(record), name: chosen.name, mime: chosen.type || 'application/octet-stream', bytes });
+          }, null, '', attachFile); ctx.notify('File attached privately.');
         }, field('File to attach', attachFile, 'Up to 16 MiB. Removing an attachment reference does not erase earlier signed revisions.'))) : hint('Save this note to attach files or append text.'),
       body.provenance ? el('details', { class: 'detail' }, el('summary', { text: 'Original source' }), reference(body.provenance), hint('This note preserves the source revision used when it was created.')) : null,
-      record ? reference(record) : null, record ? el('div', { class: 'actions' }, remove) : null);
+      record ? reference(record) : null, record ? el('div', { class: 'actions' }, copyLink(ctx, 'notes', record, noteStatus), remove) : null);
   }
 
   async function showConversion() {
+    if (!discard()) return;
+    clearConversion(); renderEditor(); renderList();
+    const generation = conversionRevision;
     const response = await ctx.api('records', { action: 'list' });
+    if (generation !== conversionRevision || convertArea.isConnected === false) return;
     sources = rows(response).filter(record => record.collection !== 'pub.tangled.note' && record.body && typeof record.body === 'object');
+    replace(editor, hint('Choose a source above to create a note.'));
     if (!sources.length) { replace(convertArea, empty('No source items yet', 'Save an item in Capture or import a source before turning it into a note.')); return; }
     const picker = select([['', 'Choose a saved item'], ...sources.map(record => [record.uri, `${recordTitle(record)} · ${humanCollection(record.collection)}`])]);
     const title = input('', { maxLength: 512 });
     const state = select([['note', 'Note'], ['draft', 'Draft'], ['inbox', 'Self inbox']], 'inbox');
     const text = textarea('', { rows: 6 });
     const conversionStatus = status(), convert = submit('Create note from source');
-    let sourceTicket = 0, sourceReady = false;
+    let sourceTicket = 0, sourceReady = false, converting = false;
+    conversionDirty = () => converting || !!picker.value || !!title.value || !!text.value || state.value !== 'inbox';
+    registerGuard();
+    let previousSource = '';
     picker.addEventListener('change', async () => {
+      if (previousSource && !discard()) { picker.value = previousSource; return; }
+      previousSource = picker.value;
       const ticket = ++sourceTicket;
       const record = sources.find(record => record.uri === picker.value);
       sourceReady = false; convert.disabled = false;
@@ -525,11 +605,13 @@ export async function mountNotes(root, ctx) {
       text.value = typeof record.body.text === 'string' ? record.body.text : (typeof record.body.excerpt === 'string' ? record.body.excerpt : '');
       conversionStatus.textContent = '';
       if (record.collection === 'pub.tangled.capture') {
+        const sourceText = text.value;
         conversionStatus.textContent = 'Reading source text…'; convert.disabled = true;
         try {
           const result = await ctx.api('capture', { action: 'read', uri: record.uri });
-          if (ticket !== sourceTicket) return;
-          text.value = result.text || ''; sourceReady = true; conversionStatus.textContent = '';
+          if (ticket !== sourceTicket || generation !== conversionRevision) return;
+          if (text.value === sourceText) text.value = result.text || '';
+          sourceReady = true; conversionStatus.textContent = '';
         } catch (error) { if (ticket === sourceTicket) conversionStatus.textContent = `${error.message || error} Choose the source again to retry.`; }
         finally { if (ticket === sourceTicket) convert.disabled = false; }
       } else sourceReady = true;
@@ -537,21 +619,48 @@ export async function mountNotes(root, ctx) {
     replace(convertArea, formWith(convert, conversionStatus, ctx, async () => {
       const record = sources.find(record => record.uri === picker.value);
       if (!record || !sourceReady) throw new Error('Choose an available source item first.');
-      const updated = await ctx.api('notes', { action: 'convert', source: { collection: record.collection, rkey: keyOf(record) }, body: { ...(title.value ? { title: title.value } : {}), state: state.value, text: text.value } });
-      stateFilter.value = ''; query.value = ''; await loadList(); renderEditor(updated); renderList();
-      replace(convertArea, ); ctx.notify('Note created with its original source reference.');
+      if (converting) return;
+      const submitted = { title: title.value, state: state.value, text: text.value };
+      converting = true;
+      try {
+        const updated = await ctx.api('notes', { action: 'convert', source: { collection: record.collection, rkey: keyOf(record) }, body: { ...(submitted.title ? { title: submitted.title } : {}), state: submitted.state, text: submitted.text } });
+        stateFilter.value = ''; query.value = '';
+        try { await loadList(); }
+        finally {
+          if (generation === conversionRevision && convertArea.isConnected !== false) {
+            const live = { title: title.value, state: state.value, text: text.value, reminder: '' };
+            const unchanged = Object.keys(submitted).every(key => live[key] === submitted[key]);
+            clearConversion(); renderEditor(updated, 'note', unchanged ? null : live); renderList();
+            ctx.updateRecordLink?.('notes', updated.uri);
+          }
+        }
+      } finally { converting = false; }
+      ctx.notify('Note created with its original source reference.');
     }, field('Source item', picker), field('Note title', title), field('Keep as', state), field('Note text', text, 'Edit the copied text before creating the note. The original item stays unchanged.'),
-    button('Cancel conversion', () => { ++sourceTicket; replace(convertArea, ); })));
+    button('Cancel conversion', () => { if (!discard()) return; ++sourceTicket; clearConversion(); renderEditor(); })));
   }
   const conversionStatus = status();
   const fromSource = button('Create from saved item', () => void run(ctx, fromSource, conversionStatus, showConversion));
   replace(root, el('div', { class: 'stack' },
-    el('div', { class: 'toolbar' }, button('New note', () => { renderEditor(); renderList(); }), button('New draft', () => { renderEditor(null, 'draft'); renderList(); }), button('Capture to self inbox', () => { renderEditor(null, 'inbox'); renderList(); }), fromSource),
+    el('div', { class: 'toolbar' }, button('New note', () => startNote()), button('New draft', () => startNote(null, 'draft')), button('Capture to self inbox', () => startNote(null, 'inbox')), fromSource),
     conversionStatus, convertArea,
     formWith(loadButton, listStatus, ctx, loadList, el('div', { class: 'form-grid' }, field('Show', stateFilter), field('Find in notes', query))),
     el('div', { class: 'split' }, el('section', { class: 'pane', 'aria-label': 'Your notes' }, count, list), editor)));
   query.addEventListener('input', renderList);
-  renderEditor();
+  renderEditor(null, ['note', 'draft', 'inbox'].includes(ctx.selection?.mode) ? ctx.selection.mode : 'note');
   try { await loadList(); }
   catch (error) { listStatus.textContent = `${error.message || error} Use Apply filters to try again.`; ctx.notify(error.message || String(error), 'error'); }
+  if (ctx.selection?.uri) {
+    const generation = editorRevision;
+    try {
+      const target = linkedTarget(ctx, ctx.selection.uri, 'pub.tangled.note');
+      const record = checkLinkedRecord(target, await ctx.api('records', { action: 'get', collection: target.collection, rkey: target.rkey }));
+      if (generation !== editorRevision || editor.isConnected === false || !discard()) return;
+      renderEditor(record); renderList(); ctx.updateRecordLink?.('notes', record.uri); revealSelection(editor);
+    } catch (error) {
+      if (generation !== editorRevision || editor.isConnected === false) return;
+      noteDirty = () => false; registerGuard();
+      replace(editor, empty('Could not open this note', error.message || String(error)));
+    }
+  }
 }

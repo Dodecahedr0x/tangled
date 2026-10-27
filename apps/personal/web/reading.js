@@ -33,6 +33,23 @@ function safeLink(value) {
   } catch { return null; }
 }
 
+async function localSelectionKey(ctx, uri, collection) {
+  const parts = typeof uri === 'string' && /^tangled:\/\/([^/\s?#]+)\/([^/\s?#]+)\/([^/\s?#%]+)$/.exec(uri);
+  if (!parts || parts[2] !== collection || ['.', '..'].includes(parts[3])) throw new Error('This link does not identify a record for this reader. Open the correct record link.');
+  const info = await ctx.api('info', {});
+  if (parts[1] !== info.did) throw new Error('This record belongs to another owner. Open it in that owner’s Personal library.');
+  return parts[3];
+}
+function requireLinkedRecord(item, uri, collection) {
+  if (!item || item.uri !== uri || item.collection !== collection || item.rkey !== uri.split('/').pop() || item.deleted || item.tombstone || !item.body) {
+    throw new Error('This record is unavailable or was deleted. Choose another item or check the link.');
+  }
+}
+function copyLink(ctx, view, uri) {
+  const copy = button('Copy link', () => ctx.run(copy, () => ctx.copyRecordLink(view, uri)));
+  return copy;
+}
+
 // Bounded text extraction for a reader, not an HTML sanitizer. Never parsed into a live DOM.
 function feedPlainText(html) {
   const bytes = new TextEncoder().encode(String(html).slice(0, 256 * 1024));
@@ -89,7 +106,7 @@ export async function mountFeeds(root, ctx) {
   const feedback = status(), subscriptions = el('div', { class: 'list' }), queue = el('div', { class: 'list' });
   const reader = el('article', { class: 'reader', 'aria-label': 'Feed reader' });
   const url = input('', { type: 'url', required: true }), title = input(), subTags = input();
-  let editing = false, selected = null, queueGeneration = 0;
+  let editing = false, selected = null, queueGeneration = 0, readerGeneration = 0;
   const importSource = el('select'), file = input('', { type: 'file', accept: '.xml,.rss,.atom,application/xml,text/xml' });
   const source = el('select'), unread = check(true), starred = check(), filterTags = input();
   const queueStatus = status();
@@ -118,6 +135,7 @@ export async function mountFeeds(root, ctx) {
     ctx.download('reading-digest.txt', result.text, 'text/plain;charset=utf-8'); ctx.notify(`Downloaded a digest of ${result.count} articles.`);
   }));
   function renderReader(item) {
+    readerGeneration++;
     selected = item;
     if (!item) { reader.replaceChildren(empty('Choose an article', 'Open an article from the reading queue.')); return; }
     highlight(queue, item.uri);
@@ -134,10 +152,29 @@ export async function mountFeeds(root, ctx) {
     reader.replaceChildren(...[el('h2', { text: recordTitle(item) }), meta(body.sourceUrl),
       meta(`Published: ${body.publishedAt || 'Not supplied'}${body.updatedAt ? ` · Updated: ${body.updatedAt}` : ''}`),
       meta(`Imported locally: ${timeLabel(item.ts)}`),
-      el('div', { class: 'actions' }, read, star, link),
+      el('div', { class: 'actions' }, read, star, copyLink(ctx, 'feeds', item.uri), link),
       field('Article tags', itemTags, 'Comma-separated. Subscription tags also apply.'), saveTags,
       body.bodyType === 'html' ? meta('Plain-text reading view. The original XML remains preserved with the imported entry.') : null,
       el('div', { class: 'reader-body', text: (body.bodyType === 'html' ? feedPlainText(body.body || '') : body.body) || 'This source entry has no article text.' })].filter(Boolean));
+  }
+  async function openLinkedItem(uri) {
+    const generation = ++readerGeneration;
+    try {
+      const rkey = await localSelectionKey(ctx, uri, 'pub.tangled.feedItem');
+      if (generation !== readerGeneration) return;
+      const [item, states] = await Promise.all([
+        ctx.api('records', { action: 'get', collection: 'pub.tangled.feedItem', rkey }),
+        ctx.api('records', { action: 'list', collection: 'pub.tangled.readingState' }),
+      ]);
+      if (generation !== readerGeneration) return;
+      requireLinkedRecord(item, uri, 'pub.tangled.feedItem');
+      const reading = states.records.find(row => row.body?.item === uri)?.body || {};
+      renderReader({ ...item, reading });
+    } catch (error) {
+      if (generation !== readerGeneration) return;
+      reader.replaceChildren(empty('Could not open linked article', `${error.message} Choose an article from the queue or reopen the link to retry.`));
+      ctx.notify(error.message, 'error');
+    }
   }
   async function loadQueue() {
     const generation = ++queueGeneration;
@@ -146,7 +183,7 @@ export async function mountFeeds(root, ctx) {
       const result = await ctx.api('feeds', { action: 'queue', ...filters() });
       if (generation !== queueGeneration) return;
       queue.replaceChildren(...result.items.map(item => {
-        const open = button(recordTitle(item), () => { renderReader(item); revealSelection(reader); }); open.classList?.add('item-title');
+        const open = button(recordTitle(item), () => { renderReader(item); ctx.updateRecordLink?.('feeds', item.uri); revealSelection(reader); }); open.classList?.add('item-title');
         return el('div', { class: `item${selected?.uri === item.uri ? ' selected' : ''}`, 'data-item': item.uri },
           el('div', { class: 'item-main' }, open, meta(`${item.reading?.read ? 'Read' : 'Unread'}${item.reading?.starred ? ' · Starred' : ''} · ${item.body.sourceUrl}`),
             item.effectiveTags?.length ? meta(item.effectiveTags.join(', ')) : null));
@@ -192,7 +229,10 @@ export async function mountFeeds(root, ctx) {
       el('div', { class: 'actions' }, field('Unread only', unread), field('Starred only', starred), apply, digest)], () => ctx.run(apply, loadQueue)),
     queueStatus, el('div', { class: 'split' }, el('section', { class: 'pane', 'aria-label': 'Reading queue' }, queue), reader), retry));
   renderReader(null);
-  try { await load(); } catch (error) { ctx.notify(error.message, 'error'); }
+  await Promise.all([
+    load().catch(error => ctx.notify(error.message, 'error')),
+    ctx.selection?.uri ? openLinkedItem(ctx.selection.uri) : Promise.resolve(),
+  ]);
 }
 
 export async function mountConnections(root, ctx) {
@@ -230,7 +270,7 @@ export async function mountConnections(root, ctx) {
       const rows = await ctx.api('connections', filters()); if (generation !== listGeneration) return;
       list.replaceChildren(...rows.map(item => {
         const imported = nativeOf(item), object = imported.object || {};
-        const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) revealSelection(reader); }));
+        const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) { ctx.updateRecordLink?.('connections', item.uri); revealSelection(reader); } }));
         return el('div', { class: `item${item.rkey === selectedKey ? ' selected' : ''}`, 'data-item': item.rkey }, el('div', { class: 'item-main' }, open,
           meta(`${imported.source} · ${object.sender || 'Sender not supplied'} · ${object.timestamp || 'Time not supplied'}`),
           meta(`Account: ${imported.account}${object.conversation ? ` · Conversation: ${object.conversation}` : ''}${item.body.deleted ? ' · Deleted at source' : ''}${item.overlay?.body?.bookmarked ? ' · Bookmarked' : ''}`)));
@@ -239,10 +279,10 @@ export async function mountConnections(root, ctx) {
       say(listStatus, `${rows.length} source items. Source timestamps are preserved; list order is local storage order.`);
     } catch (error) { if (generation === listGeneration) say(listStatus, `Could not load source items. ${error.message} Use Search items to retry.`); throw error; }
   }
-  async function openItem(rkey) {
-    const generation = ++readerGeneration;
+  async function openItem(rkey, expectedUri, generation = ++readerGeneration) {
     const [item, history] = await Promise.all([ctx.api('connections', { action: 'get', rkey }), ctx.api('connections', { action: 'history', rkey })]);
     if (generation !== readerGeneration) return;
+    if (expectedUri) requireLinkedRecord(item, expectedUri, 'pub.tangled.sourceItem');
     invalidateReply(); selectedKey = rkey;
     // `get` returns the native record only; retrieve the separate overlay through list.
     const rows = await ctx.api('connections', { action: 'list', includeDeleted: true });
@@ -252,6 +292,18 @@ export async function mountConnections(root, ctx) {
     const nativeContacts = imported.object?.sender ? await ctx.api('connections', { action: 'contacts', source: imported.source, account: imported.account, sender: imported.object.sender }) : [];
     if (generation !== readerGeneration) return;
     renderReader(item, overlay, history, nativeContacts[0]); highlight(list, item.rkey); return true;
+  }
+  async function openLinkedItem(uri) {
+    const generation = ++readerGeneration;
+    try {
+      const rkey = await localSelectionKey(ctx, uri, 'pub.tangled.sourceItem');
+      if (generation !== readerGeneration) return;
+      await openItem(rkey, uri, generation);
+    } catch (error) {
+      if (generation !== readerGeneration) return;
+      reader.replaceChildren(empty('Could not open linked source item', `${error.message} Search items or reopen the link to retry.`));
+      ctx.notify(error.message, 'error');
+    }
   }
   function renderReader(item, overlay, history, nativeContact) {
     const imported = nativeOf(item), object = imported.object || {}, state = overlay?.body || {};
@@ -305,7 +357,7 @@ export async function mountConnections(root, ctx) {
       ctx.notify('Reply preview ready for review. No message has been sent.');
     }));
     invalidate();
-    reader.replaceChildren(...[el('h2', { text: sourceTitle(item) }),
+    reader.replaceChildren(...[el('h2', { text: sourceTitle(item) }), copyLink(ctx, 'connections', item.uri),
       meta(`Native sender: ${object.sender || 'Not supplied'} · Source: ${imported.source}`),
       meta(`Account: ${imported.account} · Conversation: ${object.conversation ?? 'None'}`),
       meta(`Source time: ${object.timestamp || 'Not supplied'} · Imported locally: ${timeLabel(item.ts)}`),
@@ -327,7 +379,7 @@ export async function mountConnections(root, ctx) {
       const showItems = button('Show contact items', () => ctx.run(showItems, async () => {
         query.value = ''; source.value = identity.source; account.value = identity.account; conversation.value = ''; tag.value = ''; bookmarked.checked = false; deleted.checked = false;
         const rows = await ctx.api('connections', { action: 'list', contact: contact.uri });
-        list.replaceChildren(...rows.map(item => { const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) revealSelection(reader); })); return el('div', { class: 'item', 'data-item': item.rkey }, open); }));
+        list.replaceChildren(...rows.map(item => { const open = button(sourceTitle(item), () => ctx.run(open, async () => { if (await openItem(item.rkey)) { ctx.updateRecordLink?.('connections', item.uri); revealSelection(reader); } })); return el('div', { class: 'item', 'data-item': item.rkey }, open); }));
         say(listStatus, `${rows.length} items from ${body.alias || identity.sender}. Use Search items to return to filters.`);
       }));
       return el('div', { class: 'item' }, el('div', { class: 'item-main' }, el('strong', { text: body.alias || identity.sender }), meta(`${identity.source} · ${identity.account} · ${identity.sender}`), meta((body.groups || []).join(', '))), showItems);
@@ -349,5 +401,8 @@ export async function mountConnections(root, ctx) {
     listStatus, el('div', { class: 'split' }, el('section', { class: 'pane', 'aria-label': 'Source items' }, list), reader),
     details('Contacts', form([field('Contact group filter', groupFilter), findContacts], () => ctx.run(findContacts, async () => { contacts = await ctx.api('connections', { action: 'contacts', ...(groupFilter.value.trim() ? { group: groupFilter.value.trim() } : {}) }); renderContacts(); })), contactList), retry));
   reader.replaceChildren(empty('Choose a source item', 'Read its native context, add local organization, or prepare a reply intent.'));
-  try { await load(); } catch (error) { ctx.notify(error.message, 'error'); }
+  await Promise.all([
+    load().catch(error => ctx.notify(error.message, 'error')),
+    ctx.selection?.uri ? openLinkedItem(ctx.selection.uri) : Promise.resolve(),
+  ]);
 }

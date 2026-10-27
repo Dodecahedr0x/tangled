@@ -6,3 +6,4 @@
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 
 [hidden]{display:none!important}
+.today{gap:16px}.today-section{border-top:1px solid var(--line);padding-top:18px;gap:10px}.today-section>.toolbar{margin-bottom:0}.today-title{display:flex;align-items:baseline;gap:10px;flex:1;min-width:0}.today-title>.section-title{margin:0}.today-title>.meta{max-width:45ch}.today-section .list{list-style:none;margin:0;padding:0}.today-section .item{padding:12px 0}.today-section>.inline-status:empty,.today-section>.meta:empty,.today-section>.stack:empty{display:none}@media(max-width:760px){.today-title{flex-basis:100%}}

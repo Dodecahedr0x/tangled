@@ -80,6 +80,8 @@ async fn actual_listener_guards_public_assets_and_owner_data() {
         ("/", "text/html"),
         ("/app.js", "text/javascript"),
         ("/ui.js", "text/javascript"),
+        ("/routes.js", "text/javascript"),
+        ("/today.js", "text/javascript"),
         ("/library.js", "text/javascript"),
         ("/reading.js", "text/javascript"),
         ("/manage.js", "text/javascript"),
@@ -108,6 +110,15 @@ async fn actual_listener_guards_public_assets_and_owner_data() {
         .await
         .unwrap();
     assert_eq!(manifest["apiVersion"], "v1");
+    assert_eq!(
+        manifest["app"]["recordLinkTemplate"],
+        "/#library?item={uri}"
+    );
+    assert_eq!(
+        manifest["app"]["uriEncoding"],
+        "percent-encoded Tangled URI"
+    );
+    assert_eq!(manifest["app"]["defaultView"], "today");
     assert!(manifest["collections"].as_array().unwrap().len() >= 10);
     assert!(!manifest.to_string().contains(&server.token));
     assert!(!manifest

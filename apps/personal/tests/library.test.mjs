@@ -24,7 +24,7 @@ class Element {
     if (this.tagName === 'select' && this._value === undefined) return (this.children.find(node => node.selected) || this.children[0])?.value || '';
     return this._value || '';
   }
-  set value(value) { this._value = String(value); }
+  set value(value) { this._value = String(value); if (this.type === 'file' && value === '') this.files = []; }
   get classList() { return { add: token => { this.className += ` ${token}`; }, remove: token => { this.className = this.className.split(' ').filter(value => value !== token).join(' '); } }; }
 }
 function el(tag, attrs = {}, ...children) {
@@ -57,7 +57,12 @@ function setup(initial = []) {
   let sequence = initial.length;
   const data = new Map(initial.map(record => [record.uri, clone(record)]));
   const calls = [], downloads = [], notices = [];
-  const ctx = { calls, downloads, notices, pending: [], failNext: null,
+  const ctx = { calls, downloads, notices, pending: [], failNext: null, session: { did: 'did:sol:test' }, selection: {},
+    guard: () => false, discard: true, confirmations: 0, copied: [], links: [],
+    setNavigationGuard(check) { ctx.guard = check; },
+    confirmDiscard() { if (!ctx.guard()) return true; ctx.confirmations++; return ctx.discard; },
+    copyRecordLink(view, uri) { ctx.copied.push({ view, uri }); },
+    updateRecordLink(view, uri) { ctx.links.push({ view, uri }); },
     notify: (...args) => notices.push(args),
     download: (...args) => downloads.push(args),
     run(control, task) {
@@ -124,6 +129,7 @@ function setup(initial = []) {
           return save('pub.tangled.note', undefined, body);
         }
         const record = all('pub.tangled.note').find(record => record.rkey === payload.rkey); assert.ok(record);
+        if (payload.action === 'get') return clone(record);
         if (payload.action === 'delete') { data.delete(record.uri); return record; }
         if (payload.action === 'attachment') return { name: record.body.attachments[payload.index].name, mime: 'application/octet-stream', bytes: [0, 255, 1] };
         let patch = payload.patch || {};
@@ -361,4 +367,259 @@ test('Library and Capture ignore stale asynchronous selections when revealing re
     assert.equal(reveals.length, start + 1, 'Late responses cannot reveal a stale selection');
     assert.ok(reveals.at(-1).textContent.includes('Second body'));
   }
+});
+
+
+test('Notes guard every saved field, cancel pane replacements, preserve filters, and clear only after successful save', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note' });
+  const other = record('pub.tangled.note', 'two', { title: 'Other', text: 'Other body', state: 'note' });
+  const { root, ctx, data } = setup([saved, other]); await mountNotes(root, ctx);
+  await click(root, 'Original', ctx);
+  assert.equal(ctx.guard(), false);
+  for (const [label, value] of [['Title (optional)', 'Changed'], ['Text', 'Changed body'], ['Keep as', 'draft'], ['Reminder', '2030-01-01T12:00']]) {
+    const item = control(root, label), previous = item.value; item.value = value;
+    assert.equal(ctx.guard(), true, label); item.value = previous;
+    assert.equal(ctx.guard(), false, `Reverting ${label} restores clean state`);
+  }
+  control(root, 'Text').value = 'Unsaved'; ctx.discard = false;
+  for (const label of ['New note', 'New draft', 'Capture to self inbox', 'Other', 'Create from saved item', 'Delete note']) {
+    await click(root, label, ctx);
+    assert.equal(control(root, 'Text').value, 'Unsaved', label);
+    assert.ok(data.has(saved.uri));
+  }
+  control(root, 'Show').value = 'draft'; await submitForm(root, 'Apply filters', ctx);
+  assert.equal(control(root, 'Text').value, 'Unsaved'); assert.equal(ctx.guard(), true);
+  ctx.failNext = 'notes:edit'; await submitForm(root, 'Save note', ctx);
+  assert.equal(ctx.guard(), true); assert.equal(control(root, 'Text').value, 'Unsaved');
+  await submitForm(root, 'Save note', ctx);
+  assert.equal(ctx.guard(), false); assert.equal(data.get(saved.uri).body.text, 'Unsaved');
+  control(root, 'Text').value = 'Discarded'; ctx.discard = true; await click(root, 'New draft', ctx);
+  assert.equal(control(root, 'Text').value, ''); assert.equal(control(root, 'Keep as').value, 'draft'); assert.equal(ctx.guard(), false);
+});
+
+test('Notes preserve typing during an asynchronous save and attachment updates keep the saved baseline', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note', vendor: { keep: true } });
+  const { root, ctx, data } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+  const api = ctx.api; let release; const gate = new Promise(resolve => { release = resolve; });
+  ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === 'edit') await gate; return api(feature, payload); };
+  control(root, 'Text').value = 'Sent';
+  let form = findButton(root, 'Save note'); while (form.tagName !== 'form') form = form.parentElement;
+  await form.fire('submit'); await new Promise(setImmediate);
+  assert.equal(ctx.guard(), true, 'Pending save protects navigation');
+  control(root, 'Text').value = 'Typed while saving'; release(); await settle(ctx);
+  assert.equal(data.get(saved.uri).body.text, 'Sent');
+  assert.equal(control(root, 'Text').value, 'Typed while saving'); assert.equal(ctx.guard(), true);
+  control(root, 'File to attach').files = [{ name: 'test.bin', type: 'application/octet-stream', size: 1, arrayBuffer: async () => Uint8Array.of(1).buffer }];
+  await submitForm(root, 'Attach file', ctx);
+  assert.equal(control(root, 'Text').value, 'Typed while saving'); assert.equal(ctx.guard(), true);
+  assert.deepEqual(data.get(saved.uri).body.vendor, { keep: true });
+  await submitForm(root, 'Save note', ctx); assert.equal(ctx.guard(), false);
+});
+
+test('A late note save cannot replace a newer selected editor after an approved discard', async () => {
+  const one = record('pub.tangled.note', 'one', { title: 'One', text: 'First', state: 'note' });
+  const two = record('pub.tangled.note', 'two', { title: 'Two', text: 'Second', state: 'note' });
+  const { root, ctx } = setup([one, two]); await mountNotes(root, ctx); await click(root, 'One', ctx);
+  const api = ctx.api; let release; const gate = new Promise(resolve => { release = resolve; });
+  ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === 'edit') await gate; return api(feature, payload); };
+  control(root, 'Text').value = 'Saved first';
+  let form = findButton(root, 'Save note'); while (form.tagName !== 'form') form = form.parentElement;
+  await form.fire('submit'); await new Promise(setImmediate);
+  await findButton(root, 'Two').fire('click');
+  assert.equal(control(root, 'Text').value, 'Second'); release(); await settle(ctx);
+  assert.equal(control(root, 'Text').value, 'Second');
+});
+
+test('Library, Capture and Notes open initial record links outside the list and copy canonical links', async () => {
+  for (const [mount, view, collection] of [[mountLibrary, 'library', 'vendor.record'], [mountCapture, 'capture', 'pub.tangled.capture'], [mountNotes, 'notes', 'pub.tangled.note']]) {
+    const saved = record(collection, 'hidden', { title: 'Linked record', text: 'Linked body', state: 'draft', kind: 'text', tags: [] });
+    const { root, ctx } = setup([saved]); ctx.selection = { uri: saved.uri };
+    const api = ctx.api;
+    ctx.api = async (feature, payload) => {
+      if (payload.action === 'search') return { results: [], total: 0 };
+      if (payload.action === 'list' && ['capture', 'notes'].includes(feature)) return [];
+      return api(feature, payload);
+    };
+    const start = reveals.length; await mount(root, ctx);
+    assert.ok(root.textContent.includes('Linked body') || control(root, 'Text').value === 'Linked body');
+    assert.equal(reveals.length, start + 1, view);
+    await click(root, 'Copy link', ctx); assert.deepEqual(ctx.copied, [{ view, uri: saved.uri }]);
+  }
+});
+
+test('Record links reject foreign, missing and incorrect-collection records without mutation', async () => {
+  for (const [mount, collection] of [[mountLibrary, 'vendor.record'], [mountCapture, 'pub.tangled.capture'], [mountNotes, 'pub.tangled.note']]) {
+    const saved = record(collection, 'one', { title: 'Local record', text: 'Body', kind: 'text', state: 'note', tags: [] });
+    for (const uri of [saved.uri.replace('did:sol:test', 'did:sol:foreign'), saved.uri.replace('/one', '/missing'), 'tangled://did:sol:test/wrong.collection/one']) {
+      const { root, ctx, data } = setup([saved]); ctx.selection = { uri }; await mount(root, ctx);
+      assert.match(root.textContent, /unavailable|another library|not available|Could not|cannot|does not belong/i);
+      assert.equal(walk(root).some(node => node.tagName === 'button' && node.textContent === 'Copy link'), false);
+      assert.equal(data.size, 1);
+      assert.ok(!ctx.calls.some(call => ['edit', 'delete', 'create', 'convert'].includes(call.action)));
+    }
+  }
+});
+
+test('Notes initial quick modes create clean editors without persisting drafts', async () => {
+  for (const mode of ['note', 'draft', 'inbox']) {
+    const { root, ctx, data } = setup(); ctx.selection = { mode }; await mountNotes(root, ctx);
+    assert.equal(control(root, 'Keep as').value, mode); assert.equal(ctx.guard(), false); assert.equal(data.size, 0);
+  }
+});
+
+test('A failed note deletion keeps a usable editor and its dirty guard', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note' });
+  const { root, ctx, data } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+  control(root, 'Text').value = 'Keep me'; ctx.failNext = 'notes:delete'; await click(root, 'Delete note', ctx);
+  assert.equal(control(root, 'Text').value, 'Keep me'); assert.equal(ctx.guard(), true);
+  await submitForm(root, 'Save note', ctx);
+  assert.equal(data.get(saved.uri).body.text, 'Keep me'); assert.equal(ctx.guard(), false);
+});
+
+test('A saved new note remains selected and clean when the list refresh fails', async () => {
+  const { root, ctx, data } = setup(); await mountNotes(root, ctx);
+  control(root, 'Text').value = 'Created once'; ctx.failNext = 'notes:list'; await submitForm(root, 'Create note', ctx);
+  assert.equal(data.size, 1); assert.equal(ctx.guard(), false);
+  control(root, 'Text').value = 'Edited'; await submitForm(root, 'Save note', ctx);
+  assert.equal(data.size, 1); assert.equal([...data.values()][0].body.text, 'Edited');
+});
+
+test('Conversion edits use the navigation guard and survive a save request and failure', async () => {
+  const saved = record('vendor.source', 'one', { title: 'Source', text: 'Source body' });
+  const { root, ctx, data } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Create from saved item', ctx);
+  const picker = control(root, 'Source item'); picker.value = saved.uri; await picker.fire('change');
+  control(root, 'Note text').value = 'Pending converted text'; assert.equal(ctx.guard(), true);
+  ctx.discard = false; await click(root, 'Cancel conversion', ctx); await click(root, 'New draft', ctx);
+  assert.equal(control(root, 'Note text').value, 'Pending converted text');
+  ctx.failNext = 'notes:convert'; await submitForm(root, 'Create note from source', ctx);
+  assert.equal(ctx.guard(), true); assert.equal(control(root, 'Note text').value, 'Pending converted text');
+  const api = ctx.api; let release; const gate = new Promise(resolve => { release = resolve; });
+  ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === 'convert') await gate; return api(feature, payload); };
+  let form = findButton(root, 'Create note from source'); while (form.tagName !== 'form') form = form.parentElement;
+  await form.fire('submit'); await new Promise(setImmediate);
+  control(root, 'Note text').value = 'Typed during conversion'; release(); await settle(ctx);
+  assert.equal(control(root, 'Text').value, 'Typed during conversion'); assert.equal(ctx.guard(), true);
+  const created = [...data.values()].find(item => item.collection === 'pub.tangled.note');
+  assert.equal(created.body.text, 'Pending converted text');
+});
+
+test('A late note completion cannot re-register the guard after leaving the view', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note' });
+  const { root, ctx } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+  const api = ctx.api; let release; const gate = new Promise(resolve => { release = resolve; });
+  ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === 'edit') await gate; return api(feature, payload); };
+  control(root, 'Text').value = 'Save before leaving';
+  let form = findButton(root, 'Save note'); while (form.tagName !== 'form') form = form.parentElement;
+  await form.fire('submit'); await new Promise(setImmediate);
+  const editor = walk(root).find(node => node['aria-label'] === 'Note editor'); editor.isConnected = false;
+  const nextGuard = () => false; ctx.setNavigationGuard(nextGuard);
+  release(); await settle(ctx); assert.equal(ctx.guard, nextGuard);
+});
+
+test('Conversion uses one editor and a late source read preserves typed text', async () => {
+  const saved = record('pub.tangled.capture', 'one', { title: 'Source', archivedText: 'Loaded body', kind: 'article' });
+  const { root, ctx } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Create from saved item', ctx);
+  assert.equal(walk(root).some(node => node.testLabel === 'Text'), false, 'Only conversion controls are editable');
+  const api = ctx.api; let release; const gate = new Promise(resolve => { release = resolve; });
+  ctx.api = async (feature, payload) => { if (feature === 'capture' && payload.action === 'read') await gate; return api(feature, payload); };
+  const picker = control(root, 'Source item'); picker.value = saved.uri; const changing = picker.fire('change');
+  await new Promise(setImmediate); control(root, 'Note text').value = 'Typed before source loaded'; release(); await changing;
+  assert.equal(control(root, 'Note text').value, 'Typed before source loaded');
+  await click(root, 'Cancel conversion', ctx); assert.equal(control(root, 'Text').value, ''); assert.equal(ctx.guard(), false);
+});
+
+test('Initial links verify the exact record returned before offering record actions', async () => {
+  for (const [mount, feature, collection] of [[mountLibrary, 'records', 'vendor.record'], [mountCapture, 'capture', 'pub.tangled.capture'], [mountNotes, 'records', 'pub.tangled.note']]) {
+    const saved = record(collection, 'one', { title: 'Wrong record', text: 'Body', kind: 'text', tags: [], state: 'note' });
+    const { root, ctx } = setup([saved]); ctx.selection = { uri: saved.uri.replace('/one', '/another') };
+    const api = ctx.api;
+    ctx.api = async (target, payload) => target === feature && payload.action === 'get' ? clone(saved) : api(target, payload);
+    await mount(root, ctx); assert.match(root.textContent, /unavailable/i);
+    assert.equal(walk(root).some(node => node.tagName === 'button' && node.textContent === 'Copy link'), false);
+  }
+});
+
+
+test('Unsent append text and selected attachments guard pane changes and survive other note updates', async () => {
+  const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note', attachments: [{ name: 'old.bin', cid: 'old-cid' }] });
+  const other = record('pub.tangled.note', 'two', { title: 'Other', text: 'Other body', state: 'note' });
+  const { root, ctx, data } = setup([saved, other]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+  let reads = 0;
+  const file = { name: 'pending.bin', type: 'application/octet-stream', size: 1, arrayBuffer: async () => { reads++; return Uint8Array.of(7).buffer; } };
+  const chosenFile = control(root, 'File to attach');
+  control(root, 'Text to append').value = 'Unsent append'; assert.equal(ctx.guard(), true);
+  ctx.discard = false;
+  for (const label of ['New note', 'New draft', 'Capture to self inbox', 'Other', 'Create from saved item', 'Delete note']) {
+    await click(root, label, ctx); assert.equal(control(root, 'Text to append').value, 'Unsent append', label);
+  }
+  control(root, 'Text to append').value = ''; assert.equal(ctx.guard(), false);
+  chosenFile.files = [file]; assert.equal(ctx.guard(), true);
+  await click(root, 'Other', ctx); assert.equal(control(root, 'File to attach'), chosenFile);
+  control(root, 'Text to append').value = 'Unsent append'; control(root, 'Text').value = 'Main edit';
+  await submitForm(root, 'Save note', ctx);
+  assert.equal(control(root, 'Text to append').value, 'Unsent append');
+  assert.equal(control(root, 'File to attach'), chosenFile); assert.equal(chosenFile.files[0], file);
+  assert.equal(ctx.guard(), true); assert.equal(reads, 0, 'Only Attach reads selected file bytes');
+  await click(root, 'Remove attachment', ctx);
+  assert.equal(control(root, 'Text to append').value, 'Unsent append'); assert.equal(control(root, 'File to attach'), chosenFile);
+  await submitForm(root, 'Append to note', ctx);
+  assert.equal(data.get(saved.uri).body.text, 'Main edit\nUnsent append');
+  assert.equal(control(root, 'Text to append').value, ''); assert.equal(control(root, 'File to attach'), chosenFile);
+  assert.equal(ctx.guard(), true); assert.equal(reads, 0);
+  control(root, 'Text to append').value = 'Another pending append';
+  await submitForm(root, 'Attach file', ctx);
+  assert.equal(reads, 1); assert.equal(chosenFile.files.length, 0);
+  assert.equal(control(root, 'Text to append').value, 'Another pending append'); assert.equal(ctx.guard(), true);
+  await submitForm(root, 'Append to note', ctx); assert.equal(ctx.guard(), false);
+});
+
+test('Pending append and attach disable their own input and failures retain auxiliary edits', async () => {
+  for (const action of ['append', 'attach']) {
+    const saved = record('pub.tangled.note', 'one', { title: 'Original', text: 'Body', state: 'note' });
+    const { root, ctx } = setup([saved]); await mountNotes(root, ctx); await click(root, 'Original', ctx);
+    const append = control(root, 'Text to append'), fileInput = control(root, 'File to attach');
+    const file = { name: 'file.bin', type: 'application/octet-stream', size: 1, arrayBuffer: async () => Uint8Array.of(4).buffer };
+    append.value = 'Pending append'; fileInput.files = [file];
+    const api = ctx.api; let release; let gate = new Promise(resolve => { release = resolve; });
+    ctx.api = async (feature, payload) => { if (feature === 'notes' && payload.action === action) await gate; return api(feature, payload); };
+    ctx.failNext = `notes:${action}`;
+    const label = action === 'append' ? 'Append to note' : 'Attach file';
+    const ownInput = action === 'append' ? append : fileInput;
+    let form = findButton(root, label); while (form.tagName !== 'form') form = form.parentElement;
+    await form.fire('submit'); await new Promise(setImmediate);
+    assert.equal(ownInput.disabled, true); assert.equal(ctx.guard(), true);
+    release(); await settle(ctx);
+    assert.equal(ownInput.disabled, false); assert.equal(append.value, 'Pending append'); assert.equal(fileInput.files[0], file);
+    assert.equal(control(root, 'Text to append'), append); assert.equal(control(root, 'File to attach'), fileInput);
+    assert.equal(ctx.guard(), true);
+    await submitForm(root, label, ctx);
+    assert.equal(ownInput.disabled, false);
+    if (action === 'append') { assert.equal(append.value, ''); assert.equal(fileInput.files[0], file); }
+    else { assert.equal(fileInput.files.length, 0); assert.equal(append.value, 'Pending append'); }
+  }
+});
+
+
+test('Successful explicit record selections update the address, while list refreshes do not', async () => {
+  for (const [mount, view, collection, refresh] of [[mountLibrary, 'library', 'pub.tangled.note', 'Search'], [mountCapture, 'capture', 'pub.tangled.capture', 'Apply filters'], [mountNotes, 'notes', 'pub.tangled.note', 'Apply filters']]) {
+    const one = record(collection, 'one', { title: 'One', text: 'First', state: 'note', kind: 'text', tags: [] });
+    const two = record(collection, 'two', { title: 'Two', text: 'Second', state: 'note', kind: 'text', tags: [] });
+    const { root, ctx } = setup([one, two]); ctx.selection = { uri: one.uri }; await mount(root, ctx);
+    ctx.links.length = 0;
+    await click(root, 'Two', ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    await submitForm(root, refresh, ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    if (view === 'notes') {
+      control(root, 'Text to append').value = 'Unsent'; ctx.discard = false;
+      await click(root, 'One', ctx); assert.deepEqual(ctx.links, [{ view, uri: two.uri }]);
+    }
+  }
+});
+
+test('Saving a newly created note updates its record address only after success', async () => {
+  const { root, ctx, data } = setup(); await mountNotes(root, ctx);
+  control(root, 'Text').value = 'New note'; ctx.failNext = 'notes:create'; await submitForm(root, 'Create note', ctx);
+  assert.deepEqual(ctx.links, []);
+  await submitForm(root, 'Create note', ctx);
+  const saved = [...data.values()][0]; assert.deepEqual(ctx.links, [{ view: 'notes', uri: saved.uri }]);
+  await submitForm(root, 'Save note', ctx); assert.equal(ctx.links.length, 1);
 });

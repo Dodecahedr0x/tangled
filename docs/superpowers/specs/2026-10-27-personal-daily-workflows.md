@@ -1,0 +1,7 @@
+# Personal daily workflows
+
+Continue the approved One Personal app, interoperable records/API, separate feature worktrees and validated master integration. Preserve the existing white, ruled Operate interface.
+
+Three improvements: (1) Today combines actionable due reminders, self inbox and unread saved/feed items without a second database. Quick actions create notes/inbox captures or open Capture. Each section survives another section's failure and labels bounded results. (2) Notes warn before discarding unsaved text/reminder/state/title edits, both within the editor and across views/browser close. Successful saves clear the guard; failed saves retain it. Never store passphrases or private note drafts in persistent browser storage. (3) Record links open the appropriate reader/editor through #view?item=encodedTangledURI, remain usable after reload, omit owner credentials and preserve extension fields. Invalid links fail safely and unfamiliar collections can open in Library. Public discovery documents the convention.
+
+Root owns app shell, route parsing/navigation guard, styles, embedded assets/discovery, browser integration and docs. Today owner owns today.js/tests. Notes owner owns library.js/tests. Reading owner owns reading.js/tests. No conflicting edits or Rust builds from leaves. Use ctx.selection {uri,mode}, ctx.navigate(view,{uri,mode}), ctx.copyRecordLink(view,uri), ctx.setNavigationGuard(check), ctx.confirmDiscard() described in plan.

@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "node --check web/app.js && node --check web/ui.js && node --check web/library.js && node --check web/reading.js && node --check web/manage.js",
+    "check": "node --check web/app.js && node --check web/ui.js && node --check web/routes.js && node --check web/today.js && node --check web/library.js && node --check web/reading.js && node --check web/manage.js",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs && node tests/daily-browser.mjs"
   },
   "devDependencies": {
     "playwright": "1.61.1"

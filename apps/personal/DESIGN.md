@@ -7,3 +7,6 @@ Tokens: background #ffffff; paper #f7f7f5; ink #191919; secondary #626262; borde
 States: private empty library, persisted populated lists, pending button, recoverable inline/global error, success/live announcement, selected reader, deliberate public confirmation. All inputs labeled, keyboard focus visible, motion reduced. No untrusted innerHTML; source rich markup remains inert text.
 
 Explicit list selections reveal and focus their loaded detail pane below 760px. Initial mounts, ordinary refreshes, filters and saves preserve position.
+
+Today uses ruled task lists and compact word actions, showing at most ten items per section with independent retries and temporary Undo. Notes use the native discard prompt for unsaved edits; no draft content is persisted in browser storage. Record links preserve the existing reader composition.
+Today uses 16px outer gaps and 10px section gaps, counts beside headings, unindented task lists and 12px row padding. Actions restore focus to Undo or the relevant record after rendering, while respecting focus moved elsewhere during a request.

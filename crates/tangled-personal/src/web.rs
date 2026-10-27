@@ -71,6 +71,16 @@ const ASSETS: &[(&str, &str, &str)] = &[
         include_str!("../../../apps/personal/web/reading.js"),
     ),
     (
+        "/routes.js",
+        "text/javascript; charset=utf-8",
+        include_str!("../../../apps/personal/web/routes.js"),
+    ),
+    (
+        "/today.js",
+        "text/javascript; charset=utf-8",
+        include_str!("../../../apps/personal/web/today.js"),
+    ),
+    (
         "/manage.js",
         "text/javascript; charset=utf-8",
         include_str!("../../../apps/personal/web/manage.js"),
@@ -569,6 +579,7 @@ fn manifest() -> Value {
     json!({
         "apiVersion":"v1", "version":env!("CARGO_PKG_VERSION"),
         "documentation":"/api/v1/docs", "transport":"loopback HTTP JSON",
+        "app":{"path":"/","defaultView":"today","recordLinkTemplate":"/#library?item={uri}","uriEncoding":"percent-encoded Tangled URI","views":["today","library","capture","notes","feeds","connections","agents","devices","publish"],"authentication":"Record links carry no authority; use the normal local app session."},
         "auth":{"header":"X-Tangled-Session","bootstrap":"owner startup URL fragment #session=HEX","scope":"full local owner authority; signed agent invocations are additionally checked"},
         "limits":{"workflowBytes":MAX_WORKFLOW_BYTES,"backupRequestBytes":MAX_REQUEST_BYTES},
         "endpoints":{"session":"GET /api/v1/session","personal":"POST /api/v1/personal/{feature}","backups":"POST /api/v1/backups/{export,verify,sync,restore}"},

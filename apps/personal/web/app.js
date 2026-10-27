@@ -1,9 +1,12 @@
 import { el, button, empty } from './ui.js';
 import { mountLibrary, mountCapture, mountNotes } from './library.js';
 import { mountFeeds, mountConnections } from './reading.js';
+import { mountToday } from './today.js';
+import { parseRoute, formatRoute, recordLink } from './routes.js';
 import { mountAgents, mountDevices, mountPublish } from './manage.js';
 
 const views = {
+  today: ['Today', 'Your reminders, inbox and next things to read.', mountToday],
   library: ['Library', 'Find what you saved, wherever it came from.', mountLibrary],
   capture: ['Capture', 'Keep a link, an article, a file, or a passing thought.', mountCapture],
   notes: ['Notes', 'A quiet place for ideas, drafts, and things to follow up.', mountNotes],
@@ -15,15 +18,23 @@ const views = {
 };
 const tokenKey = 'tangled-personal.session';
 let token = sessionStorage.getItem(tokenKey) || '';
+let desiredRoute = parseRoute(location.hash);
+let mountedHash = '';
+let navigationGuard = null;
+let routeGeneration = 0;
+function confirmDiscard() {
+  return !navigationGuard?.() || window.confirm('Discard your unsaved note changes? Your latest edits have not been saved.');
+}
 function consumeLaunchLink() {
   const params = new URLSearchParams(location.hash.slice(1));
   if (!params.has('session')) return false;
   const credential = params.get('session');
-  history.replaceState(null, '', `${location.pathname}${location.search}#library`);
-  if (!/^[0-9a-f]{64}$/.test(credential)) return false;
+  history.replaceState(null, '', `${location.pathname}${location.search}${formatRoute(desiredRoute.view, desiredRoute.selection)}`);
+  if (!/^[0-9a-f]{64}$/.test(credential) || !confirmDiscard()) return 'ignored';
+  navigationGuard = null;
   token = credential;
   sessionStorage.setItem(tokenKey, token);
-  return true;
+  return 'accepted';
 }
 consumeLaunchLink();
 let ready = false;
@@ -55,7 +66,17 @@ async function request(path, input, method = 'POST') {
   return data;
 }
 const ctx = {
-  session: {}, api: (feature, input) => request(`personal/${encodeURIComponent(feature)}`, input), request, notify,
+  session: {}, selection: {},
+  setNavigationGuard(check) { navigationGuard = check; },
+  confirmDiscard,
+  async copyRecordLink(view, uri) {
+    const link = recordLink(location.href, view, uri);
+    try { await navigator.clipboard.writeText(link); }
+    catch { throw new Error('The browser could not copy this link. Allow clipboard access and try again.'); }
+    notify('Record link copied. Opening it still requires access to this library.');
+    return link;
+  },
+  api: (feature, input) => request(`personal/${encodeURIComponent(feature)}`, input), request, notify,
   async run(control, task) {
     if (control?.disabled) return;
     if (control) { control.disabled = true; control.setAttribute('aria-busy', 'true'); }
@@ -69,7 +90,7 @@ const ctx = {
     document.body.append(anchor); anchor.click(); anchor.remove();
     setTimeout(() => URL.revokeObjectURL(url), 30000);
   },
-  navigate(view) { location.hash = Object.hasOwn(views, view) ? view : 'library'; },
+  navigate(view, selection = {}) { location.hash = formatRoute(view, selection); },
   async refreshSession() {
     ctx.session = await request('session', undefined, 'GET');
     document.querySelector('#library-identity').textContent = ctx.session.did;
@@ -78,21 +99,48 @@ const ctx = {
     return ctx.session;
   },
 };
-async function route() {
+async function route(force = false) {
+  const parsed = parseRoute(location.hash);
+  desiredRoute = parsed;
   if (!ready) return;
-  const name = Object.hasOwn(views, location.hash.slice(1)) ? location.hash.slice(1) : 'library';
-  const [title, description, mount] = views[name];
+  const normalized = formatRoute(parsed.view, parsed.selection);
+  if (mountedHash === normalized && !force) return;
+  if (!confirmDiscard()) {
+    history.replaceState(null, '', `${location.pathname}${location.search}${mountedHash}`);
+    desiredRoute = parseRoute(mountedHash);
+    return;
+  }
+  navigationGuard = null;
+  mountedHash = normalized;
+  history.replaceState(null, '', `${location.pathname}${location.search}${normalized}`);
+  const generation = ++routeGeneration;
+  const [title, description, mount] = views[parsed.view];
   document.title = `${title} · Personal`;
   document.querySelector('#view-title').textContent = title;
   document.querySelector('#view-description').textContent = description;
   document.querySelectorAll('[data-view]').forEach(link => {
-    if (link.dataset.view === name) link.setAttribute('aria-current', 'page');
+    if (link.dataset.view === parsed.view) link.setAttribute('aria-current', 'page');
     else link.removeAttribute('aria-current');
   });
   const root = el('section', { class: 'workspace-pane', 'aria-label': title }, el('p', { class: 'muted', text: 'Loading…' }));
   panel.replaceChildren(root);
-  try { await mount(root, ctx); }
-  catch (error) { root.replaceChildren(empty('Could not open this view', error.message, button('Try again', route))); notify(error.message, 'error'); }
+  const viewContext = Object.create(ctx);
+  viewContext.selection = parsed.selection;
+  viewContext.setNavigationGuard = check => { if (generation === routeGeneration && root.isConnected) navigationGuard = check; };
+  viewContext.updateRecordLink = (view, uri) => {
+    if (generation !== routeGeneration || !root.isConnected || parsed.view !== view) return;
+    const address = parseRoute(location.hash);
+    if (formatRoute(address.view, address.selection) !== mountedHash) return;
+    const hash = formatRoute(view, { uri });
+    history.replaceState(null, '', `${location.pathname}${location.search}${hash}`);
+    mountedHash = hash; desiredRoute = parseRoute(hash); viewContext.selection = { uri };
+  };
+  try { await mount(root, viewContext); if (parsed.error && generation === routeGeneration) notify(parsed.error, 'error'); }
+  catch (error) {
+    if (generation !== routeGeneration) return;
+    root.replaceChildren(empty('Could not open this view', error.message, button('Try again', () => route(true))));
+    notify(error.message, 'error');
+  }
 }
 async function peerSession() {
   if (!peers) return '';
@@ -126,10 +174,18 @@ async function boot() {
     document.querySelector('#library-status').textContent = 'Launch link required';
     return;
   }
-  try { await ctx.refreshSession(); if (generation !== bootGeneration) return; ready = true; await route(); }
+  try { await ctx.refreshSession(); if (generation !== bootGeneration) return; ready = true; await route(true); }
   catch (error) { if (generation !== bootGeneration) return; ready = false; if (error.status === 401) { token = ''; sessionStorage.removeItem(tokenKey); } panel.replaceChildren(empty('Your library is not connected', error.message, button('Reconnect', boot))); notify(error.message, 'error'); }
 }
 document.querySelector('.skip-link').addEventListener('click', event => { event.preventDefault(); document.querySelector('#workspace').focus(); });
-window.addEventListener('hashchange', () => { if (consumeLaunchLink()) { ready = false; boot(); } else route(); });
+window.addEventListener('hashchange', () => {
+  const launch = consumeLaunchLink();
+  if (launch === 'accepted') {
+    ready = false; ++routeGeneration;
+    panel.replaceChildren(el('p', { class: 'muted', text: 'Connecting to your library…' }));
+    boot();
+  } else if (!launch) route(false);
+});
+window.addEventListener('beforeunload', event => { if (navigationGuard?.()) { event.preventDefault(); event.returnValue = ''; } });
 window.addEventListener('personal-error', event => notify(event.detail, 'error'));
 boot();
