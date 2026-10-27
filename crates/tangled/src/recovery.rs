@@ -339,7 +339,9 @@ impl Stage {
             std::process::id(),
             rand::random::<u64>()
         ));
-        let mut builder = fs::DirBuilder::new();
+        let builder = fs::DirBuilder::new();
+        #[cfg(unix)]
+        let mut builder = builder;
         #[cfg(unix)]
         {
             use std::os::unix::fs::DirBuilderExt;
@@ -360,10 +362,8 @@ fn links(value: &dagcbor::Value, out: &mut BTreeSet<String>) {
         dagcbor::Value::Cid(cid) => {
             out.insert(cid.to_string());
         }
-        dagcbor::Value::Text(text) => {
-            if Cid::parse(text).is_ok() {
-                out.insert(text.clone());
-            }
+        dagcbor::Value::Text(text) if Cid::parse(text).is_ok() => {
+            out.insert(text.clone());
         }
         dagcbor::Value::Array(values) => {
             for v in values {

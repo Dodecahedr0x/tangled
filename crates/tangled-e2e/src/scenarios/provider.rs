@@ -987,7 +987,7 @@ async fn bound_handoff(
     )
     .await?;
     other = request.clone();
-    other["knot"] = cluster.nodes[0].url.clone().into();
+    other["knot"] = source.to_string().into();
     status(
         client
             .post(format!("{source}/migrate/{code}"))

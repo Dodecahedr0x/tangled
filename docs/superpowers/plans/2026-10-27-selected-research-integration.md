@@ -29,13 +29,28 @@
 
 ## Tasks
 
-- [ ] Establish current master baseline and record failures; identify preexisting user changes.
-- [ ] Integrate08 scheduler/tests while retaining master's existing startup-evidence implementation; add missing bounded-log tests.
-- [ ] Integrate07 complete offline recovery delta including its recovered prerequisite tests/plan; adapt to current engine and preserve CLI default.
-- [ ] Extract01 legacy export authorization fixes and focused RED/GREEN regressions only.
-- [ ] Extract06 iterative causal/RGA traversal and focused RED/GREEN deep-chain regression only.
-- [ ] Integrate worker's03 hardened peer policy and its explicit opt-in regressions/docs.
-- [ ] Run combined workspace tests, focused negative tests, changed-file formatting, clippy and applicable WASM checks; fix any integration regressions.
-- [ ] Independently review the combined diff; keep unselected experiment modules/endpoints absent.
+- [x] Establish current master baseline and record failures; identify preexisting user changes.
+- [x] Integrate08 scheduler/tests while retaining master's existing startup-evidence implementation; add missing bounded-log tests.
+- [x] Integrate07 complete offline recovery delta including its recovered prerequisite tests/plan; adapt to current engine and preserve CLI default.
+- [x] Extract01 legacy export authorization fixes and focused RED/GREEN regressions only.
+- [x] Extract06 iterative causal/RGA traversal and focused RED/GREEN deep-chain regression only.
+- [x] Integrate worker's03 hardened peer policy and its explicit opt-in regressions/docs.
+- [x] Run combined workspace tests, focused negative tests, changed-file formatting, clippy and applicable WASM checks; fix any integration regressions.
+- [x] Independently review the combined diff; keep unselected experiment modules/endpoints absent.
 - [ ] Preserve main dirty state, merge selected commits into master, restore original work with conflict-aware comparison, rerun checks on the resulting combined working tree.
 - [ ] Save integration report with exact commands/results, merge commits and preservation evidence.
+
+## Evidence and integration decisions
+
+- Current master baseline: cargo test --workspace --no-fail-fast ->401 passed,0 failed,6 ignored.
+- RED scope tests reproduced exact-record widening and foreign-DID acceptance; the matching one-use capability must remain unspent after rejection. GREEN3/3.
+- RED deep-page subprocess aborted on stack overflow. GREEN includes100,000 atom apply/snapshot and10,000-record apply/frontier, without importing06 budgets or Error variants.
+- Initial combined acceptance:33 passed,0 failed,1 subprocess-only ignored worker; full selected workspace after03:441 passed,0 failed,7 ignored.
+- Master's startup log lifecycle and circle filtering are retained;08 adds scheduler and additional tests rather than replacing newer implementations.
+- Recovery repair intentionally refuses differing valid peer metadata as well as authority state; matching-snapshot requirement is explicit in the runbook.
+- Full workspace formatting found one pre-existing circle-export assertion; formatting only that assertion is included so CI format check passes.
+- Source review will precede final main-checkout merge. Original dirty main paths remained byte-identical to preservation snapshot during isolated integration.
+
+Ruling: the real provider-only cluster reproduces an existing empty-node-vector panic in bound_handoff. The user's pending changes already contain the identical one-line source-URL correction. Include that minimal harness correction (no unrelated pending changes) so actual combined process tests complete; preservation audit will record the already-included change. Native tests of source permissions still pass; conditional builder mutability removes the WebAssembly warning without changing directory policy.
+
+Final isolated checks:441 workspace tests passed,0 failed,7 ignored. Real process cluster with3 operations/256-byte payloads passed Reed,Loomed,Weft,provider,protocol. Full workspace clippy/format passed; WASM library check passed without warnings. Independent review found no blocker; matching-snapshot peer-state limitation is documented.
