@@ -8,7 +8,7 @@ class Element {
     Object.assign(this, attrs); this.append(...children);
   }
   append(...children) { this.children.push(...children.flat(Infinity).filter(x => x != null)); }
-  replaceChildren(...children) { this.children = []; this.append(...children); }
+  replaceChildren(...children) { this.children = children.map(child => child instanceof Element ? child : String(child)); }
   setAttribute(key, value) { this[key] = value; }
   removeAttribute(key) { delete this[key]; }
   addEventListener(name, callback) { this['on' + name[0].toUpperCase() + name.slice(1)] = callback; }
@@ -115,6 +115,7 @@ test('source originals download exact bytes for the chosen revision', async () =
   const root = el('main'); await mountConnections(root, ctx);
   await byText(root, item.body.imported.object.text).onClick();
   assert.equal(nodes(root).some(node => node.tagName === 'img'), false);
+  assert.equal(nodes(root).find(node => node.class === 'reader').children.includes('null'), false, 'native reader omits absent conditional nodes');
   assert.equal(byText(root, 'Download original source bytes').disabled, false);
   await byText(root, 'Download original source bytes').onClick();
   assert.deepEqual([...ctx.downloads.at(-1)[1]], [0, 127, 128, 255]);
@@ -158,4 +159,20 @@ test('malformed HTML stays bounded and does not reveal unterminated script conte
   assert.ok(text.length <= 262144, 'reader extraction bounds oversized input');
   const multibyte = (await htmlArticleText('é'.repeat(262144))).text;
   assert.ok(new TextEncoder().encode(multibyte).length <= 262144, 'input is bounded by UTF-8 bytes');
+});
+
+
+test('subscription selects contain native option nodes rather than a stringified array', async () => {
+  const ctx = context((_, request) => request.action === 'list' ? { subscriptions: [
+    { body: { url: 'https://a.test/feed', title: 'A', tags: [] } },
+    { body: { url: 'https://b.test/feed', title: 'B', tags: [] } },
+  ] } : { items: [] });
+  const root = el('main'); await mountFeeds(root, ctx);
+  for (const label of ['Import into subscription', 'Subscription filter']) {
+    const select = control(root, label);
+    assert.equal(select.children.length, 3);
+    assert.deepEqual(select.children.map(option => [option.tagName, option.value]), [
+      ['option', ''], ['option', 'https://a.test/feed'], ['option', 'https://b.test/feed'],
+    ]);
+  }
 });

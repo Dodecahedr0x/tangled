@@ -11,7 +11,7 @@ const heading = text => el('h3', { class: 'section-title', text });
 const section = (title, ...children) => el('section', { class: 'stack' }, heading(title), ...children);
 const options = (select, values, placeholder) => {
   const previous = select.value;
-  select.replaceChildren(el('option', { value: '', text: placeholder }), values.map(([value, label]) => el('option', { value, text: label })));
+  select.replaceChildren(el('option', { value: '', text: placeholder }), ...values.map(([value, label]) => el('option', { value, text: label })));
   if (values.some(([value]) => value === previous)) select.value = previous;
 };
 const details = (title, ...children) => el('details', {}, el('summary', { text: title }), el('div', { class: 'stack' }, ...children));
@@ -131,13 +131,13 @@ export async function mountFeeds(root, ctx) {
     const star = button(reading.starred ? 'Unstar article' : 'Star article', () => mark(star, { starred: !reading.starred }));
     const saveTags = button('Save article tags', () => mark(saveTags, { tags: tagsFrom(itemTags.value) }));
     const link = safeLink(body.link);
-    reader.replaceChildren(el('h2', { text: recordTitle(item) }), meta(body.sourceUrl),
+    reader.replaceChildren(...[el('h2', { text: recordTitle(item) }), meta(body.sourceUrl),
       meta(`Published: ${body.publishedAt || 'Not supplied'}${body.updatedAt ? ` · Updated: ${body.updatedAt}` : ''}`),
       meta(`Imported locally: ${timeLabel(item.ts)}`),
       el('div', { class: 'actions' }, read, star, link),
       field('Article tags', itemTags, 'Comma-separated. Subscription tags also apply.'), saveTags,
       body.bodyType === 'html' ? meta('Plain-text reading view. The original XML remains preserved with the imported entry.') : null,
-      el('div', { class: 'reader-body', text: (body.bodyType === 'html' ? feedPlainText(body.body || '') : body.body) || 'This source entry has no article text.' }));
+      el('div', { class: 'reader-body', text: (body.bodyType === 'html' ? feedPlainText(body.body || '') : body.body) || 'This source entry has no article text.' })].filter(Boolean));
   }
   async function loadQueue() {
     const generation = ++queueGeneration;
@@ -305,7 +305,7 @@ export async function mountConnections(root, ctx) {
       ctx.notify('Reply preview ready for review. No message has been sent.');
     }));
     invalidate();
-    reader.replaceChildren(el('h2', { text: sourceTitle(item) }),
+    reader.replaceChildren(...[el('h2', { text: sourceTitle(item) }),
       meta(`Native sender: ${object.sender || 'Not supplied'} · Source: ${imported.source}`),
       meta(`Account: ${imported.account} · Conversation: ${object.conversation ?? 'None'}`),
       meta(`Source time: ${object.timestamp || 'Not supplied'} · Imported locally: ${timeLabel(item.ts)}`),
@@ -315,7 +315,7 @@ export async function mountConnections(root, ctx) {
       section('Local organization', field('Bookmark', bookmark), field('Item tags', itemTags, 'Comma-separated.'), field('Local note', note), save),
       object.sender ? details('Contact alias and groups', meta(`Native identity: ${imported.source} / ${imported.account} / ${object.sender}`), field('Contact alias', alias), field('Contact groups', groups, 'Comma-separated. Aliases do not merge source identities.'), saveContact) : null,
       details('Source revision history', field('Source revision', revision), el('div', { class: 'actions' }, selectRevision, original, sourceOriginal)),
-      object.sender && !item.body.deleted ? section('Reply intent', meta(`From account ${imported.account} to native sender ${object.sender}. Nothing is sent by this app.`), field('Reply text', replyText), previewButton, replyPreview) : meta('Reply preview requires a native sender and a source item that is not deleted.'));
+      object.sender && !item.body.deleted ? section('Reply intent', meta(`From account ${imported.account} to native sender ${object.sender}. Nothing is sent by this app.`), field('Reply text', replyText), previewButton, replyPreview) : meta('Reply preview requires a native sender and a source item that is not deleted.')].filter(Boolean));
   }
   const contactList = el('div', { class: 'list' }), groupFilter = input();
   const findContacts = button('Filter contacts', () => ctx.run(findContacts, async () => {
