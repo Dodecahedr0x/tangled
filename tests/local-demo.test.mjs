@@ -101,6 +101,73 @@ async function setup(t, { settings = {}, flags = [], omit = [], noOpen = true, n
   return { dir, offset, events, run, until, exited, cleaned, control: settings => writeFile(controlPath, JSON.stringify(settings)), output: () => output, ready: () => until(() => /Demo ready\./i.test(output), 'demo readiness') };
 }
 
+async function stopCommand(dataRoot) {
+  const child = spawn(process.execPath, [script, '--stop', '--data-root', dataRoot], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', value => { output += value; });
+  child.stderr.on('data', value => { output += value; });
+  const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  return { code, output };
+}
+
+test('stop command waits for all demos and their descendants in the selected data root', { timeout: 45000 }, async t => {
+  const first = await setup(t, { settings: { grandchild: 'tangled-knot' } });
+  const root = join(first.dir, 'demo data');
+  first.run(['--data-root', root]);
+  await first.ready();
+  await first.until(async () => (await first.events()).some(e => e.role === 'grandchild' && e.event === 'start'), 'grandchild');
+  const second = await setup(t, { flags: ['--data-root', root] });
+  second.run();
+  await second.ready();
+  const sockets = await Promise.all((await readdir(root)).map(async run => JSON.parse(await readFile(join(root, run, 'demo-control.json'), 'utf8')).socket));
+  const result = await stopCommand(root);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /Stopped 2 demos/);
+  assert.equal((await first.exited()).code, 0, first.output());
+  assert.equal((await second.exited()).code, 0, second.output());
+  await first.cleaned();
+  await second.cleaned();
+  for (const socket of sockets) await assert.rejects(stat(socket), { code: 'ENOENT' });
+  const again = await stopCommand(root);
+  assert.equal(again.code, 0, again.output);
+  assert.match(again.output, /No running demo/);
+});
+
+test('stop command also interrupts preparation before services launch', { timeout: 30000 }, async t => {
+  const demo = await setup(t, { settings: { holdMetadata: true } });
+  demo.run();
+  await demo.until(async () => (await demo.events()).some(e => e.role === 'cargo' && e.event === 'start'), 'metadata preparation');
+  const result = await stopCommand(join(demo.dir, 'data'));
+  assert.equal(result.code, 0, result.output);
+  assert.equal((await demo.exited()).code, 0, demo.output());
+  assert.ok(!(await demo.events()).some(e => runtime.includes(e.role)), 'started runtime services during stop');
+  await demo.cleaned();
+});
+
+test('stop command ignores stale state without signaling another process', { timeout: 25000 }, async t => {
+  const demo = await setup(t);
+  const root = join(demo.dir, 'data');
+  const stale = join(root, 'run-stale');
+  const completed = join(root, 'run-completed');
+  await Promise.all([mkdir(stale, { recursive: true }), mkdir(completed, { recursive: true })]);
+  await writeFile(join(stale, 'demo-control.json'), JSON.stringify({ version: 1, pid: process.pid }));
+  await writeFile(join(completed, 'demo-control.json'), JSON.stringify({ version: 1, pid: process.pid }));
+  await writeFile(join(completed, 'demo-stopped.json'), JSON.stringify({ exitCode: 0 }));
+  const socketDir = await mkdtemp('/tmp/tangled-stale-control-');
+  t.after(() => rm(socketDir, { recursive: true, force: true }));
+  const abandoned = join(root, 'run-abandoned');
+  const missing = join(root, 'run-missing');
+  await Promise.all([mkdir(abandoned), mkdir(missing)]);
+  const deadSocket = join(socketDir, 'dead.sock');
+  await writeFile(deadSocket, '');
+  await writeFile(join(abandoned, 'demo-control.json'), JSON.stringify({ version: 2, socket: deadSocket }));
+  await writeFile(join(missing, 'demo-control.json'), JSON.stringify({ version: 2, socket: join(socketDir, 'missing.sock') }));
+  const result = await stopCommand(root);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /No running demo/);
+  for (const dir of [stale, completed, abandoned, missing]) assert.ok(!(await readdir(dir)).includes('demo-stop.request'));
+});
+
 for (const stop of ['Enter', 'EOF', 'SIGINT', 'SIGTERM', 'SIGHUP']) {
   test(`${stop} shuts down every owned process`, { timeout: 30000 }, async t => {
     const demo = await setup(t);

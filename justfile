@@ -14,6 +14,11 @@ default:
 demo *flags:
     @exec node scripts/local-demo.mjs "$@"
 
+# Stop running demos in the selected data root and wait for process cleanup.
+[group('Demo')]
+demo-stop *flags:
+    @exec node scripts/local-demo.mjs --stop "$@"
+
 # Supervisor CLI, seeding and real process-group lifecycle tests.
 [group('Checks')]
 test-demo:

@@ -48,6 +48,16 @@ processes. Shutdown sends a graceful termination first, then stops any remaining
 owned process groups after a bounded wait. Browser tabs may remain after their
 services stop.
 
+From another terminal, stop all running demos in the default data directory:
+
+```sh
+just demo-stop
+```
+
+The command waits for their processes to stop and retains data and logs. If you
+started a demo with a custom `--data-root`, pass that same option to
+`just demo-stop --data-root DIR`. Running it again after shutdown is harmless.
+
 Each invocation creates a fresh private `.data/local-demo/run-*` directory and
 retains its state and logs after shutdown. Your normal profiles are untouched.
 The private Personal launch link and demo account are saved there; keep those
