@@ -9,10 +9,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HELP = `Tangled local demo (Node 22+, macOS/Linux)\n\nUsage: just demo [flags]\n       just demo-stop [--data-root DIR]\n   or: node scripts/local-demo.mjs [flags]\n\nStarts and seeds Knot, Personal, provider, docs, Reed, Loomed and Weft.\nPress Enter or Ctrl-C to stop all owned processes. Closing a desktop app also stops the demo.\nData and private logs are retained in a fresh .data/local-demo/run-* directory.\n\n  --no-open         Print browser links instead of opening browser tabs\n  --no-desktop      Skip building/opening the three native desktop apps\n  --skip-build      Reuse existing binaries and documentation dependencies\n  --port-offset N   Prefer these offsets; busy ports are replaced automatically\n  --data-root DIR   Parent directory for private demo runs\n  --stop            Stop running demos in that data directory\n  --help            Show this help\n`;
+const HELP = `Tangled local demo (Node 22+, macOS/Linux)\n\nUsage: just demo [flags]\n       just demo-stop [--data-root DIR]\n       just demo-list [--data-root DIR]\n   or: node scripts/local-demo.mjs [flags]\n\nStarts and seeds Knot, Personal, provider, docs, Reed, Loomed and Weft.\nPress Enter or Ctrl-C to stop all owned processes. Closing a desktop app also stops the demo.\nData and private logs are retained in a fresh .data/local-demo/run-* directory.\n\n  --no-open         Print browser links instead of opening browser tabs\n  --no-desktop      Skip building/opening the three native desktop apps\n  --skip-build      Reuse existing binaries and documentation dependencies\n  --port-offset N   Prefer these offsets; busy ports are replaced automatically\n  --data-root DIR   Parent directory for private demo runs\n  --stop            Stop running demos in that data directory\n  --list            List running demos and their public URLs\n  --help            Show this help\n`;
 
 export function parseOptions(args, root = ROOT) {
-  const options = { noOpen: false, noDesktop: false, skipBuild: false, stop: false, portOffset: 0, dataRoot: path.join(root, '.data/local-demo'), help: false };
+  const options = { noOpen: false, noDesktop: false, skipBuild: false, stop: false, list: false, portOffset: 0, dataRoot: path.join(root, '.data/local-demo'), help: false };
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
     if (arg === '--help' || arg === '-h') options.help = true;
@@ -20,6 +20,7 @@ export function parseOptions(args, root = ROOT) {
     else if (arg === '--no-desktop') options.noDesktop = true;
     else if (arg === '--skip-build') options.skipBuild = true;
     else if (arg === '--stop') options.stop = true;
+    else if (arg === '--list') options.list = true;
     else if (arg === '--port-offset' || arg === '--data-root') {
       const value = args[++i];
       if (!value || value.startsWith('--')) throw new Error(`${arg} needs a value.`);
@@ -30,6 +31,7 @@ export function parseOptions(args, root = ROOT) {
       }
     } else throw new Error(`Unknown option: ${arg}. Use --help.`);
   }
+  if (options.stop && options.list) throw new Error('Options --stop and --list cannot be combined.');
   return options;
 }
 export function demoPorts(offset = 0) {
@@ -105,7 +107,7 @@ async function writeDemoControl(run, name, value) {
   await fsp.writeFile(file + '.tmp', JSON.stringify(value) + '\n', { mode: 0o600 });
   await fsp.rename(file + '.tmp', file);
 }
-async function requestDemoStop(run, socketPath) {
+async function requestDemoStop(run, socketPath, action = 'stop') {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection(socketPath);
     const reader = readline.createInterface({ input: socket });
@@ -115,7 +117,10 @@ async function requestDemoStop(run, socketPath) {
       done = true; reader.close(); socket.destroy();
       if (error) reject(error); else resolve(result);
     }
-    socket.once('connect', () => socket.write(JSON.stringify({ run }) + '\n'));
+    socket.once('connect', () => {
+      if (action === 'probe') finish(null, true);
+      else socket.write(JSON.stringify({ run, action }) + '\n');
+    });
     const failed = error => ['ENOENT', 'ECONNREFUSED', 'ENOTSOCK'].includes(error.code) ? finish(null, false) : finish(error);
     socket.once('error', failed); reader.once('error', failed);
     socket.once('close', () => { if (!done) finish(new Error(`Demo disconnected before confirming cleanup. See ${run}/logs.`)); });
@@ -124,12 +129,12 @@ async function requestDemoStop(run, socketPath) {
       try {
         const result = JSON.parse(line);
         if (result.exitCode !== 0) throw new Error(`Demo cleanup failed. See ${run}/logs.`);
-        finish(null, true);
+        finish(null, action === 'status' ? result.status : true);
       } catch (error) { finish(error); }
     });
   });
 }
-async function stopDemos(dataRoot) {
+async function demoTargets(dataRoot) {
   let entries;
   try { entries = await fsp.readdir(dataRoot, { withFileTypes: true }); }
   catch (error) { if (error.code !== 'ENOENT') throw error; entries = []; }
@@ -138,13 +143,44 @@ async function stopDemos(dataRoot) {
     if (!entry.isDirectory() || !entry.name.startsWith('run-')) continue;
     const run = path.join(dataRoot, entry.name);
     const control = await readDemoControl(path.join(run, 'demo-control.json'));
-    if (control?.version !== 2 || typeof control.socket !== 'string') continue;
+    if (![2, 3].includes(control?.version) || typeof control.socket !== 'string') continue;
     if (await readDemoControl(path.join(run, 'demo-stopped.json'))) continue;
-    targets.push({ run, socket: control.socket });
+    targets.push({ run, socket: control.socket, version: control.version });
   }
+  return targets;
+}
+async function stopDemos(dataRoot) {
+  const targets = await demoTargets(dataRoot);
   const results = await Promise.all(targets.map(target => requestDemoStop(target.run, target.socket)));
   const count = results.filter(Boolean).length;
   console.log(count ? `Stopped ${count} demo${count === 1 ? '' : 's'}. Data and logs retained.` : 'No running demo found. Ports used by other apps are not managed by demo-stop.');
+  return 0;
+}
+
+async function listDemos(dataRoot) {
+  const targets = await demoTargets(dataRoot);
+  const demos = await Promise.all(targets.map(async target => {
+    // Version-2 controllers interpret every request as a stop: probe only.
+    const status = await requestDemoStop(target.run, target.socket, target.version === 3 ? 'status' : 'probe');
+    if (!status) return null;
+    const links = target.version === 3 ? status.urls : await readDemoControl(path.join(target.run, 'launch-links.json'));
+    const urls = {};
+    for (const name of ['knot', 'personal', 'provider', 'docs']) {
+      try {
+        const url = new URL(links?.[name]);
+        if (['http:', 'https:'].includes(url.protocol)) urls[name] = url.origin;
+      } catch {}
+    }
+    return { run: target.run, state: status.state || 'running', pid: status.pid, urls };
+  }));
+  const live = demos.filter(Boolean);
+  if (!live.length) console.log('No running demo found.');
+  for (const demo of live) {
+    console.log(`${path.basename(demo.run)} — ${demo.state}${demo.pid ? ` (PID ${demo.pid})` : ''}\n  Data: ${demo.run}`);
+    for (const [name, label] of Object.entries({ knot: 'Knot', personal: 'Personal', provider: 'Provider', docs: 'Documentation' })) {
+      if (demo.urls[name]) console.log(`  ${label}: ${demo.urls[name]}`);
+    }
+  }
   return 0;
 }
 
@@ -153,11 +189,12 @@ export async function main(args = process.argv.slice(2)) {
   if (options.help) { console.log(HELP); return 0; }
   if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Use Node.js 22 or later.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('The managed local demo supports macOS and Linux; use the README manual setup on this platform.');
+  if (options.list) return listDemos(options.dataRoot);
   if (options.stop) return stopDemos(options.dataRoot);
   const urlsFor = ports => Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, `http://127.0.0.1:${port}`]));
   let ports = demoPorts(options.portOffset), urls = urlsFor(ports);
   const controller = new AbortController(), records = [];
-  let stopping = false, exitCode = 0, resolveStop, runRoot, controlServer, controlDir;
+  let stopping = false, exitCode = 0, resolveStop, runRoot, controlServer, controlDir, demoReady = false;
   const controlSockets = new Map();
   const stopped = new Promise(resolve => { resolveStop = resolve; });
   function stop(reason, code = 0) {
@@ -248,7 +285,13 @@ export async function main(args = process.argv.slice(2)) {
       reader.once('line', line => {
         reader.close(); socket.resume();
         try {
-          if (JSON.parse(line).run !== runRoot) throw new Error('Wrong demo');
+          const request = JSON.parse(line);
+          if (request.run !== runRoot) throw new Error('Wrong demo');
+          if (request.action === 'status') {
+            socket.end(JSON.stringify({ exitCode: 0, status: { state: stopping ? 'stopping' : demoReady ? 'ready' : 'starting', pid: process.pid, urls: demoReady ? urls : {} } }) + '\n');
+            return;
+          }
+          if (request.action && request.action !== 'stop') throw new Error('Unknown command');
           controlSockets.set(socket, true); socket.setTimeout(0);
           stop('demo-stop command');
         } catch { socket.end(JSON.stringify({ exitCode: 1 }) + '\n'); }
@@ -260,7 +303,7 @@ export async function main(args = process.argv.slice(2)) {
     });
     controlServer.on('error', error => stop(`Demo control failed: ${error.message}`, 1));
     await fsp.chmod(socketPath, 0o600);
-    await writeDemoControl(runRoot, 'demo-control.json', { version: 2, socket: socketPath });
+    await writeDemoControl(runRoot, 'demo-control.json', { version: 3, socket: socketPath });
     console.log(`Demo data: ${runRoot}`);
     const appEnv = { TANGLED_KNOT: urls.knot, TANGLED_PERSONAL_URL: urls.personal + '/' };
     for (const app of ['reed', 'loomed', 'weft']) {
@@ -330,11 +373,12 @@ export async function main(args = process.argv.slice(2)) {
       } catch { check(); console.error(`Could not open ${name}. Use launch-links.json in the private run directory.`); }
     }
     check();
+    demoReady = true;
     console.log(`Knot: ${urls.knot}\nPersonal: ${options.noOpen ? personalLink : urls.personal + ' (private launch link saved in launch-links.json)'}\nProvider: ${urls.provider}\nDocumentation: ${urls.docs}`);
     console.log(`Demo account: ${account.email}\nDemo password: ${account.password}`);
     console.log(`Personal sample: ${personalSample.notes} notes, ${personalSample.captures} captures, ${personalSample.feedItems} feed articles.`);
     console.log('Demo ready. Press Enter or Ctrl-C to stop everything.');
-    console.log('From another terminal: just demo-stop (use the same --data-root if customized).');
+    console.log('From another terminal: just demo-list or just demo-stop (use the same --data-root if customized).');
     await stopped;
   } catch (error) {
     if (!stopping) { console.error(error.message || String(error)); stop('startup or runtime failure', 1); }

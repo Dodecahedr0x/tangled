@@ -49,6 +49,15 @@ processes. Shutdown sends a graceful termination first, then stops any remaining
 owned process groups after a bounded wait. Browser tabs may remain after their
 services stop.
 
+From another terminal, list live demos, their status and actual service URLs:
+
+```sh
+just demo-list
+```
+
+The listing includes demos still starting and hides private session tokens.
+For a custom data directory, use `just demo-list --data-root DIR`.
+
 From another terminal, stop all running demos in the default data directory:
 
 ```sh

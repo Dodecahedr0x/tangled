@@ -14,6 +14,11 @@ default:
 demo *flags:
     @exec node scripts/local-demo.mjs "$@"
 
+# List live demos and their actual URLs.
+[group('Demo')]
+demo-list *flags:
+    @exec node scripts/local-demo.mjs --list "$@"
+
 # Stop running demos in the selected data root and wait for process cleanup.
 [group('Demo')]
 demo-stop *flags:

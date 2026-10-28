@@ -101,6 +101,72 @@ async function setup(t, { settings = {}, flags = [], omit = [], noOpen = true, n
   return { dir, offset, events, run, until, exited, cleaned, control: settings => writeFile(controlPath, JSON.stringify(settings)), output: () => output, ready: () => until(() => /Demo ready\./i.test(output), 'demo readiness') };
 }
 
+async function listCommand(dataRoot) {
+  const child = spawn(process.execPath, [script, '--list', '--data-root', dataRoot], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', value => { output += value; });
+  child.stderr.on('data', value => { output += value; });
+  const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', resolve); });
+  return { code, output };
+}
+
+test('list command shows live demo URLs without stopping it or revealing credentials', { timeout: 30000 }, async t => {
+  const demo = await setup(t);
+  const child = demo.run();
+  await demo.ready();
+  const result = await listCommand(join(demo.dir, 'data'));
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /ready/);
+  assert.match(result.output, /run-/);
+  for (const label of ['Knot:', 'Personal:', 'Provider:', 'Documentation:']) assert.ok(result.output.includes(label), label);
+  assert.doesNotMatch(result.output, /#session=|Demo password|a{64}/);
+  assert.ok(alive(child.pid), 'listing stopped the launcher');
+  const stop = await stopCommand(join(demo.dir, 'data'));
+  assert.equal(stop.code, 0, stop.output);
+  assert.equal((await demo.exited()).code, 0, demo.output());
+  await demo.cleaned();
+  const empty = await listCommand(join(demo.dir, 'data'));
+  assert.equal(empty.code, 0, empty.output);
+  assert.match(empty.output, /No running demo/);
+});
+
+test('list command shows a demo still preparing without stopping its build', { timeout: 30000 }, async t => {
+  const demo = await setup(t, { settings: { holdMetadata: true } });
+  const child = demo.run();
+  await demo.until(async () => (await demo.events()).some(e => e.role === 'cargo' && e.event === 'start'), 'metadata preparation');
+  const result = await listCommand(join(demo.dir, 'data'));
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /starting/);
+  assert.ok(alive(child.pid));
+  assert.equal((await stopCommand(join(demo.dir, 'data'))).code, 0);
+  assert.equal((await demo.exited()).code, 0);
+  await demo.cleaned();
+});
+
+test('list command safely probes older demo controllers and strips private launch tokens', { timeout: 10000 }, async t => {
+  const demo = await setup(t);
+  const root = join(demo.dir, 'data');
+  const run = join(root, 'run-legacy');
+  const socketDir = await mkdtemp('/tmp/tangled-legacy-list-');
+  const socket = join(socketDir, 'control.sock');
+  let requests = 0;
+  const server = createServer(peer => { peer.on('error', () => {}); peer.on('data', () => { requests++; }); });
+  await new Promise((resolve, reject) => { server.once('error', reject); server.listen(socket, resolve); });
+  t.after(async () => { await close(server); await rm(socketDir, { recursive: true, force: true }); });
+  await mkdir(run, { recursive: true });
+  await writeFile(join(run, 'demo-control.json'), JSON.stringify({ version: 2, socket }));
+  await writeFile(join(run, 'launch-links.json'), JSON.stringify({ personal: 'http://127.0.0.1:8788/#session=' + 'a'.repeat(64), provider: 'http://127.0.0.1:8787/' }));
+  const stale = join(root, 'run-stale');
+  await mkdir(stale);
+  await writeFile(join(stale, 'demo-control.json'), JSON.stringify({ version: 2, socket: join(socketDir, 'missing.sock') }));
+  const result = await listCommand(root);
+  assert.equal(result.code, 0, result.output);
+  assert.match(result.output, /run-legacy/);
+  assert.doesNotMatch(result.output, /run-stale|#session=|a{64}/);
+  assert.equal(requests, 0, 'sent a command that could stop an older launcher');
+  assert.ok(server.listening);
+});
+
 async function stopCommand(dataRoot) {
   const child = spawn(process.execPath, [script, '--stop', '--data-root', dataRoot], { stdio: ['ignore', 'pipe', 'pipe'] });
   let output = '';
@@ -381,7 +447,7 @@ test('missing binaries fail with a useful diagnostic and no leaked processes', {
   await demo.cleaned();
 });
 
-for (const flags of [['--unknown'], ['--port-offset', '-1'], ['--port-offset', 'abc'], ['--port-offset', '60000'], ['--data-root'], ['--port-offset']]) {
+for (const flags of [['--unknown'], ['--list', '--stop'], ['--port-offset', '-1'], ['--port-offset', 'abc'], ['--port-offset', '60000'], ['--data-root'], ['--port-offset']]) {
   test(`invalid flags ${flags.join(' ')} fail before launching tools`, { timeout: 10000 }, async t => {
     const demo = await setup(t, { flags });
     demo.run();
