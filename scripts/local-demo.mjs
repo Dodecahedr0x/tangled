@@ -72,7 +72,17 @@ async function freePorts(ports) {
   try {
     for (const [name, port] of Object.entries(ports)) {
       const server = net.createServer(); probes.push(server);
-      try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, name === 'provider' ? '0.0.0.0' : '127.0.0.1', resolve); }); }
+      try {
+        // macOS can allow wildcard and specific-address listeners on the same
+        // port. A successful bind alone does not prove our URL is unused.
+        await new Promise((resolve, reject) => {
+          const socket = net.connect({ port, host: '127.0.0.1' });
+          socket.once('connect', () => { socket.end(); socket.resume(); reject(new Error('Existing listener')); });
+          socket.once('error', error => { socket.destroy(); error.code === 'ECONNREFUSED' ? resolve() : reject(error); });
+          socket.setTimeout(500, () => { socket.destroy(); reject(new Error('Port probe timed out')); });
+        });
+        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+      }
       catch { throw new Error(`Port ${port} for ${name} is occupied or unavailable. Stop that service or use --port-offset N. Existing processes were left running.`); }
     }
   } finally { await Promise.all(probes.map(server => new Promise(resolve => server.close(() => resolve())))); }
@@ -187,9 +197,9 @@ export async function main(args = process.argv.slice(2)) {
     await freePorts(ports); check();
     const knot = launch('Knot', path.join(target, 'tangled-knot'), ['--listen', `127.0.0.1:${ports.knot}`, '--data', path.join(runRoot, 'knot')], { runtime: true, env: { TANGLED_PEERS: '' } });
     const personal = launch('Personal', path.join(target, 'tangled-personal'), ['serve', '--data', path.join(runRoot, 'personal'), '--listen', `127.0.0.1:${ports.personal}`, '--no-open'], { runtime: true, capture: true });
-    const provider = launch('Provider', path.join(target, 'tangled-provider'), [], { runtime: true, capture: true, env: { PORT: String(ports.provider), DATA_DIR: path.join(runRoot, 'provider'), PUBLIC_URL: urls.provider } });
+    const provider = launch('Provider', path.join(target, 'tangled-provider'), [], { runtime: true, capture: true, env: { BIND_ADDR: '127.0.0.1', PORT: String(ports.provider), DATA_DIR: path.join(runRoot, 'provider'), PUBLIC_URL: urls.provider } });
     const docs = launch('Documentation', 'npm', ['--prefix', path.join(ROOT, 'site'), 'run', 'dev', '--', '--host', '127.0.0.1', '--port', String(ports.docs)], { runtime: true, env: { PUBLIC_PROVIDER_URL: urls.provider, ASTRO_BASE: '/', ASTRO_SITE: urls.docs } });
-    await Promise.all([ready(knot, urls.knot + '/xrpc/tangled.node.describe'), ready(provider, urls.provider + '/', undefined, `tangled-provider listening 0.0.0.0:${ports.provider}`), ready(docs, urls.docs + '/')]);
+    await Promise.all([ready(knot, urls.knot + '/xrpc/tangled.node.describe'), ready(provider, urls.provider + '/healthz', undefined, `tangled-provider listening 127.0.0.1:${ports.provider}`), ready(docs, urls.docs + '/')]);
     const tokenDeadline = Date.now() + 15000;
     let personalLink;
     while (!personalLink && Date.now() < tokenDeadline) {

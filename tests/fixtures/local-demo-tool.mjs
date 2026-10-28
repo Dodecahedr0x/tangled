@@ -13,7 +13,7 @@ const control = () => {
   try { return JSON.parse(readFileSync(process.env.DEMO_FIXTURE_CONTROL, 'utf8')); }
   catch { return {}; }
 };
-log('start', { env: Object.fromEntries(['PORT', 'REED_HOME', 'LOOMED_HOME', 'WEFT_HOME', 'TANGLED_KNOT', 'TANGLED_PERSONAL_URL'].map(k => [k, process.env[k]])) });
+log('start', { env: Object.fromEntries(['PORT', 'BIND_ADDR', 'REED_HOME', 'LOOMED_HOME', 'WEFT_HOME', 'TANGLED_KNOT', 'TANGLED_PERSONAL_URL'].map(k => [k, process.env[k]])) });
 
 if (role === 'cargo') {
   if (args[0] === 'metadata') {
@@ -82,9 +82,9 @@ if (role === 'grandchild') {
         response.end('<!doctype html><title>Local demo fixture</title>');
       }
     });
-    server.listen(port, role === 'tangled-provider' ? '0.0.0.0' : '127.0.0.1', () => {
+    server.listen(port, role === 'tangled-provider' ? (process.env.BIND_ADDR || '0.0.0.0') : '127.0.0.1', () => {
       log('listening', { port });
-      if (role === 'tangled-provider' && control().providerReadyMarker !== false) console.log(`tangled-provider listening 0.0.0.0:${port}`);
+      if (role === 'tangled-provider' && control().providerReadyMarker !== false) console.log(`tangled-provider listening ${process.env.BIND_ADDR || '0.0.0.0'}:${port}`);
       if (role === 'tangled-personal') console.log(`http://127.0.0.1:${port}/#session=${token}`);
     });
     server.on('error', error => { log('server-error', { error: error.message }); process.exit(28); });

@@ -1,7 +1,7 @@
-//! Hosted Tangled provider. Listens on `0.0.0.0:$PORT` (Render sets `PORT`).
+//! Hosted Tangled provider. Binds `$BIND_ADDR:$PORT` (defaults to `0.0.0.0:8787`).
 
 use std::env;
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::process;
 
 use tangled_provider::{router, Provider};
@@ -11,6 +11,13 @@ fn main() {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(8787);
+    let bind_ip: IpAddr = env::var("BIND_ADDR")
+        .unwrap_or_else(|_| "0.0.0.0".into())
+        .parse()
+        .unwrap_or_else(|error| {
+            eprintln!("invalid BIND_ADDR: {error}");
+            process::exit(1);
+        });
     let data = env::var("DATA_DIR").unwrap_or_else(|_| "./data-provider".into());
     let public_url = public_url(port);
     let provider = match Provider::open(&data, &public_url) {
@@ -21,7 +28,7 @@ fn main() {
         }
     };
     let app = router(provider);
-    let addr: SocketAddr = ([0, 0, 0, 0], port).into();
+    let addr = SocketAddr::new(bind_ip, port);
     let runtime = tokio::runtime::Runtime::new().expect("runtime");
     if let Err(e) = runtime.block_on(async move {
         let listener = tokio::net::TcpListener::bind(addr).await?;

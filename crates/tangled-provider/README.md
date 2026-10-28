@@ -11,7 +11,7 @@ just provider
 # http://127.0.0.1:8787
 ```
 
-`DATA_DIR` (default `./data-provider`) holds `operator.json`, `accounts.db`, and the knot snapshot. `PORT` defaults to `8787`. `PUBLIC_URL` or `RENDER_EXTERNAL_URL` is the URL written into identity endpoints. Cookies are `Secure` when that URL is `https`.
+`DATA_DIR` (default `./data-provider`) holds `operator.json`, `accounts.db`, and the knot snapshot. `PORT` defaults to `8787`; `BIND_ADDR` defaults to `0.0.0.0`. The managed local demo sets `BIND_ADDR=127.0.0.1` so requests reach its own loopback listener. `PUBLIC_URL` or `RENDER_EXTERNAL_URL` is the URL written into identity endpoints. Cookies are `Secure` when that URL is `https`.
 
 ## Render
 

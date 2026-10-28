@@ -23,7 +23,7 @@ async function availableOffset() {
       for (const port of [3000, 8788, 8787, 4321]) {
         const server = createServer();
         servers.push(server);
-        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port + offset, port === 8787 ? '0.0.0.0' : '127.0.0.1', resolve); });
+        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port + offset, '127.0.0.1', resolve); });
       }
       await Promise.all(servers.map(close));
       return offset;
@@ -132,6 +132,8 @@ test('default launch opens interfaces and creates private isolated data', { time
   const runDir = join(demo.dir, 'data', runs[0]);
   assert.match(runs[0], /^run-/);
   assert.equal((await stat(runDir)).mode & 0o777, 0o700);
+  const provider = (await demo.events()).find(e => e.role === 'tangled-provider' && e.event === 'start');
+  assert.equal(provider.env.BIND_ADDR, '127.0.0.1', 'demo provider must bind the address used by its clients');
   assert.match(demo.output(), new RegExp(`127\\.0\\.0\\.1:${3000 + demo.offset}`));
   assert.doesNotMatch(demo.output(), /a{64}/, 'private Personal session token escaped into terminal output');
   child.stdin.end();
@@ -235,6 +237,24 @@ test('a wildcard provider listener is rejected before launching tools', { timeou
   assert.match(demo.output(), /provider.*occupied|occupied.*provider/i);
   assert.deepEqual(await demo.events(), [], 'started tools despite an occupied provider port');
   assert.ok(occupant.listening, 'existing provider was stopped');
+  await demo.cleaned();
+});
+
+test('a loopback provider listener cannot be hidden by a wildcard bind', { timeout: 30000 }, async t => {
+  const demo = await setup(t);
+  let requests = 0;
+  const occupant = createServer(socket => {
+    socket.on('data', () => { requests++; });
+    socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+  });
+  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '127.0.0.1', resolve); });
+  t.after(() => close(occupant));
+  demo.run();
+  await Promise.race([demo.exited(), delay(3000).then(() => { throw new Error('occupied provider was not rejected before startup'); })]);
+  assert.match(demo.output(), /provider.*occupied|occupied.*provider/i);
+  assert.deepEqual(await demo.events(), [], 'started tools despite a loopback listener');
+  assert.equal(requests, 0, 'sent HTTP requests to an unrelated application');
+  assert.ok(occupant.listening, 'existing application was stopped');
   await demo.cleaned();
 });
 
