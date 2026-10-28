@@ -9,7 +9,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const HELP = `Tangled local demo (Node 22+, macOS/Linux)\n\nUsage: just demo [flags]\n       just demo-stop [--data-root DIR]\n   or: node scripts/local-demo.mjs [flags]\n\nStarts and seeds Knot, Personal, provider, docs, Reed, Loomed and Weft.\nPress Enter or Ctrl-C to stop all owned processes. Closing a desktop app also stops the demo.\nData and private logs are retained in a fresh .data/local-demo/run-* directory.\n\n  --no-open         Print browser links instead of opening browser tabs\n  --no-desktop      Skip building/opening the three native desktop apps\n  --skip-build      Reuse existing binaries and documentation dependencies\n  --port-offset N   Add N to ports 3000, 8788, 8787 and 4321\n  --data-root DIR   Parent directory for private demo runs\n  --stop            Stop running demos in that data directory\n  --help            Show this help\n`;
+const HELP = `Tangled local demo (Node 22+, macOS/Linux)\n\nUsage: just demo [flags]\n       just demo-stop [--data-root DIR]\n   or: node scripts/local-demo.mjs [flags]\n\nStarts and seeds Knot, Personal, provider, docs, Reed, Loomed and Weft.\nPress Enter or Ctrl-C to stop all owned processes. Closing a desktop app also stops the demo.\nData and private logs are retained in a fresh .data/local-demo/run-* directory.\n\n  --no-open         Print browser links instead of opening browser tabs\n  --no-desktop      Skip building/opening the three native desktop apps\n  --skip-build      Reuse existing binaries and documentation dependencies\n  --port-offset N   Prefer these offsets; busy ports are replaced automatically\n  --data-root DIR   Parent directory for private demo runs\n  --stop            Stop running demos in that data directory\n  --help            Show this help\n`;
 
 export function parseOptions(args, root = ROOT) {
   const options = { noOpen: false, noDesktop: false, skipBuild: false, stop: false, portOffset: 0, dataRoot: path.join(root, '.data/local-demo'), help: false };
@@ -68,24 +68,31 @@ async function cleanup(records) {
   while (Date.now() < deadline && records.some(groupExists)) await delay(50);
   if (records.some(groupExists)) throw new Error('A demo process group did not stop; inspect the private logs.');
 }
-async function freePorts(ports) {
-  const probes = [];
+async function freePorts(preferred) {
+  const probes = [], selected = {};
+  async function bind(port) {
+    const server = net.createServer(socket => socket.destroy()); probes.push(server);
+    await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+    return server.address().port;
+  }
   try {
-    for (const [name, port] of Object.entries(ports)) {
-      const server = net.createServer(); probes.push(server);
+    for (const [name, port] of Object.entries(preferred)) {
       try {
-        // macOS can allow wildcard and specific-address listeners on the same
-        // port. A successful bind alone does not prove our URL is unused.
+        // macOS permits wildcard and specific-address listeners to coexist.
+        // Check reachability too, so an existing app never receives demo traffic.
         await new Promise((resolve, reject) => {
           const socket = net.connect({ port, host: '127.0.0.1' });
           socket.once('connect', () => { socket.end(); socket.resume(); reject(new Error('Existing listener')); });
           socket.once('error', error => { socket.destroy(); error.code === 'ECONNREFUSED' ? resolve() : reject(error); });
           socket.setTimeout(500, () => { socket.destroy(); reject(new Error('Port probe timed out')); });
         });
-        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); });
+        selected[name] = await bind(port);
+      } catch {
+        selected[name] = await bind(0);
+        console.log(`Port ${port} for ${name} is busy; using ${selected[name]} instead. Existing apps were left running.`);
       }
-      catch { throw new Error(`Port ${port} for ${name} is occupied or unavailable. Stop that service or use --port-offset N. Existing processes were left running.`); }
     }
+    return selected;
   } finally { await Promise.all(probes.map(server => new Promise(resolve => server.close(() => resolve())))); }
 }
 
@@ -137,7 +144,7 @@ async function stopDemos(dataRoot) {
   }
   const results = await Promise.all(targets.map(target => requestDemoStop(target.run, target.socket)));
   const count = results.filter(Boolean).length;
-  console.log(count ? `Stopped ${count} demo${count === 1 ? '' : 's'}. Data and logs retained.` : 'No running demo found.');
+  console.log(count ? `Stopped ${count} demo${count === 1 ? '' : 's'}. Data and logs retained.` : 'No running demo found. Ports used by other apps are not managed by demo-stop.');
   return 0;
 }
 
@@ -147,8 +154,8 @@ export async function main(args = process.argv.slice(2)) {
   if (Number(process.versions.node.split('.')[0]) < 22) throw new Error('Use Node.js 22 or later.');
   if (!['darwin', 'linux'].includes(process.platform)) throw new Error('The managed local demo supports macOS and Linux; use the README manual setup on this platform.');
   if (options.stop) return stopDemos(options.dataRoot);
-  const ports = demoPorts(options.portOffset);
-  const urls = Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, `http://127.0.0.1:${port}`]));
+  const urlsFor = ports => Object.fromEntries(Object.entries(ports).map(([name, port]) => [name, `http://127.0.0.1:${port}`]));
+  let ports = demoPorts(options.portOffset), urls = urlsFor(ports);
   const controller = new AbortController(), records = [];
   let stopping = false, exitCode = 0, resolveStop, runRoot, controlServer, controlDir;
   const controlSockets = new Map();
@@ -224,7 +231,7 @@ export async function main(args = process.argv.slice(2)) {
     throw new Error(`${record.label} did not become ready within 60 seconds. See ${record.log}`);
   }
   try {
-    await freePorts(ports); check();
+    ports = await freePorts(ports); urls = urlsFor(ports); check();
     await fsp.mkdir(options.dataRoot, { recursive: true, mode: 0o700 });
     runRoot = await fsp.mkdtemp(path.join(options.dataRoot, 'run-'));
     await fsp.mkdir(path.join(runRoot, 'logs'), { mode: 0o700 });
@@ -275,7 +282,10 @@ export async function main(args = process.argv.slice(2)) {
       catch { throw new Error(`Missing executable ${name}. Run again without --skip-build.`); }
     }
     // Builds can take minutes; a port may have been claimed since preflight.
-    await freePorts(ports); check();
+    ports = await freePorts(ports); urls = urlsFor(ports); check();
+    appEnv.TANGLED_KNOT = urls.knot;
+    appEnv.TANGLED_PERSONAL_URL = urls.personal + '/';
+    for (const app of ['reed', 'loomed', 'weft']) await fsp.writeFile(path.join(appEnv[`${app.toUpperCase()}_HOME`], 'knot.txt'), urls.knot + '\n', { mode: 0o600 });
     const knot = launch('Knot', path.join(target, 'tangled-knot'), ['--listen', `127.0.0.1:${ports.knot}`, '--data', path.join(runRoot, 'knot')], { runtime: true, env: { TANGLED_PEERS: '' } });
     const personal = launch('Personal', path.join(target, 'tangled-personal'), ['serve', '--data', path.join(runRoot, 'personal'), '--listen', `127.0.0.1:${ports.personal}`, '--no-open'], { runtime: true, capture: true });
     const provider = launch('Provider', path.join(target, 'tangled-provider'), [], { runtime: true, capture: true, env: { BIND_ADDR: '127.0.0.1', PORT: String(ports.provider), DATA_DIR: path.join(runRoot, 'provider'), PUBLIC_URL: urls.provider } });

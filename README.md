@@ -22,7 +22,8 @@ for independently built interfaces.
 The setup below uses **separate data directories and identities** for Personal,
 the self-hosted knot and the provider. Starting them together does not synchronize
 accounts or copy data between them. The three desktop clients connect to the
-self-hosted knot on port 3000; Personal works independently on port 8788.
+self-hosted knot (default port 3000); Personal works independently (default port
+8788). The demo prints the actual URLs when it chooses replacement ports.
 
 ## Run the complete local setup
 
@@ -61,13 +62,14 @@ started a demo with a custom `--data-root`, pass that same option to
 Each invocation creates a fresh private `.data/local-demo/run-*` directory and
 retains its state and logs after shutdown. Your normal profiles are untouched.
 The private Personal launch link and demo account are saved there; keep those
-files and terminal output private. If a required port is already
-occupied, the launcher exits without stopping the existing listener.
+files and terminal output private. If a preferred port is occupied, the launcher
+chooses a free replacement and prints the actual URLs. Existing apps keep running.
+`demo-stop` stops managed demos only; it does not stop other apps occupying ports.
 
 ```sh
 just demo --no-open                  # Keep browser tabs closed; print links
 just demo --no-desktop --no-open      # Services and sample data on a headless host
-just demo --port-offset 10000         # Use 13000 / 18788 / 18787 / 14321
+just demo --port-offset 10000         # Prefer 13000 / 18788 / 18787 / 14321; replace busy ports
 just demo --skip-build                # Reuse already-built binaries and site dependencies
 ```
 

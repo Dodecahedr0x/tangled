@@ -280,62 +280,82 @@ test('cleanup kills a stubborn grandchild after its service leader exits', { tim
   await demo.cleaned();
 });
 
-test('occupied ports fail without killing an unrelated listener', { timeout: 30000 }, async t => {
+async function demoLinks(demo) {
+  const run = demo.output().match(/^Demo data: (.+)$/m)[1];
+  return JSON.parse(await readFile(join(run, 'launch-links.json'), 'utf8'));
+}
+
+test('occupied knot ports select free ports without stopping the existing listener', { timeout: 30000 }, async t => {
   const demo = await setup(t);
   const occupant = createServer(socket => socket.end('still alive'));
   await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(3000 + demo.offset, '127.0.0.1', resolve); });
   t.after(() => close(occupant));
-  demo.run();
-  assert.notEqual((await demo.exited()).code, 0, demo.output());
-  assert.ok(occupant.listening);
-  const received = await new Promise((resolve, reject) => { const socket = connect(3000 + demo.offset, '127.0.0.1'); let text = ''; socket.on('data', value => { text += value; }); socket.on('end', () => resolve(text)); socket.on('error', reject); });
-  assert.equal(received, 'still alive');
-  assert.ok(!(await demo.events()).some(e => runtime.includes(e.role)), 'started services despite occupied port');
+  const child = demo.run();
+  await demo.ready();
+  const links = await demoLinks(demo);
+  assert.notEqual(new URL(links.knot).port, String(3000 + demo.offset));
+  await demo.until(async () => {
+    const roles = (await demo.events()).filter(e => e.event === 'start').map(e => e.role);
+    return ['reed', 'loomed', 'weft'].every(role => roles.includes(role));
+  }, 'desktop launch records');
+  const events = await demo.events();
+  for (const role of seeds) assert.ok(events.some(e => e.event === 'start' && e.role === role && e.args.includes(links.knot)), role);
+  for (const role of ['reed', 'loomed', 'weft']) assert.ok(events.some(e => e.event === 'start' && e.role === role && e.env.TANGLED_KNOT === links.knot), role);
+  assert.ok(occupant.listening, 'existing listener was stopped');
+  child.stdin.end();
+  assert.equal((await demo.exited()).code, 0, demo.output());
   await demo.cleaned();
 });
 
-test('a wildcard provider listener is rejected before launching tools', { timeout: 30000 }, async t => {
-  const demo = await setup(t);
-  const occupant = createServer(socket => socket.destroy());
-  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '0.0.0.0', resolve); });
-  t.after(() => close(occupant));
-  demo.run();
-  assert.notEqual((await demo.exited()).code, 0, demo.output());
-  assert.match(demo.output(), /provider.*occupied|occupied.*provider/i);
-  assert.deepEqual(await demo.events(), [], 'started tools despite an occupied provider port');
-  assert.ok(occupant.listening, 'existing provider was stopped');
-  await demo.cleaned();
-});
-
-test('a loopback provider listener cannot be hidden by a wildcard bind', { timeout: 30000 }, async t => {
-  const demo = await setup(t);
-  let requests = 0;
-  const occupant = createServer(socket => {
-    socket.on('data', () => { requests++; });
-    socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+for (const host of ['0.0.0.0', '127.0.0.1']) {
+  test(`occupied provider on ${host} selects a free port without HTTP requests to the existing app`, { timeout: 30000 }, async t => {
+    const demo = await setup(t);
+    let requests = 0;
+    const occupant = createServer(socket => {
+      socket.on('data', () => { requests++; });
+      socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n');
+    });
+    await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, host, resolve); });
+    t.after(() => close(occupant));
+    const child = demo.run();
+    await demo.ready();
+    const links = await demoLinks(demo);
+    assert.notEqual(new URL(links.provider).port, String(8787 + demo.offset));
+    const provider = (await demo.events()).find(e => e.event === 'start' && e.role === 'tangled-provider');
+    assert.equal(provider.env.PORT, new URL(links.provider).port);
+    assert.equal(requests, 0, 'sent HTTP requests to the existing app');
+    assert.ok(occupant.listening);
+    child.stdin.end();
+    assert.equal((await demo.exited()).code, 0, demo.output());
+    await demo.cleaned();
   });
-  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '127.0.0.1', resolve); });
-  t.after(() => close(occupant));
-  demo.run();
-  await Promise.race([demo.exited(), delay(3000).then(() => { throw new Error('occupied provider was not rejected before startup'); })]);
-  assert.match(demo.output(), /provider.*occupied|occupied.*provider/i);
-  assert.deepEqual(await demo.events(), [], 'started tools despite a loopback listener');
-  assert.equal(requests, 0, 'sent HTTP requests to an unrelated application');
-  assert.ok(occupant.listening, 'existing application was stopped');
-  await demo.cleaned();
-});
+}
 
-test('a port claimed during preparation is rejected before starting services', { timeout: 30000 }, async t => {
+test('a port claimed during preparation updates seeders and app profiles before launch', { timeout: 30000 }, async t => {
   const demo = await setup(t, { settings: { holdMetadata: true } });
-  demo.run();
+  const child = demo.run();
   await demo.until(async () => (await demo.events()).some(e => e.role === 'cargo' && e.event === 'start'), 'metadata preparation');
   const occupant = createServer(socket => socket.destroy());
-  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '0.0.0.0', resolve); });
+  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(3000 + demo.offset, '127.0.0.1', resolve); });
   t.after(() => close(occupant));
   await demo.control({});
-  assert.notEqual((await demo.exited()).code, 0, demo.output());
-  assert.ok(!(await demo.events()).some(e => e.event === 'start' && runtime.includes(e.role)), 'started services after their port was claimed');
-  assert.ok(occupant.listening, 'existing provider was stopped');
+  await demo.ready();
+  const links = await demoLinks(demo);
+  assert.notEqual(new URL(links.knot).port, String(3000 + demo.offset));
+  await demo.until(async () => {
+    const roles = (await demo.events()).filter(e => e.event === 'start').map(e => e.role);
+    return ['reed', 'loomed', 'weft'].every(role => roles.includes(role));
+  }, 'desktop launch records');
+  const events = await demo.events();
+  for (const role of seeds) assert.ok(events.some(e => e.event === 'start' && e.role === role && e.args.includes(links.knot)), role);
+  for (const role of ['reed', 'loomed', 'weft']) {
+    const app = events.find(e => e.event === 'start' && e.role === role);
+    assert.equal(app.env.TANGLED_KNOT, links.knot);
+    assert.equal((await readFile(join(app.env[role.toUpperCase() + '_HOME'], 'knot.txt'), 'utf8')).trim(), links.knot);
+  }
+  assert.ok(occupant.listening);
+  child.stdin.end();
+  assert.equal((await demo.exited()).code, 0, demo.output());
   await demo.cleaned();
 });
 
