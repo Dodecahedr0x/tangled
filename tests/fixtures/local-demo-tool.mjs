@@ -17,6 +17,7 @@ log('start', { env: Object.fromEntries(['PORT', 'REED_HOME', 'LOOMED_HOME', 'WEF
 
 if (role === 'cargo') {
   if (args[0] === 'metadata') {
+    while (control().holdMetadata) await new Promise(resolve => setTimeout(resolve, 20));
     console.log(JSON.stringify({ target_directory: process.env.CARGO_TARGET_DIR }));
     process.exit(0);
   }
@@ -81,8 +82,9 @@ if (role === 'grandchild') {
         response.end('<!doctype html><title>Local demo fixture</title>');
       }
     });
-    server.listen(port, '127.0.0.1', () => {
+    server.listen(port, role === 'tangled-provider' ? '0.0.0.0' : '127.0.0.1', () => {
       log('listening', { port });
+      if (role === 'tangled-provider' && control().providerReadyMarker !== false) console.log(`tangled-provider listening 0.0.0.0:${port}`);
       if (role === 'tangled-personal') console.log(`http://127.0.0.1:${port}/#session=${token}`);
     });
     server.on('error', error => { log('server-error', { error: error.message }); process.exit(28); });

@@ -23,7 +23,7 @@ async function availableOffset() {
       for (const port of [3000, 8788, 8787, 4321]) {
         const server = createServer();
         servers.push(server);
-        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port + offset, '127.0.0.1', resolve); });
+        await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port + offset, port === 8787 ? '0.0.0.0' : '127.0.0.1', resolve); });
       }
       await Promise.all(servers.map(close));
       return offset;
@@ -222,6 +222,47 @@ test('occupied ports fail without killing an unrelated listener', { timeout: 300
   const received = await new Promise((resolve, reject) => { const socket = connect(3000 + demo.offset, '127.0.0.1'); let text = ''; socket.on('data', value => { text += value; }); socket.on('end', () => resolve(text)); socket.on('error', reject); });
   assert.equal(received, 'still alive');
   assert.ok(!(await demo.events()).some(e => runtime.includes(e.role)), 'started services despite occupied port');
+  await demo.cleaned();
+});
+
+test('a wildcard provider listener is rejected before launching tools', { timeout: 30000 }, async t => {
+  const demo = await setup(t);
+  const occupant = createServer(socket => socket.destroy());
+  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '0.0.0.0', resolve); });
+  t.after(() => close(occupant));
+  demo.run();
+  assert.notEqual((await demo.exited()).code, 0, demo.output());
+  assert.match(demo.output(), /provider.*occupied|occupied.*provider/i);
+  assert.deepEqual(await demo.events(), [], 'started tools despite an occupied provider port');
+  assert.ok(occupant.listening, 'existing provider was stopped');
+  await demo.cleaned();
+});
+
+test('a port claimed during preparation is rejected before starting services', { timeout: 30000 }, async t => {
+  const demo = await setup(t, { settings: { holdMetadata: true } });
+  demo.run();
+  await demo.until(async () => (await demo.events()).some(e => e.role === 'cargo' && e.event === 'start'), 'metadata preparation');
+  const occupant = createServer(socket => socket.destroy());
+  await new Promise((resolve, reject) => { occupant.once('error', reject); occupant.listen(8787 + demo.offset, '0.0.0.0', resolve); });
+  t.after(() => close(occupant));
+  await demo.control({});
+  assert.notEqual((await demo.exited()).code, 0, demo.output());
+  assert.ok(!(await demo.events()).some(e => e.event === 'start' && runtime.includes(e.role)), 'started services after their port was claimed');
+  assert.ok(occupant.listening, 'existing provider was stopped');
+  await demo.cleaned();
+});
+
+test('provider readiness requires its own successful listener acknowledgment', { timeout: 30000 }, async t => {
+  const demo = await setup(t, { settings: { providerReadyMarker: false } });
+  const child = demo.run();
+  await demo.until(async () => (await demo.events()).some(e => e.role === 'tangled-provider' && e.event === 'listening'), 'provider listener');
+  await delay(700);
+  const events = await demo.events();
+  assert.ok(!events.some(e => e.role === 'tangled-provider' && e.event === 'request'), 'contacted a provider before its listener acknowledgment');
+  assert.ok(!events.some(e => seeds.includes(e.role) && e.event === 'start'), 'seeded before owned provider readiness');
+  assert.doesNotMatch(demo.output(), /Demo ready\./i);
+  child.kill('SIGINT');
+  assert.equal((await demo.exited()).code, 0, demo.output());
   await demo.cleaned();
 });
 

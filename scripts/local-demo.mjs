@@ -72,7 +72,7 @@ async function freePorts(ports) {
   try {
     for (const [name, port] of Object.entries(ports)) {
       const server = net.createServer(); probes.push(server);
-      try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, '127.0.0.1', resolve); }); }
+      try { await new Promise((resolve, reject) => { server.once('error', reject); server.listen(port, name === 'provider' ? '0.0.0.0' : '127.0.0.1', resolve); }); }
       catch { throw new Error(`Port ${port} for ${name} is occupied or unavailable. Stop that service or use --port-offset N. Existing processes were left running.`); }
     }
   } finally { await Promise.all(probes.map(server => new Promise(resolve => server.close(() => resolve())))); }
@@ -141,11 +141,14 @@ export async function main(args = process.argv.slice(2)) {
     if (settings.capture) await Promise.race([record.closed, stopped.then(() => { throw new Error('Demo stopped.'); })]);
     return record.output;
   }
-  async function ready(record, url, headers) {
+  async function ready(record, url, headers, readyLine) {
     const deadline = Date.now() + 60000;
     while (Date.now() < deadline) {
       check();
       if (record.result) throw new Error(`${record.label} stopped before becoming ready. See ${record.log}`);
+      // A reachable URL may belong to an unrelated server. The provider must
+      // acknowledge its own successful bind before we send requests or seed it.
+      if (readyLine && !record.output.split('\n').includes(readyLine)) { await delay(100); continue; }
       try {
         const response = await fetch(url, { headers, redirect: 'manual', signal: AbortSignal.any([controller.signal, AbortSignal.timeout(1500)]) });
         await response.body?.cancel();
@@ -180,11 +183,13 @@ export async function main(args = process.argv.slice(2)) {
       try { await fsp.access(path.join(target, name), fs.constants.X_OK); }
       catch { throw new Error(`Missing executable ${name}. Run again without --skip-build.`); }
     }
+    // Builds can take minutes; a port may have been claimed since preflight.
+    await freePorts(ports); check();
     const knot = launch('Knot', path.join(target, 'tangled-knot'), ['--listen', `127.0.0.1:${ports.knot}`, '--data', path.join(runRoot, 'knot')], { runtime: true, env: { TANGLED_PEERS: '' } });
     const personal = launch('Personal', path.join(target, 'tangled-personal'), ['serve', '--data', path.join(runRoot, 'personal'), '--listen', `127.0.0.1:${ports.personal}`, '--no-open'], { runtime: true, capture: true });
-    const provider = launch('Provider', path.join(target, 'tangled-provider'), [], { runtime: true, env: { PORT: String(ports.provider), DATA_DIR: path.join(runRoot, 'provider'), PUBLIC_URL: urls.provider } });
+    const provider = launch('Provider', path.join(target, 'tangled-provider'), [], { runtime: true, capture: true, env: { PORT: String(ports.provider), DATA_DIR: path.join(runRoot, 'provider'), PUBLIC_URL: urls.provider } });
     const docs = launch('Documentation', 'npm', ['--prefix', path.join(ROOT, 'site'), 'run', 'dev', '--', '--host', '127.0.0.1', '--port', String(ports.docs)], { runtime: true, env: { PUBLIC_PROVIDER_URL: urls.provider, ASTRO_BASE: '/', ASTRO_SITE: urls.docs } });
-    await Promise.all([ready(knot, urls.knot + '/xrpc/tangled.node.describe'), ready(provider, urls.provider + '/'), ready(docs, urls.docs + '/')]);
+    await Promise.all([ready(knot, urls.knot + '/xrpc/tangled.node.describe'), ready(provider, urls.provider + '/', undefined, `tangled-provider listening 0.0.0.0:${ports.provider}`), ready(docs, urls.docs + '/')]);
     const tokenDeadline = Date.now() + 15000;
     let personalLink;
     while (!personalLink && Date.now() < tokenDeadline) {

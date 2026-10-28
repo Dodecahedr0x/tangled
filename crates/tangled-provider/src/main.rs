@@ -22,10 +22,11 @@ fn main() {
     };
     let app = router(provider);
     let addr: SocketAddr = ([0, 0, 0, 0], port).into();
-    eprintln!("tangled-provider {public_url} data {data}");
     let runtime = tokio::runtime::Runtime::new().expect("runtime");
     if let Err(e) = runtime.block_on(async move {
         let listener = tokio::net::TcpListener::bind(addr).await?;
+        eprintln!("tangled-provider {public_url} data {data}");
+        println!("tangled-provider listening {addr}");
         axum::serve(listener, app).await
     }) {
         eprintln!("serve: {e}");
